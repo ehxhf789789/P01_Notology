@@ -131,9 +131,9 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
             value={frontmatter.state.workflow}
             onChange={(e) => updateState('workflow', e.target.value as any)}
           >
-            {Object.entries(WORKFLOW_LABELS).map(([value, label]) => (
+            {Object.entries(WORKFLOW_LABELS).map(([value, labelKey]) => (
               <option key={value} value={value}>
-                {label}
+                {t(labelKey, language)}
               </option>
             ))}
           </select>
@@ -146,9 +146,9 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
             value={frontmatter.state.confidence}
             onChange={(e) => updateState('confidence', e.target.value as any)}
           >
-            {Object.entries(CONFIDENCE_LABELS).map(([value, label]) => (
+            {Object.entries(CONFIDENCE_LABELS).map(([value, labelKey]) => (
               <option key={value} value={value}>
-                {label}
+                {t(labelKey, language)}
               </option>
             ))}
           </select>

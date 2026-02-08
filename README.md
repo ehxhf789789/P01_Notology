@@ -1,8 +1,5 @@
 <div align="center">
-  <img src="icon/Black_logo_detail.png" alt="Notology" width="120" />
-  <h1>Notology</h1>
-  <p><strong>A structured, linked, and portable knowledge management system</strong></p>
-  <p>Obsidian-inspired, Rust-powered. Your notes live in plain Markdown &mdash; on your local drive, NAS, or external disk.</p>
+  <img src="image/Title&Logo.PNG" alt="Notology — Your Structured, Linked, and Portable Knowledge Management System" width="720" />
 
   <p>
     <a href="#download">Download</a> &middot;
@@ -45,6 +42,10 @@ Notology is a **desktop knowledge management app** that combines structured note
 ---
 
 ## Who is Notology For?
+
+<div align="center">
+  <img src="image/UseCases.PNG" alt="Notology Use Cases — Novelists, Students, Researchers, Office Workers" width="720" />
+</div>
 
 Notology adapts to any knowledge-intensive workflow. Here are real-world examples:
 

@@ -1,6 +1,8 @@
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from './i18n';
 import { Markdown } from 'tiptap-markdown';
 import Highlight from '@tiptap/extension-highlight';
 import Subscript from '@tiptap/extension-subscript';
@@ -126,6 +128,7 @@ class EditorPool {
 
   private createPooledEditor(): PooledEditor {
     const callbacks = createDefaultCallbacks();
+    const lang = useSettingsStore.getState().language;
     const start = performance.now();
 
     // Create all extensions with callback refs for dynamic updates
@@ -179,7 +182,7 @@ class EditorPool {
         transformPastedText: false,
       }),
       Placeholder.configure({
-        placeholder: '내용을 입력하세요...',
+        placeholder: t('editorPlaceholder', lang),
       }),
     ];
 

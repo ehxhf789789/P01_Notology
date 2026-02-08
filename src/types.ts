@@ -64,10 +64,10 @@ export interface FolderStatusConfig {
 }
 
 export const FOLDER_STATUS_INFO: { status: FolderStatus; label: string; color: string }[] = [
-  { status: 'none', label: '없음', color: 'transparent' },
-  { status: 'in_progress', label: '진행 중', color: '#60a5fa' },
-  { status: 'completed', label: '완료', color: '#4ade80' },
-  { status: 'on_hold', label: '보류', color: '#fbbf24' },
+  { status: 'none', label: 'statusNone', color: 'transparent' },
+  { status: 'in_progress', label: 'statusInProgress', color: '#60a5fa' },
+  { status: 'completed', label: 'statusCompleted', color: '#4ade80' },
+  { status: 'on_hold', label: 'statusOnHold', color: '#fbbf24' },
 ];
 
 export interface BacklinkResult {
@@ -347,10 +347,10 @@ export interface FacetInfo {
 }
 
 export const FACET_INFOS: FacetInfo[] = [
-  { namespace: 'domain', label: '주제', description: '노트의 주요 주제나 분야' },
-  { namespace: 'who', label: '대상', description: '관련된 인물, 조직, 프로젝트' },
-  { namespace: 'org', label: '맥락', description: '작성 배경, 상황, 용도' },
-  { namespace: 'ctx', label: '상태', description: '진행 상태, 우선순위' },
+  { namespace: 'domain', label: 'facetDomain', description: 'facetDomainDesc' },
+  { namespace: 'who', label: 'facetWho', description: 'facetWhoDesc' },
+  { namespace: 'org', label: 'facetOrg', description: 'facetOrgDesc' },
+  { namespace: 'ctx', label: 'facetCtx', description: 'facetCtxDesc' },
 ];
 
 // Tag Color Presets - 10 background colors with good contrast
@@ -371,16 +371,16 @@ export interface TagColorScheme {
 
 // 10 Unified Color Schemes (light background + dark border of same color family)
 export const TAG_COLOR_SCHEMES: TagColorScheme[] = [
-  { id: 'red', bg: '#fecaca', border: '#dc2626', label: '빨강' },
-  { id: 'orange', bg: '#fed7aa', border: '#ea580c', label: '주황' },
-  { id: 'amber', bg: '#fef08a', border: '#ca8a04', label: '황금' },
-  { id: 'green', bg: '#bbf7d0', border: '#16a34a', label: '초록' },
-  { id: 'teal', bg: '#99f6e4', border: '#0d9488', label: '청록' },
-  { id: 'blue', bg: '#bfdbfe', border: '#2563eb', label: '파랑' },
-  { id: 'indigo', bg: '#c7d2fe', border: '#4f46e5', label: '남색' },
-  { id: 'purple', bg: '#ddd6fe', border: '#9333ea', label: '보라' },
-  { id: 'pink', bg: '#fbcfe8', border: '#db2777', label: '분홍' },
-  { id: 'slate', bg: '#e2e8f0', border: '#475569', label: '회색' },
+  { id: 'red', bg: '#fecaca', border: '#dc2626', label: 'colorRed' },
+  { id: 'orange', bg: '#fed7aa', border: '#ea580c', label: 'colorOrange' },
+  { id: 'amber', bg: '#fef08a', border: '#ca8a04', label: 'colorAmber' },
+  { id: 'green', bg: '#bbf7d0', border: '#16a34a', label: 'colorGreen' },
+  { id: 'teal', bg: '#99f6e4', border: '#0d9488', label: 'colorTeal' },
+  { id: 'blue', bg: '#bfdbfe', border: '#2563eb', label: 'colorBlue' },
+  { id: 'indigo', bg: '#c7d2fe', border: '#4f46e5', label: 'colorIndigo' },
+  { id: 'purple', bg: '#ddd6fe', border: '#9333ea', label: 'colorPurple' },
+  { id: 'pink', bg: '#fbcfe8', border: '#db2777', label: 'colorPink' },
+  { id: 'slate', bg: '#e2e8f0', border: '#475569', label: 'colorSlate' },
 ];
 
 // Legacy presets for backward compatibility
@@ -393,7 +393,7 @@ export const TAG_BG_PRESETS: TagColorPreset[] = TAG_COLOR_SCHEMES.map(s => ({
 
 // Legacy border presets for backward compatibility
 export const TAG_BORDER_PRESETS: TagColorPreset[] = [
-  { id: 'none', bg: 'transparent', text: '', label: '없음' },
+  { id: 'none', bg: 'transparent', text: '', label: 'colorNone' },
   ...TAG_COLOR_SCHEMES.map(s => ({
     id: s.id,
     bg: s.border,

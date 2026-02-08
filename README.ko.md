@@ -1,8 +1,5 @@
 <div align="center">
-  <img src="icon/Black_logo_detail.png" alt="Notology" width="120" />
-  <h1>Notology</h1>
-  <p><strong>구조화되고, 연결되고, 휴대 가능한 지식 관리 시스템</strong></p>
-  <p>Obsidian에서 영감을 받고, Rust로 구동됩니다. 노트는 로컬 드라이브, NAS, 외장 디스크 어디에나 저장할 수 있습니다.</p>
+  <img src="image/Title&Logo.PNG" alt="Notology — 구조화되고, 연결되고, 휴대 가능한 지식 관리 시스템" width="720" />
 
   <p>
     <a href="#다운로드">다운로드</a> &middot;
@@ -45,6 +42,10 @@ Notology는 구조화된 노트 템플릿, 위키링크 연결, 강력한 검색
 ---
 
 ## 누구를 위한 앱인가요?
+
+<div align="center">
+  <img src="image/UseCases.PNG" alt="Notology 활용 대상 — 소설가, 학생, 연구자, 사무직" width="720" />
+</div>
 
 Notology는 지식 집약적인 모든 워크플로우에 적응합니다. 실제 활용 사례를 소개합니다:
 

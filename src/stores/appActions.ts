@@ -10,7 +10,7 @@ import { fileTreeActions, useFileTreeStore } from './zustand/fileTreeStore';
 import { hoverActions, useHoverStore } from './zustand/hoverStore';
 import { refreshActions, useRefreshStore } from './zustand/refreshStore';
 import { modalActions } from './zustand/modalStore';
-import { settingsActions } from './zustand/settingsStore';
+import { settingsActions, useSettingsStore } from './zustand/settingsStore';
 import { templateActions, useTemplateStore } from './zustand/templateStore';
 import { uiActions } from './zustand/uiStore';
 import { vaultConfigActions, useVaultConfigStore } from './zustand/vaultConfigStore';
@@ -160,9 +160,10 @@ export async function createFolder(name: string, parentPath?: string): Promise<s
   if (!targetDir) throw new Error('No vault open');
 
   const { templates, defaultTemplateType } = useTemplateStore.getState();
+  const language = useSettingsStore.getState().language;
   const level = vaultPath ? computeLevel(targetDir, vaultPath) : 0;
   const template = findTemplateForLevel(templates, level, defaultTemplateType);
-  const { frontmatter, body } = applyTemplateVariables(template, { title: name });
+  const { frontmatter, body } = applyTemplateVariables(template, { title: name }, language);
 
   const result = await noteCommands.createFolder(targetDir, name, frontmatter, body);
   await fileTreeActions.refreshFileTree();
@@ -257,8 +258,9 @@ export async function createNoteWithTemplate(title: string, templateId: string, 
   const template = noteTemplates.find(t => t.id === templateId);
   if (!template) throw new Error('Template not found');
 
+  const language = useSettingsStore.getState().language;
   const createNoteHelper = async (vars: Record<string, string> & { title: string }, userTags?: FacetedTagSelection) => {
-    const { fileName, frontmatter, body } = applyNoteTemplateVariables(template, vars, userTags);
+    const { fileName, frontmatter, body } = applyNoteTemplateVariables(template, vars, userTags, language);
     const result = await noteCommands.createNoteWithTemplate(targetDir, fileName, frontmatter, body);
     await fileTreeActions.refreshFileTree();
     await searchCommands.indexNote(result).catch((err) => {

@@ -167,56 +167,56 @@ export function getInverseRelationType(relationType: string): string {
 }
 
 /**
- * Workflow state labels (Korean)
+ * Workflow state labels (i18n keys)
  */
 export const WORKFLOW_LABELS: Record<string, string> = {
-  'draft': '초안',
-  'in-progress': '진행 중',
-  'review': '검토',
-  'final': '완료',
-  'archived': '보관',
+  'draft': 'workflowDraft',
+  'in-progress': 'workflowInProgress',
+  'review': 'workflowReview',
+  'final': 'workflowFinal',
+  'archived': 'workflowArchived',
 };
 
 /**
- * Confidence state labels (Korean)
+ * Confidence state labels (i18n keys)
  */
 export const CONFIDENCE_LABELS: Record<string, string> = {
-  'unverified': '미검증',
-  'verified': '검증됨',
-  'outdated': '구버전',
-  'disputed': '논쟁 중',
+  'unverified': 'confidenceUnverified',
+  'verified': 'confidenceVerified',
+  'outdated': 'confidenceOutdated',
+  'disputed': 'confidenceDisputed',
 };
 
 /**
- * Note type labels (Korean)
+ * Note type labels (i18n keys)
  */
 export const NOTE_TYPE_LABELS: Record<NoteType, string> = {
-  'NOTE': '일반 노트',
-  'MTG': '미팅',
-  'PAPER': '논문',
-  'THEO': '이론',
-  'TASK': '태스크',
-  'LIT': '문헌',
-  'EVENT': '이벤트',
-  'CONTACT': '연락처',
-  'CONTAINER': '컨테이너',
-  'ADM': '관리',
-  'OFA': '행정',
-  'SEM': '세미나',
-  'DATA': '데이터',
-  'SETUP': '셋업',
-  'SKETCH': '스케치',
+  'NOTE': 'noteTypeNote',
+  'MTG': 'noteTypeMtg',
+  'PAPER': 'noteTypePaper',
+  'THEO': 'noteTypeTheo',
+  'TASK': 'noteTypeTask',
+  'LIT': 'noteTypeLit',
+  'EVENT': 'noteTypeEvent',
+  'CONTACT': 'noteTypeContact',
+  'CONTAINER': 'noteTypeContainer',
+  'ADM': 'noteTypeAdm',
+  'OFA': 'noteTypeOfa',
+  'SEM': 'noteTypeSem',
+  'DATA': 'noteTypeData',
+  'SETUP': 'noteTypeSetup',
+  'SKETCH': 'noteTypeSketch',
 };
 
 /**
- * Facet namespace labels (Korean)
+ * Facet namespace labels (i18n keys)
  */
 export const FACET_LABELS: Record<string, string> = {
-  'domain': '분야',
-  'who': '인물',
-  'org': '조직',
-  'ctx': '맥락',
-  'source': '출처',
-  'method': '방법',
-  'status': '상태',
+  'domain': 'facetLabelDomain',
+  'who': 'facetLabelWho',
+  'org': 'facetLabelOrg',
+  'ctx': 'facetLabelCtx',
+  'source': 'facetLabelSource',
+  'method': 'facetLabelMethod',
+  'status': 'facetLabelStatus',
 };

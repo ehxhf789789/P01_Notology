@@ -3,6 +3,8 @@ import type { NoteType } from '../types/frontmatter';
 import type { FacetedTagSelection } from '../components/TagInputSection';
 import { serializeFrontmatter, getCurrentTimestamp } from './frontmatter';
 import { createFromTemplate, getBodyTemplate, applyTemplateVariables as applyTemplateVars } from './templateUtils';
+import type { LanguageSetting } from './i18n';
+import { t } from './i18n';
 import yaml from 'js-yaml';
 
 export const DEFAULT_TEMPLATES: FolderNoteTemplate[] = [
@@ -68,9 +70,13 @@ export function findTemplateForLevel(
 
 export function applyTemplateVariables(
   template: FolderNoteTemplate,
-  vars: Record<string, string>
+  vars: Record<string, string>,
+  language: LanguageSetting = 'ko'
 ): { frontmatter: string; body: string } {
-  let body = template.body;
+  // Resolve body with language-aware folder note guide
+  let body = template.id === 'a-l0' ? t('folderNoteContainerGuide', language)
+    : template.id === 'a-l1' ? t('folderNoteSubGuide', language)
+    : template.body;
   for (const [key, value] of Object.entries(vars)) {
     body = body.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
   }
@@ -201,7 +207,8 @@ function getYYMMDD(): string {
 export function applyNoteTemplateVariables(
   template: NoteTemplate,
   vars: Record<string, string> & { title: string },
-  userTags?: FacetedTagSelection
+  userTags?: FacetedTagSelection,
+  language: LanguageSetting = 'ko'
 ): { fileName: string; frontmatter: string; body: string } {
   const yymmdd = getYYMMDD();
   const title = vars.title.replace(/\s+/g, '_');
@@ -275,8 +282,8 @@ export function applyNoteTemplateVariables(
     }
   }
 
-  // Get body template
-  const bodyTemplate = getBodyTemplate(noteType);
+  // Get body template (language-aware)
+  const bodyTemplate = getBodyTemplate(noteType, language);
 
   // Prepare template variables with frontmatter fields
   const fm = frontmatter as Record<string, unknown>;

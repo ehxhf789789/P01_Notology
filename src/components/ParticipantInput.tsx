@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { searchCommands } from '../services/tauriCommands';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 interface ContactInfo {
   displayName: string;
@@ -96,6 +98,7 @@ function serializeParticipants(participants: Participant[]): string {
 }
 
 function ParticipantInput({ value, onChange, placeholder }: ParticipantInputProps) {
+  const language = useSettingsStore(s => s.language);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [inputValue, setInputValue] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -296,7 +299,7 @@ function ParticipantInput({ value, onChange, placeholder }: ParticipantInputProp
               }
             }, 150);
           }}
-          placeholder={participants.length === 0 ? placeholder : '@이름 또는 직접 입력'}
+          placeholder={participants.length === 0 ? placeholder : t('participantPlaceholder', language)}
         />
       </div>
       {showSuggestions && suggestions.length > 0 && (

@@ -222,7 +222,7 @@ function TagInputSection({ value, onChange, language = 'ko', collapsed: initialC
 
             return (
               <div key={facet.namespace} className="tag-input-facet-row">
-                <div className="tag-input-facet-label">{facet.label}</div>
+                <div className="tag-input-facet-label">{t(facet.label, language)}</div>
                 <div className="tag-input-facet-content">
                   {tags.map(tag => (
                     <span

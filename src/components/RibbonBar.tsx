@@ -3,7 +3,7 @@ import { useContainerConfigs } from '../stores/zustand/vaultConfigStore';
 import { useTemplateStore } from '../stores/zustand/templateStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { createNoteWithTemplate } from '../stores/appActions';
-import { t } from '../utils/i18n';
+import { t, tf } from '../utils/i18n';
 
 // Templates that have their own input modals (skip TitleInputModal)
 const SPECIAL_TEMPLATE_IDS = ['note-contact', 'note-mtg', 'note-paper', 'note-lit', 'note-event'];
@@ -61,7 +61,7 @@ function RibbonBar() {
     const tmpl = noteTemplates.find(t => t.id === templateId);
     return {
       prefix: tmpl?.prefix || '?',
-      name: tmpl?.name || '알 수 없음',
+      name: tmpl?.name || t('unknownType', language),
       noteType: tmpl?.frontmatter?.type?.toLowerCase() || tmpl?.prefix?.toLowerCase() || 'note',
       customColor: tmpl?.customColor
     };
@@ -80,14 +80,14 @@ function RibbonBar() {
           const config = containerConfigs[node.path];
           const templateInfo = config?.assignedTemplateId
             ? getTemplateInfo(config.assignedTemplateId)
-            : { prefix: '?', name: '알 수 없음', noteType: 'note', customColor: undefined };
+            : { prefix: '?', name: t('unknownType', language), noteType: 'note', customColor: undefined };
           const iconClass = `icon-${templateInfo.noteType}`;
           return (
             <button
               key={node.path}
               className={`ribbon-btn ${templateInfo.noteType}-type`}
               onClick={() => handleRibbonClick(node.path)}
-              title={`새 노트 생성: ${node.name} (${templateInfo.name})`}
+              title={tf('newNoteCreateTitle', language, { container: node.name, template: templateInfo.name })}
               style={templateInfo.customColor ? { '--template-color': templateInfo.customColor } as React.CSSProperties : undefined}
             >
               <span

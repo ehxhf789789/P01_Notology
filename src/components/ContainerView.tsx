@@ -19,6 +19,8 @@ import { useTemplateStore } from '../stores/zustand/templateStore';
 import { createNote, createFolder, createNoteWithTemplate, selectContainer } from '../stores/appActions';
 import { useDropTarget } from '../hooks/useDragDrop';
 import { getEditorExtensions } from '../utils/editorConfig';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import EditorToolbar from './EditorToolbar';
 import EditorContextMenu from './EditorContextMenu';
 import Search from './Search';
@@ -51,6 +53,7 @@ function ContainerView() {
   const fileTree = useFileTree();
   const vaultPath = useVaultPath();
   const searchRefreshTrigger = useSearchRefreshTrigger();
+  const language = useSettingsStore(s => s.language);
 
   // ========== STABLE ACTION REFERENCES (never cause re-renders) ==========
   const openHoverFile = hoverActions.open;
@@ -508,7 +511,7 @@ function ContainerView() {
             <button
               className="container-parent-btn"
               onClick={() => selectContainer(parentContainerPath)}
-              title="상위 폴더로 이동"
+              title={t('goToParent', language)}
             >
               <ChevronLeft size={16} />
             </button>
@@ -533,7 +536,7 @@ function ContainerView() {
             ref={showNewNote ? noteInputRef : folderInputRef}
             className="sidebar-input"
             type="text"
-            placeholder={showNewNote ? '노트 제목... (Esc: 취소)' : '폴더 이름... (Esc: 취소)'}
+            placeholder={showNewNote ? t('noteTitlePlaceholder', language) : t('folderNamePrompt', language)}
             value={newName}
             onChange={e => setNewName(e.target.value)}
             onKeyDown={e => handleKeyDown(e, showNewNote ? handleCreateNote : handleCreateFolder)}

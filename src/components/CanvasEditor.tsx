@@ -653,7 +653,7 @@ function CanvasEditor({ data, onChange, readOnly = false, notePath, onSelectionC
       y: -viewportOffset.y / viewportScale + 100,
       width: 200,
       height: 100,
-      text: '새 노드',
+      text: t('canvasNewNode', language),
     };
     onChange({ ...data, nodes: [...data.nodes, newNode] });
   }, [data, onChange, readOnly, viewportOffset, viewportScale]);
@@ -865,7 +865,7 @@ function CanvasEditor({ data, onChange, readOnly = false, notePath, onSelectionC
       {!readOnly && (
         <div className="canvas-toolbar">
           <div className="canvas-toolbar-hint">Double-click to add node</div>
-          <button className="canvas-toolbar-btn" onClick={() => setViewportScale(1)} title="확대/축소 초기화">
+          <button className="canvas-toolbar-btn" onClick={() => setViewportScale(1)} title={t('canvasResetZoom', language)}>
             {Math.round(viewportScale * 100)}%
           </button>
         </div>
@@ -1106,7 +1106,7 @@ function CanvasEditor({ data, onChange, readOnly = false, notePath, onSelectionC
                   }}
                   onDoubleClick={e => e.stopPropagation()}
                   disabled={readOnly}
-                  placeholder="내용을 입력하세요"
+                  placeholder={t('canvasEnterContent', language)}
                 />
               )}
               {node.type === 'file' && node.file && (
@@ -1406,12 +1406,12 @@ function CanvasEditor({ data, onChange, readOnly = false, notePath, onSelectionC
         ];
 
         const shapes = [
-          { name: '처리 (Process)', value: 'process' as const },
-          { name: '터미널 (Terminal)', value: 'terminal' as const },
-          { name: '판단 (Decision)', value: 'decision' as const },
-          { name: '입력/출력 (I/O)', value: 'io' as const },
-          { name: '서브루틴 (Subroutine)', value: 'subroutine' as const },
-          { name: '데이터베이스 (Database)', value: 'database' as const },
+          { name: t('shapeProcess', language), value: 'process' as const },
+          { name: t('shapeTerminal', language), value: 'terminal' as const },
+          { name: t('shapeDecision', language), value: 'decision' as const },
+          { name: t('shapeIO', language), value: 'io' as const },
+          { name: t('shapeSubroutine', language), value: 'subroutine' as const },
+          { name: t('shapeDatabase', language), value: 'database' as const },
         ];
 
         return (

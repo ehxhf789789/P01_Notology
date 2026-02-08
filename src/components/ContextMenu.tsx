@@ -394,7 +394,7 @@ function ContextMenu() {
                     >
                       <span className="context-menu-check">{isActive ? '✓' : ''}</span>
                       <span className="context-menu-status-icon">{renderStatusIcon(info.status)}</span>
-                      <span>{info.label}</span>
+                      <span>{t(info.label, language)}</span>
                     </button>
                   );
                 })}

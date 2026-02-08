@@ -3,6 +3,8 @@ import { Plugin, PluginKey } from '@tiptap/pm/state';
 import { Decoration, DecorationSet } from '@tiptap/pm/view';
 import { InputRule } from '@tiptap/core';
 import { preloadHoverContent } from '../stores/zustand/hoverStore';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 export interface WikiLinkOptions {
   onClickLink: (fileName: string) => void;
@@ -339,7 +341,8 @@ export const WikiLink = Node.create<WikiLinkOptions>({
                       const deleteBtn = document.createElement('button');
                       deleteBtn.className = 'wiki-image-embed-delete';
                       deleteBtn.innerHTML = '×';
-                      deleteBtn.title = '이미지 임베드 삭제';
+                      const lang = useSettingsStore.getState().language;
+                      deleteBtn.title = t('deleteImageEmbed', lang);
                       deleteBtn.onmousedown = (e) => {
                         e.preventDefault();
                         e.stopPropagation();

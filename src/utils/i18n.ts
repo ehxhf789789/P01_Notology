@@ -692,9 +692,130 @@ const ko: Record<string, string> = {
   unknownType: '알 수 없음',
   enterNoteTitle: '노트 제목을 입력하세요',
   newNoteDefault: '새 노트',
+  newNoteCreateTitle: '새 노트 생성: {container} ({template})',
 
   // ── ParticipantInput ──
   participantPlaceholder: '@이름 또는 직접 입력',
+
+  // ── WikiLink ──
+  deleteImageEmbed: '이미지 임베드 삭제',
+
+  // ── Template body headings ──
+  tmplMtgInfo: '미팅 정보',
+  tmplDate: '날짜',
+  tmplParticipants: '참석자',
+  tmplAgenda: '안건',
+  tmplDiscussion: '논의 내용',
+  tmplDecisions: '결정 사항',
+  tmplPaperInfo: '논문 정보',
+  tmplAuthors: '저자',
+  tmplYear: '발행년도',
+  tmplVenue: '출판처',
+  tmplDoi: 'DOI',
+  tmplSummary: '요약',
+  tmplContributions: '주요 기여',
+  tmplMethodology: '방법론',
+  tmplResults: '결과',
+  tmplDefinition: '정의',
+  tmplBackground: '배경',
+  tmplKeyConcepts: '핵심 개념',
+  tmplApplications: '응용',
+  tmplRelatedTheories: '관련 이론',
+  tmplLitInfo: '문헌 정보',
+  tmplPublisher: '출판사',
+  tmplSource: '출처',
+  tmplUrl: 'URL',
+  tmplKeyContent: '주요 내용',
+  tmplEventInfo: '행사 정보',
+  tmplLocation: '장소',
+  tmplOrganizer: '주최',
+  tmplEventParticipants: '참가자',
+  tmplOverview: '개요',
+  tmplSchedule: '일정',
+  tmplContactInfo: '연락 정보',
+  tmplEmail: '이메일',
+  tmplPhone: '전화',
+  tmplOrganization: '소속',
+  tmplRole: '직책',
+  tmplHistory: '소통 이력',
+  tmplRelatedNotes: '관련 노트',
+  tmplSubItems: '하위 항목',
+  tmplContent: '내용',
+  tmplKeyPoints: '핵심 포인트',
+  tmplDataDescription: '데이터 설명',
+  tmplContext: '컨텍스트',
+
+  // ── Folder note templates ──
+  folderNoteContainerGuide: '# 무엇에 관한 컨테이너인가요?\n> 설명을 입력하세요\n\n',
+  folderNoteSubGuide: '# 무엇에 관한 폴더인가요?\n> 설명을 입력하세요\n\n',
+
+  // ── Folder status labels ──
+  statusNone: '없음',
+  statusInProgress: '진행 중',
+  statusCompleted: '완료',
+  statusOnHold: '보류',
+
+  // ── Facet info ──
+  facetDomain: '주제',
+  facetDomainDesc: '노트의 주요 주제나 분야',
+  facetWho: '대상',
+  facetWhoDesc: '관련된 인물, 조직, 프로젝트',
+  facetOrg: '맥락',
+  facetOrgDesc: '작성 배경, 상황, 용도',
+  facetCtx: '상태',
+  facetCtxDesc: '진행 상태, 우선순위',
+
+  // ── Tag color labels ──
+  colorRed: '빨강',
+  colorOrange: '주황',
+  colorAmber: '황금',
+  colorGreen: '초록',
+  colorTeal: '청록',
+  colorBlue: '파랑',
+  colorIndigo: '남색',
+  colorPurple: '보라',
+  colorPink: '분홍',
+  colorSlate: '회색',
+  colorNone: '없음',
+
+  // ── Workflow labels ──
+  workflowDraft: '초안',
+  workflowInProgress: '진행 중',
+  workflowReview: '검토',
+  workflowFinal: '완료',
+  workflowArchived: '보관',
+
+  // ── Confidence labels ──
+  confidenceUnverified: '미검증',
+  confidenceVerified: '검증됨',
+  confidenceOutdated: '구버전',
+  confidenceDisputed: '논쟁 중',
+
+  // ── Note type labels ──
+  noteTypeNote: '일반 노트',
+  noteTypeMtg: '미팅',
+  noteTypePaper: '논문',
+  noteTypeTheo: '이론',
+  noteTypeTask: '태스크',
+  noteTypeLit: '문헌',
+  noteTypeEvent: '이벤트',
+  noteTypeContact: '연락처',
+  noteTypeContainer: '컨테이너',
+  noteTypeAdm: '관리',
+  noteTypeOfa: '행정',
+  noteTypeSem: '세미나',
+  noteTypeData: '데이터',
+  noteTypeSetup: '셋업',
+  noteTypeSketch: '스케치',
+
+  // ── Facet labels ──
+  facetLabelDomain: '분야',
+  facetLabelWho: '인물',
+  facetLabelOrg: '조직',
+  facetLabelCtx: '맥락',
+  facetLabelSource: '출처',
+  facetLabelMethod: '방법',
+  facetLabelStatus: '상태',
 };
 
 const en: Record<string, string> = {
@@ -1387,9 +1508,130 @@ const en: Record<string, string> = {
   unknownType: 'Unknown',
   enterNoteTitle: 'Enter note title',
   newNoteDefault: 'New Note',
+  newNoteCreateTitle: 'Create note: {container} ({template})',
 
   // ── ParticipantInput ──
   participantPlaceholder: '@name or type directly',
+
+  // ── WikiLink ──
+  deleteImageEmbed: 'Delete image embed',
+
+  // ── Template body headings ──
+  tmplMtgInfo: 'Meeting Info',
+  tmplDate: 'Date',
+  tmplParticipants: 'Participants',
+  tmplAgenda: 'Agenda',
+  tmplDiscussion: 'Discussion',
+  tmplDecisions: 'Decisions',
+  tmplPaperInfo: 'Paper Info',
+  tmplAuthors: 'Authors',
+  tmplYear: 'Year',
+  tmplVenue: 'Venue',
+  tmplDoi: 'DOI',
+  tmplSummary: 'Summary',
+  tmplContributions: 'Key Contributions',
+  tmplMethodology: 'Methodology',
+  tmplResults: 'Results',
+  tmplDefinition: 'Definition',
+  tmplBackground: 'Background',
+  tmplKeyConcepts: 'Key Concepts',
+  tmplApplications: 'Applications',
+  tmplRelatedTheories: 'Related Theories',
+  tmplLitInfo: 'Literature Info',
+  tmplPublisher: 'Publisher',
+  tmplSource: 'Source',
+  tmplUrl: 'URL',
+  tmplKeyContent: 'Key Content',
+  tmplEventInfo: 'Event Info',
+  tmplLocation: 'Location',
+  tmplOrganizer: 'Organizer',
+  tmplEventParticipants: 'Participants',
+  tmplOverview: 'Overview',
+  tmplSchedule: 'Schedule',
+  tmplContactInfo: 'Contact Info',
+  tmplEmail: 'Email',
+  tmplPhone: 'Phone',
+  tmplOrganization: 'Organization',
+  tmplRole: 'Role',
+  tmplHistory: 'Communication History',
+  tmplRelatedNotes: 'Related Notes',
+  tmplSubItems: 'Sub Items',
+  tmplContent: 'Content',
+  tmplKeyPoints: 'Key Points',
+  tmplDataDescription: 'Data Description',
+  tmplContext: 'Context',
+
+  // ── Folder note templates ──
+  folderNoteContainerGuide: '# What is this container about?\n> Enter a description\n\n',
+  folderNoteSubGuide: '# What is this folder about?\n> Enter a description\n\n',
+
+  // ── Folder status labels ──
+  statusNone: 'None',
+  statusInProgress: 'In Progress',
+  statusCompleted: 'Completed',
+  statusOnHold: 'On Hold',
+
+  // ── Facet info ──
+  facetDomain: 'Topic',
+  facetDomainDesc: 'Main topic or field of the note',
+  facetWho: 'People',
+  facetWhoDesc: 'Related people, organizations, projects',
+  facetOrg: 'Context',
+  facetOrgDesc: 'Background, situation, purpose',
+  facetCtx: 'Status',
+  facetCtxDesc: 'Progress status, priority',
+
+  // ── Tag color labels ──
+  colorRed: 'Red',
+  colorOrange: 'Orange',
+  colorAmber: 'Amber',
+  colorGreen: 'Green',
+  colorTeal: 'Teal',
+  colorBlue: 'Blue',
+  colorIndigo: 'Indigo',
+  colorPurple: 'Purple',
+  colorPink: 'Pink',
+  colorSlate: 'Slate',
+  colorNone: 'None',
+
+  // ── Workflow labels ──
+  workflowDraft: 'Draft',
+  workflowInProgress: 'In Progress',
+  workflowReview: 'Review',
+  workflowFinal: 'Final',
+  workflowArchived: 'Archived',
+
+  // ── Confidence labels ──
+  confidenceUnverified: 'Unverified',
+  confidenceVerified: 'Verified',
+  confidenceOutdated: 'Outdated',
+  confidenceDisputed: 'Disputed',
+
+  // ── Note type labels ──
+  noteTypeNote: 'Note',
+  noteTypeMtg: 'Meeting',
+  noteTypePaper: 'Paper',
+  noteTypeTheo: 'Theory',
+  noteTypeTask: 'Task',
+  noteTypeLit: 'Literature',
+  noteTypeEvent: 'Event',
+  noteTypeContact: 'Contact',
+  noteTypeContainer: 'Container',
+  noteTypeAdm: 'Admin',
+  noteTypeOfa: 'Official Affairs',
+  noteTypeSem: 'Seminar',
+  noteTypeData: 'Data',
+  noteTypeSetup: 'Setup',
+  noteTypeSketch: 'Sketch',
+
+  // ── Facet labels ──
+  facetLabelDomain: 'Domain',
+  facetLabelWho: 'People',
+  facetLabelOrg: 'Organization',
+  facetLabelCtx: 'Context',
+  facetLabelSource: 'Source',
+  facetLabelMethod: 'Method',
+  facetLabelStatus: 'Status',
 };
 
 const translations: Record<LanguageSetting, Record<string, string>> = { ko, en };

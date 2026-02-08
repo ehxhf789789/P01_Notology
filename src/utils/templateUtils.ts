@@ -2,6 +2,8 @@ import { fileCommands } from '../services/tauriCommands';
 import { join } from '@tauri-apps/api/path';
 import type { Frontmatter, NoteType } from '../types/frontmatter';
 import { generateNoteId, createDefaultFrontmatter } from './frontmatterUtils';
+import type { LanguageSetting } from './i18n';
+import { t } from './i18n';
 
 interface TemplateConfig {
   templates: Record<NoteType, any>;
@@ -165,110 +167,112 @@ export function createFromTemplate(
 }
 
 /**
- * Get body template for note type
+ * Get body template for note type (language-aware)
  */
-export function getBodyTemplate(noteType: NoteType): string {
+export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 'ko'): string {
+  const T = (key: string) => t(key, language);
+
   switch (noteType) {
     case 'MTG':
-      return `## 미팅 정보
-- **날짜**: {{date}}
-- **참석자**: {{participants}}
+      return `## ${T('tmplMtgInfo')}
+- **${T('tmplDate')}**: {{date}}
+- **${T('tmplParticipants')}**: {{participants}}
 
-## 안건
-
-
-## 논의 내용
+## ${T('tmplAgenda')}
 
 
-## 결정 사항
+## ${T('tmplDiscussion')}
+
+
+## ${T('tmplDecisions')}
 
 `;
 
     case 'PAPER':
-      return `## 논문 정보
-- **저자**: {{authors}}
-- **발행년도**: {{year}}
-- **출판처**: {{venue}}
-- **DOI**: {{doi}}
+      return `## ${T('tmplPaperInfo')}
+- **${T('tmplAuthors')}**: {{authors}}
+- **${T('tmplYear')}**: {{year}}
+- **${T('tmplVenue')}**: {{venue}}
+- **${T('tmplDoi')}**: {{doi}}
 
-## 요약
-
-
-## 주요 기여
+## ${T('tmplSummary')}
 
 
-## 방법론
+## ${T('tmplContributions')}
 
 
-## 결과
+## ${T('tmplMethodology')}
+
+
+## ${T('tmplResults')}
 
 `;
 
     case 'THEO':
-      return `## 정의
+      return `## ${T('tmplDefinition')}
 
 
-## 배경
+## ${T('tmplBackground')}
 
 
-## 핵심 개념
+## ${T('tmplKeyConcepts')}
 
 
-## 응용
+## ${T('tmplApplications')}
 
 
-## 관련 이론
+## ${T('tmplRelatedTheories')}
 
 `;
 
     case 'LIT':
-      return `## 문헌 정보
-- **저자**: {{authors}}
-- **발행년도**: {{year}}
-- **출판사**: {{publisher}}
-- **출처**: {{source}}
-- **URL**: {{url}}
+      return `## ${T('tmplLitInfo')}
+- **${T('tmplAuthors')}**: {{authors}}
+- **${T('tmplYear')}**: {{year}}
+- **${T('tmplPublisher')}**: {{publisher}}
+- **${T('tmplSource')}**: {{source}}
+- **${T('tmplUrl')}**: {{url}}
 
-## 요약
+## ${T('tmplSummary')}
 
 
-## 주요 내용
+## ${T('tmplKeyContent')}
 
 `;
 
     case 'EVENT':
-      return `## 행사 정보
-- **날짜**: {{date}}
-- **장소**: {{location}}
-- **주최**: {{organizer}}
-- **참가자**: {{participants}}
+      return `## ${T('tmplEventInfo')}
+- **${T('tmplDate')}**: {{date}}
+- **${T('tmplLocation')}**: {{location}}
+- **${T('tmplOrganizer')}**: {{organizer}}
+- **${T('tmplEventParticipants')}**: {{participants}}
 
-## 개요
+## ${T('tmplOverview')}
 
 
-## 일정
+## ${T('tmplSchedule')}
 
 `;
 
     case 'CONTACT':
-      return `## 연락 정보
-- **이메일**: {{email}}
-- **전화**: {{phone}}
-- **소속**: {{organization}}
-- **직책**: {{role}}
+      return `## ${T('tmplContactInfo')}
+- **${T('tmplEmail')}**: {{email}}
+- **${T('tmplPhone')}**: {{phone}}
+- **${T('tmplOrganization')}**: {{organization}}
+- **${T('tmplRole')}**: {{role}}
 
-## 소통 이력
+## ${T('tmplHistory')}
 -
 
-## 관련 노트
+## ${T('tmplRelatedNotes')}
 -
 `;
 
     case 'CONTAINER':
-      return `## 개요
+      return `## ${T('tmplOverview')}
 
 
-## 하위 항목
+## ${T('tmplSubItems')}
 
 `;
 
@@ -276,49 +280,49 @@ export function getBodyTemplate(noteType: NoteType): string {
       return ''; // Canvas notes don't need a markdown body template
 
     case 'SEM':
-      return `## 개요
+      return `## ${T('tmplOverview')}
 
 
-## 내용
+## ${T('tmplContent')}
 
 
-## 핵심 포인트
+## ${T('tmplKeyPoints')}
 
 `;
 
     case 'OFA':
-      return `## 개요
+      return `## ${T('tmplOverview')}
 
 
-## 내용
+## ${T('tmplContent')}
 
 
-## 결정 사항
+## ${T('tmplDecisions')}
 
 `;
 
     case 'DATA':
-      return `## 개요
+      return `## ${T('tmplOverview')}
 
 
-## 데이터 설명
+## ${T('tmplDataDescription')}
 
 `;
 
     case 'SETUP':
-      return `## 개요
+      return `## ${T('tmplOverview')}
 
 
-## 컨텍스트
+## ${T('tmplContext')}
 
 `;
 
     case 'NOTE':
     default:
-      return `## 개요
+      return `## ${T('tmplOverview')}
 
 
-## 내용
+## ${T('tmplContent')}
 
 `;
   }

@@ -285,7 +285,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           {folderStatuses[node.path] && folderStatuses[node.path].status !== 'none' && (
             <span
               className={`folder-status-indicator status-${folderStatuses[node.path].status}`}
-              title={FOLDER_STATUS_INFO.find(s => s.status === folderStatuses[node.path].status)?.label}
+              title={t(FOLDER_STATUS_INFO.find(s => s.status === folderStatuses[node.path].status)?.label || '', language)}
             >
               {renderStatusIcon(folderStatuses[node.path].status)}
             </span>
@@ -379,7 +379,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
                 {folderStatuses[node.path] && folderStatuses[node.path].status !== 'none' && (
                   <span
                     className={`folder-status-indicator status-${folderStatuses[node.path].status}`}
-                    title={FOLDER_STATUS_INFO.find(s => s.status === folderStatuses[node.path].status)?.label}
+                    title={t(FOLDER_STATUS_INFO.find(s => s.status === folderStatuses[node.path].status)?.label || '', language)}
                   >
                     {renderStatusIcon(folderStatuses[node.path].status)}
                   </span>
