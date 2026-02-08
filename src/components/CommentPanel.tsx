@@ -1,6 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import type { NoteComment, CanvasSelection } from '../types';
 import { generateCommentId } from '../utils/comments';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t, tf } from '../utils/i18n';
 
 interface CommentPanelProps {
   comments: NoteComment[];
@@ -29,6 +31,7 @@ function CommentPanel({
   canvasSelection,
   initialTaskMode,
 }: CommentPanelProps) {
+  const language = useSettingsStore(s => s.language);
   const [newContent, setNewContent] = useState('');
   const [showResolved, setShowResolved] = useState(false);
   const [taskDueDate, setTaskDueDate] = useState('');
@@ -65,7 +68,7 @@ function CommentPanel({
   const handleAdd = () => {
     if (!newContent.trim() || !selectionRange) return;
     if (isTaskMode && !taskDueDate) {
-      alert('마감 날짜를 선택하세요.');
+      alert(t('selectDueDate', language));
       return;
     }
 
@@ -155,7 +158,7 @@ function CommentPanel({
   return (
     <div className="comment-panel">
       <div className="comment-panel-header">
-        <span className="comment-panel-title">메모</span>
+        <span className="comment-panel-title">{t('memoTitle', language)}</span>
         <span className="comment-panel-count">{unresolvedComments.length}</span>
       </div>
 
@@ -164,7 +167,7 @@ function CommentPanel({
         <div className={`comment-new ${isTaskMode ? 'task-mode' : ''}`}>
           <div className="comment-new-header">
             <span className="comment-new-mode-label">
-              {isTaskMode ? '할일 추가' : '메모 추가'}
+              {isTaskMode ? t('addTask', language) : t('addMemo', language)}
             </span>
           </div>
           <div className="comment-new-anchor">
@@ -176,7 +179,7 @@ function CommentPanel({
             value={newContent}
             onChange={e => setNewContent(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={isTaskMode ? '할일 내용 입력... (Ctrl+Enter: 추가)' : '메모 입력... (Ctrl+Enter: 추가)'}
+            placeholder={isTaskMode ? t('taskPlaceholder', language) : t('memoPlaceholder', language)}
             rows={3}
           />
 
@@ -184,7 +187,7 @@ function CommentPanel({
           {isTaskMode && (
             <div className="comment-task-fields">
               <div className="comment-task-field">
-                <label htmlFor="task-due-date">마감 날짜 *</label>
+                <label htmlFor="task-due-date">{t('dueDateRequired', language)}</label>
                 <input
                   id="task-due-date"
                   type="date"
@@ -193,7 +196,7 @@ function CommentPanel({
                 />
               </div>
               <div className="comment-task-field">
-                <label htmlFor="task-due-time">마감 시간</label>
+                <label htmlFor="task-due-time">{t('dueTime', language)}</label>
                 <input
                   id="task-due-time"
                   type="time"
@@ -206,10 +209,10 @@ function CommentPanel({
 
           <div className="comment-new-actions">
             <button className="comment-add-btn" onClick={handleAdd} disabled={!newContent.trim()}>
-              추가
+              {t('add', language)}
             </button>
             <button className="comment-cancel-btn" onClick={handleCancel}>
-              취소
+              {t('cancel', language)}
             </button>
           </div>
         </div>
@@ -219,7 +222,7 @@ function CommentPanel({
       <div className="comment-list">
         {unresolvedComments.length === 0 && !selectionRange && (
           <div className="comment-empty">
-            텍스트를 선택하여 메모를 추가하세요
+            {t('selectTextToAdd', language)}
           </div>
         )}
         {unresolvedComments.map(comment => (
@@ -242,7 +245,7 @@ function CommentPanel({
                 {comment.task && (
                   <div className="comment-task-fields">
                     <div className="comment-task-field">
-                      <label>마감 날짜</label>
+                      <label>{t('dueDate', language)}</label>
                       <input
                         type="date"
                         value={editTaskDueDate}
@@ -250,7 +253,7 @@ function CommentPanel({
                       />
                     </div>
                     <div className="comment-task-field">
-                      <label>마감 시간</label>
+                      <label>{t('dueTime', language)}</label>
                       <input
                         type="time"
                         value={editTaskDueTime}
@@ -264,13 +267,13 @@ function CommentPanel({
                     className="comment-edit-save-btn"
                     onClick={() => handleSaveEdit(comment)}
                   >
-                    저장
+                    {t('save', language)}
                   </button>
                   <button
                     className="comment-edit-cancel-btn"
                     onClick={handleCancelEdit}
                   >
-                    취소
+                    {t('cancel', language)}
                   </button>
                 </div>
               </div>
@@ -328,7 +331,7 @@ function CommentPanel({
                       <button
                         className="comment-action-btn"
                         onClick={() => onResolveComment(comment.id)}
-                        title={comment.resolved ? '미해결로 변경' : '해결'}
+                        title={comment.resolved ? t('markUnresolved', language) : t('resolve', language)}
                       >
                         {comment.resolved ? '○' : '✓'}
                       </button>
@@ -336,14 +339,14 @@ function CommentPanel({
                     <button
                       className="comment-action-btn"
                       onClick={() => handleStartEdit(comment)}
-                      title="편집"
+                      title={t('edit', language)}
                     >
                       ✎
                     </button>
                     <button
                       className="comment-action-btn comment-delete-btn"
                       onClick={() => onDeleteComment(comment.id)}
-                      title="삭제"
+                      title={t('delete', language)}
                     >
                       ×
                     </button>
@@ -362,7 +365,7 @@ function CommentPanel({
             className="comment-resolved-toggle"
             onClick={() => setShowResolved(!showResolved)}
           >
-            해결됨 ({resolvedComments.length}) {showResolved ? '▾' : '▸'}
+            {tf('resolved', language, { count: resolvedComments.length })} {showResolved ? '▾' : '▸'}
           </button>
           {showResolved && resolvedComments.map(comment => (
             <div key={comment.id} className={`comment-item resolved ${comment.task ? 'task' : ''}`}>
@@ -417,7 +420,7 @@ function CommentPanel({
                 <button
                   className="comment-action-btn comment-delete-btn"
                   onClick={() => onDeleteComment(comment.id)}
-                  title="삭제"
+                  title={t('delete', language)}
                 >
                   ×
                 </button>

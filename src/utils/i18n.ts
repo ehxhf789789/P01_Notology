@@ -2,135 +2,8 @@
 
 export type LanguageSetting = 'ko' | 'en';
 
-interface Translations {
-  // Settings modal
-  settings: string;
-  general: string;
-  editor: string;
-  templates: string;
-  containers: string;
-  shortcuts: string;
-  developer: string;
-
-  // General tab - Appearance
-  appearance: string;
-  theme: string;
-  themeDesc: string;
-  themeDark: string;
-  themeLight: string;
-  themeSystem: string;
-  font: string;
-  fontDesc: string;
-  fontDefault: string;
-  fontAddCustom: string;
-  customFonts: string;
-  addFont: string;
-  removeFont: string;
-
-  // General tab - Language
-  languageRegion: string;
-  language: string;
-  languageDesc: string;
-
-  // Editor tab
-  editingToolbar: string;
-  defaultCollapsed: string;
-  defaultCollapsedDesc: string;
-  popupWindow: string;
-  ctrlScrollZoom: string;
-  ctrlScrollZoomDesc: string;
-  currentZoomLevel: string;
-  defaultWindowSize: string;
-  defaultWindowSizeDesc: string;
-  windowSizeSmall: string;
-  windowSizeMedium: string;
-  windowSizeLarge: string;
-  windowSizeWide: string;
-
-  // Tags tab
-  tags: string;
-  tagColors: string;
-  tagColorsDesc: string;
-  addTag: string;
-  tagName: string;
-  tagNamePlaceholder: string;
-  noTagsConfigured: string;
-
-  // Templates tab
-  noteTemplates: string;
-  noteTemplatesDesc: string;
-  edit: string;
-  delete: string;
-
-  // Containers tab
-  containerSettings: string;
-  containerSettingsDesc: string;
-  noContainers: string;
-  selectTemplate: string;
-
-  // Shortcuts tab
-  // (handled by KeyboardShortcuts component)
-
-  // Developer tab
-  developerTools: string;
-  openDevTools: string;
-  openDevToolsDesc: string;
-  open: string;
-
-  // Common
-  on: string;
-  off: string;
-  cancel: string;
-  save: string;
-  close: string;
-
-  // Sidebar
-  files: string;
-  newNote: string;
-  newFolder: string;
-  search: string;
-  noVaultOpen: string;
-  openVault: string;
-
-  // Search
-  frontmatter: string;
-  contentSearch: string;
-  detailedSearch: string;
-  searchPlaceholder: string;
-  noResults: string;
-  results: string;
-  createNote: string;
-  notes: string;
-  body: string;
-  attachments: string;
-  details: string;
-  graph: string;
-  titleTagTypeSearch: string;
-  bodyContentSearch: string;
-  attachmentSearch: string;
-  tagSearch: string;
-  dateFilter: string;
-  typeFilter: string;
-
-  // Context menu
-  openInNewWindow: string;
-  rename: string;
-  moveTo: string;
-  copyPath: string;
-  revealInExplorer: string;
-
-  // Editor placeholder
-  editorPlaceholder: string;
-  editorEmptyText: string;
-
-  // Hover windows
-  hoverWindows: string;
-  activeWindows: string;
-  minimizedWindows: string;
-}
-
-const ko: Translations = {
-  // Settings modal
+const ko: Record<string, string> = {
+  // ── Settings modal ──
   settings: '설정',
   general: '일반',
   editor: '편집기',
@@ -139,7 +12,7 @@ const ko: Translations = {
   shortcuts: '단축키',
   developer: '개발자',
 
-  // General tab - Appearance
+  // ── Appearance ──
   appearance: '외관',
   theme: '테마',
   themeDesc: '앱의 색상 테마를 선택합니다',
@@ -154,12 +27,12 @@ const ko: Translations = {
   addFont: '글꼴 추가',
   removeFont: '제거',
 
-  // General tab - Language
+  // ── Language ──
   languageRegion: '언어',
   language: '언어',
   languageDesc: '앱 인터페이스 언어를 선택합니다',
 
-  // Editor tab
+  // ── Editor settings ──
   editingToolbar: '편집 툴바',
   defaultCollapsed: '기본 접힘 상태',
   defaultCollapsedDesc: '에디터 및 컨테이너 열 때 툴바를 접힌 상태로 시작',
@@ -174,7 +47,7 @@ const ko: Translations = {
   windowSizeLarge: '크게',
   windowSizeWide: '넓게',
 
-  // Tags tab
+  // ── Tags settings ──
   tags: '태그',
   tagColors: '태그 색상',
   tagColorsDesc: '자주 사용하는 태그에 커스텀 색상을 지정할 수 있습니다',
@@ -183,40 +56,63 @@ const ko: Translations = {
   tagNamePlaceholder: '태그 이름 입력...',
   noTagsConfigured: '설정된 태그가 없습니다',
 
-  // Templates tab
+  // ── Templates settings ──
   noteTemplates: '노트 템플릿',
   noteTemplatesDesc: '노트 생성 시 선택 가능한 템플릿 목록',
   edit: '편집',
   delete: '삭제',
 
-  // Containers tab
+  // ── Containers settings ──
   containerSettings: '컨테이너 설정',
   containerSettingsDesc: '각 컨테이너의 유형 및 할당 템플릿 관리',
   noContainers: '컨테이너가 없습니다',
   selectTemplate: '템플릿 선택...',
 
-  // Developer tab
+  // ── Developer ──
   developerTools: '개발자 도구',
   openDevTools: 'DevTools 열기',
   openDevToolsDesc: '브라우저 개발자 도구 (F12 또는 Ctrl+Shift+I)',
   open: '열기',
 
-  // Common
+  // ── Common ──
   on: 'ON',
   off: 'OFF',
   cancel: '취소',
   save: '저장',
   close: '닫기',
+  confirm: '확인',
+  change: '변경',
+  add: '추가',
+  create: '생성',
+  back: '뒤로 가기',
+  name: '이름',
+  type: '타입',
+  remove: '제거',
 
-  // Sidebar
+  // ── Sidebar ──
   files: '파일',
   newNote: '새 노트',
   newFolder: '새 폴더',
   search: '검색',
   noVaultOpen: '보관소를 열어주세요',
   openVault: '보관소 열기',
+  cannotCreateFolder: '폴더 생성 불가',
+  storageNoFolderMsg: 'Storage 컨테이너 내부에는 폴더를 생성할 수 없습니다.\n\n폴더 구조가 필요하다면 컨테이너 유형을 Standard로 변경해 주세요.',
+  containerTypeSelect: '컨테이너 유형 선택',
+  newContainerHint: '새 컨테이너',
+  standardContainer: '일반',
+  standardContainerDesc: '다양한 종류의 노트를 자유롭게 저장하는 일반 컨테이너입니다.\n모든 템플릿 유형의 노트를 생성할 수 있습니다.',
+  storageContainer: '보관',
+  storageContainerDesc: '특정 템플릿 전용 보관 컨테이너입니다.\n선택한 템플릿 유형의 노트만 생성됩니다.',
+  newContainerTitle: '새 Container',
+  containerNamePlaceholder: 'Container 이름을 입력하세요',
+  folderNamePlaceholder: '폴더 이름을 입력하세요',
+  containerDescPlaceholder: 'Container 설명을 입력하세요...',
+  goToParent: '상위 폴더로 이동',
+  noteTitlePlaceholder: '노트 제목... (Esc: 취소)',
+  folderNamePrompt: '폴더 이름... (Esc: 취소)',
 
-  // Search
+  // ── Search ──
   frontmatter: '프론트매터',
   contentSearch: '내용 검색',
   detailedSearch: '상세 검색',
@@ -235,26 +131,574 @@ const ko: Translations = {
   tagSearch: '태그 검색...',
   dateFilter: '날짜 필터',
   typeFilter: '타입 필터',
+  conflictFilesOnly: '충돌 파일만 존재',
+  conflictFilesMsg: '{count}개의 Synology 동기화 충돌 파일이 있습니다.\n충돌 파일은 일괄 삭제 대상에서 제외됩니다. 원본 파일과 비교 후 수동으로 처리해 주세요.',
+  conflictExcluded: '\n(충돌 파일 {count}개는 제외됨)',
+  dummyFile: '더미 파일',
+  deleteComplete: '삭제 완료',
+  deletedFilesMsg: '{count}개의 더미 파일이 삭제되었습니다.',
+  filesDeletedMsg: '{count}개의 파일이 삭제되었습니다.',
+  wikilinksRemovedMsg: '{count}개의 위키링크가 제거되었습니다.',
+  deleteFailed: '삭제 실패',
+  batchDeleteFailed: '일괄 삭제에 실패했습니다.',
+  fileDeleteFailed: '파일을 삭제하지 못했습니다.',
+  selectedFiles: '선택된 파일',
+  syncInProgressMsg: 'Synology Drive 동기화 진행 중... 파일이 안정화될 때까지 편집을 잠시 대기해 주세요.',
+  filter: '필터',
+  titleColumn: '제목',
+  noteType: '타입',
+  memos: '메모',
+  createdDate: '생성일',
+  modifiedDate: '수정일',
+  indexInitializing: '인덱스 초기화 중...',
+  noAttachments: '첨부파일 없음',
+  fileName: '파일명',
+  ownerNote: '소속 노트',
+  attachedNote: '첨부 노트',
+  container: '컨테이너',
+  graphLoadingSearch: '그래프 로딩 중...',
+  notesCountLabel: '{count}개 노트',
+  resultsCountLabel: '{count}개 결과',
+  attachmentsCountLabel: '{count}개 첨부파일',
+  deleteSelectedAttachments: '선택 항목 삭제 ({count}개)',
+  syncConflictMsg: '동기화 충돌 파일 {count}개 감지됨 — 원본과 비교 후 수동으로 처리해 주세요. 일괄 삭제 대상에서 자동 제외됩니다.',
+  enterSearchTerm: '검색어를 입력하세요',
+  // Search filters
+  tag: '태그',
+  allTags: '전체 태그',
+  all: '전체',
+  hasMemos: '메모 있음',
+  noMemos: '메모 없음',
+  extension: '확장자',
+  folderNotesLabel: '폴더노트',
+  showLabel: '표시',
+  hideLabel: '숨김',
+  startDate: '시작일',
+  endDate: '종료일',
+  resetTypeFilter: '타입 필터 초기화',
+  resetTagFilter: '태그 필터 초기화',
+  resetMemoFilter: '메모 필터 초기화',
+  resetCreatedFilter: '생성일 필터 초기화',
+  resetModifiedFilter: '수정일 필터 초기화',
+  containerPlaceholder: '컨테이너 이름...',
+  resetContainerFilter: '컨테이너 필터 초기화',
+  extensionPlaceholder: '예: png, pdf...',
+  resetExtensionFilter: '확장자 필터 초기화',
+  notePathPlaceholder: '노트 경로 검색...',
+  resetNotePathFilter: '첨부노트 필터 초기화',
+  dummyOnly: '더미만 표시',
+  showAll: '전체 표시',
+  batchDeleteDummyTitle: '필터링된 더미 파일 일괄 삭제',
+  // Canvas / hover
+  deleteLabel: '삭제',
+  goBack: '뒤로 가기',
+  attachmentHeading: '첨부파일',
+  // NoteTemplateEditor placeholders
+  exampleName: '예: Weekly Report',
+  examplePrefix: '예: RPT',
 
-  // Context menu
+  // ── Context menu ──
   openInNewWindow: '새 창에서 열기',
   rename: '이름 바꾸기',
   moveTo: '이동...',
   copyPath: '경로 복사',
   revealInExplorer: '탐색기에서 열기',
+  deleteFailedTitle: '삭제 실패',
+  noteDeleteFailedMsg: '노트를 삭제하지 못했습니다.',
+  folderDeleteFailedMsg: '폴더를 삭제하지 못했습니다.',
+  fileDeleteFailedMsg: '파일을 삭제하지 못했습니다.',
+  cannotChangeToStorage: 'Storage 유형으로 변경 불가',
+  storageTypeRestrictionMsg: 'Storage 컨테이너는 내부에 폴더 구조를 가질 수 없습니다.\n\n하위 폴더가 있는 컨테이너는 Storage 유형으로 변경할 수 없습니다.\n먼저 하위 폴더를 삭제하거나 이동해 주세요.',
+  openNote: '노트 열기',
+  renameWikiLink: '위키링크 이름 변경...',
+  deleteLink: '링크 삭제',
+  containerType: '컨테이너 유형',
+  typeStandard: '일반',
+  typeStorage: '보관',
+  folderStatus: '폴더 상태',
+  renameFolder: '폴더 이름 변경...',
+  moveFolder: '폴더 이동...',
+  deleteContainer: '컨테이너 삭제',
+  deleteFolderContext: '폴더 삭제',
+  deleteFileContext: '파일 삭제',
+  openAttachmentFolder: '첨부 폴더 열기',
+  openOwnerNote: '소속 노트 열기',
+  openInternal: '내부에서 열기',
+  openDefaultApp: '기본 앱으로 열기',
+  revealFolder: '폴더에서 보기',
+  renameNote: '노트 이름 변경...',
+  moveNote: '노트 이동...',
+  deleteNoteContext: '노트 삭제',
 
-  // Editor placeholder
+  // ── Editor placeholder ──
   editorPlaceholder: '내용을 입력하세요...',
   editorEmptyText: 'Container를 선택하거나 Search를 열어주세요',
 
-  // Hover windows
+  // ── Hover windows ──
   hoverWindows: 'Hover 창',
   activeWindows: '활성 창',
   minimizedWindows: '최소화된 창',
+  focused: '포커스',
+  active: '활성',
+  noOpenWindows: '열린 창이 없습니다',
+  restore: '복원',
+  minimize: '최소화',
+
+  // ── Template descriptions ──
+  templateDescNote: '일반 노트 - 자유롭게 작성하는 기본 노트입니다',
+  templateDescSketch: '스케치 - 캔버스 기반의 자유로운 메모입니다',
+  templateDescMtg: '회의록 - 참석자, 안건, 결정사항을 기록합니다',
+  templateDescSem: '세미나 - 세미나 및 강연 내용을 정리합니다',
+  templateDescEvent: '이벤트 - 행사 일정과 세부 정보를 관리합니다',
+  templateDescOfa: '공문서 - 공식 문서와 업무 기록을 관리합니다',
+  templateDescPaper: '논문 - 학술 논문 정보와 메모를 저장합니다',
+  templateDescLit: '문헌 - 도서 및 참고 자료를 관리합니다',
+  templateDescData: '데이터 - 데이터 및 자료를 체계적으로 정리합니다',
+  templateDescTheo: '이론 - 개념과 이론을 정리하고 학습합니다',
+  templateDescContact: '연락처 - 인물 정보와 연락처를 관리합니다',
+  templateDescSetup: '설정 - 환경 설정과 구성 정보를 기록합니다',
+  templateDescCustom: '사용자 정의 템플릿입니다',
+  templateDescNoteShort: '자유롭게 작성하는 기본 노트',
+  templateDescSketchShort: '캔버스 기반의 자유로운 메모',
+  templateDescMtgShort: '회의 참석자, 안건, 결정사항 기록',
+  templateDescSemShort: '세미나 및 강연 내용 정리',
+  templateDescEventShort: '행사 일정과 세부 정보 관리',
+  templateDescOfaShort: '공식 문서와 업무 기록 관리',
+  templateDescPaperShort: '학술 논문 정보와 메모 저장',
+  templateDescLitShort: '도서 및 참고 자료 관리',
+  templateDescDataShort: '데이터 및 자료를 체계적으로 정리',
+  templateDescTheoShort: '개념과 이론 정리 및 학습',
+  templateDescContactShort: '인물 정보와 연락처 관리',
+  templateDescSetupShort: '환경 설정과 구성 정보 기록',
+  templateDescCustomShort: '사용자 정의 템플릿',
+
+  // ── Vault selector ──
+  selectVaultToStart: '보관함을 선택하여 시작하세요',
+  vaultList: '보관함 목록',
+  currentVault: '현재',
+  removeFromList: '목록에서 제거',
+  openExistingVaultDesc: '기존 Notology 보관함을 엽니다',
+  addVaultBtn: '보관함 추가',
+  createNewVaultDesc: '선택한 폴더에 새 보관함을 생성합니다',
+  vaultHintText: '보관함은 노트와 파일을 저장할 폴더입니다',
+  exitApp: '종료',
+
+  // ── Vault lock ──
+  vaultInUse: '보관소가 사용 중입니다',
+  vaultInUseMsg: '보관소가 다른 기기에서 사용 중입니다.',
+  deviceLabel: '기기:',
+  lastActivityLabel: '마지막 활동:',
+  lockStartedLabel: '잠금 시작:',
+  staleSessionWarning: '이전 세션이 비정상 종료된 것으로 보입니다. 강제로 열 수 있습니다.',
+  multiDeviceWarning: '동시에 여러 기기에서 보관소를 열면 데이터가 손상될 수 있습니다. 다른 기기에서 Notology를 먼저 종료하세요.',
+  forceOpen: '강제 열기',
+
+  // ── Confirm delete ──
+  batchDelete: '일괄 삭제',
+  deleteFile: '파일 삭제',
+  deleteFolder: '폴더 삭제',
+  deleteNote: '노트 삭제',
+  confirmBatchDelete: '{count}개의 파일을 삭제하시겠습니까?',
+  confirmDeleteFile: '파일을 삭제하시겠습니까?',
+  confirmDeleteFolder: '폴더를 삭제하시겠습니까?',
+  confirmDeleteNote: '노트를 삭제하시겠습니까?',
+  warnWikilinks: '연결된 위키링크도 함께 제거됩니다.',
+  warnSubitems: '모든 하위 항목이 함께 삭제됩니다.',
+  warnAttachments: '첨부 폴더도 함께 삭제됩니다.',
+
+  // ── Rename ──
+  renameFailed: '이름 변경 실패: {error}',
+  renameTitle: '이름 변경',
+
+  // ── Title input ──
+  enterTitle: '제목을 입력하세요',
+  createNewNoteTitle: '새 노트 생성',
+  enterNoteTitlePlaceholder: '노트 제목을 입력하세요',
+  createEnter: '생성 (Enter)',
+
+  // ── Loading ──
+  loadingVault: '보관소 로딩 중',
+
+  // ── Move note ──
+  currentBadge: '(현재)',
+  moveNoteTitle: '노트 이동:',
+  moving: '이동 중...',
+  currentLocation: '현재 위치',
+  moveBtn: '이동',
+
+  // ── Update checker ──
+  updateNotFound: '업데이트를 찾을 수 없습니다.',
+  updateInstallFailed: '업데이트 설치 실패: {error}',
+  newVersionAvailable: '새 버전 사용 가능: v{version}',
+  installUpdate: '업데이트 설치',
+  install: '설치',
+  later: '나중에',
+  restarting: '재시작 중...',
+
+  // ── Sync status ──
+  statusSynced: '저장됨',
+  statusEditing: '편집 중',
+  statusConflict: '충돌 감지',
+  statusEditingElsewhere: '다른 기기에서 편집 중',
+
+  // ── Template selector ──
+  templateSelectorTitle: '템플릿 선택',
+  templateSearchPlaceholder: '템플릿 검색...',
+  defaultTemplates: '기본 템플릿',
+  customTemplates: '사용자 템플릿',
+  noSearchResultsTemplate: '검색 결과가 없습니다',
+
+  // ── Contact input ──
+  contactTitle: '새 연락처 정보 입력',
+  contactNameRequired: '이름을 입력하세요',
+  contactNameField: '이름 *',
+  contactNamePlaceholder: '홍길동',
+  contactEmail: '이메일',
+  contactCompany: '회사',
+  contactCompanyPlaceholder: '회사명',
+  contactPosition: '직책',
+  contactPositionPlaceholder: '직책/직급',
+  contactPhone: '전화번호',
+  contactPhonePlaceholder: '010-1234-5678',
+  contactLocation: '위치',
+  contactLocationPlaceholder: '서울, 한국',
+  createCtrlEnter: '생성 (Ctrl+Enter)',
+
+  // ── Meeting input ──
+  meetingTitle: '새 미팅 노트 생성',
+  meetingTitleRequired: '미팅 제목을 입력하세요',
+  meetingTitleField: '미팅 제목 *',
+  meetingTitlePlaceholder: '예: 주간 팀 미팅',
+  meetingParticipants: '참석자',
+  meetingParticipantsPlaceholder: '예: @홍길동, @김철수 또는 이름 직접 입력',
+  meetingDate: '날짜',
+  meetingTime: '시간',
+
+  // ── Paper input ──
+  paperTitle: '새 논문 노트 생성',
+  paperTitleRequired: '논문 제목을 입력하세요',
+  paperTitleField: '논문 제목 *',
+  paperTitlePlaceholder: '논문 제목',
+  paperAuthors: '저자',
+  paperYear: '발행년도',
+  paperVenue: '출판처',
+  paperDoi: 'DOI',
+  paperUrl: 'URL',
+
+  // ── Literature input ──
+  literatureTitle: '새 문헌 노트 생성',
+  literatureTitleRequired: '문헌 제목을 입력하세요',
+  literatureTitleField: '문헌 제목 *',
+  literatureTitlePlaceholder: '문헌 제목',
+  literatureAuthors: '저자',
+  literatureYear: '발행년도',
+  literaturePublisher: '출판사',
+  literatureSource: '출처',
+  literatureSourcePlaceholder: '예: 보고서, 백서, 가이드북 등',
+  literatureUrl: 'URL',
+
+  // ── Event input ──
+  eventTitle: '새 행사 노트 생성',
+  eventTitleRequired: '행사 제목을 입력하세요',
+  eventTitleField: '행사 제목 *',
+  eventTitlePlaceholder: '예: 2024 AI 학회',
+  eventDate: '날짜',
+  eventLocation: '장소',
+  eventLocationPlaceholder: '예: 서울 코엑스',
+  eventOrganizer: '주최',
+  eventOrganizerPlaceholder: '주최 기관/단체',
+  eventParticipants: '참가자',
+  eventParticipantsPlaceholder: '예: 홍길동, 김철수, 이영희',
+
+  // ── Calendar ──
+  calendarTask: '할일',
+  calendarMemo: '메모',
+  calendarMemoCount: '{count}개',
+  calendarNoTasks: '할일이 없습니다',
+  calendarNoMemos: '메모가 없습니다',
+
+  // ── Note template editor ──
+  templateIconNote: '노트',
+  templateIconMeeting: '회의',
+  templateIconOfa: '공문',
+  templateIconSeminar: '세미나',
+  templateIconEvent: '이벤트',
+  templateIconContact: '연락처',
+  templateIconSetup: '설정',
+  templateIconData: '데이터',
+  templateIconTheory: '이론',
+  templateIconPaper: '논문',
+  templateIconSketch: '스케치',
+  templateIconLiterature: '문헌',
+  templateEditTitle: '템플릿 편집',
+  templateNewTitle: '새 템플릿 만들기',
+  basicInfo: '기본 정보',
+  templateNameField: '템플릿 이름',
+  prefix: '접두어',
+  appearanceSection: '외관',
+  icon: '아이콘',
+  colorTheme: '색상 테마',
+  customColor: '사용자 지정 색상',
+  colorHint: '선택한 색상이 편집기, 검색, Hover 창에 자동 적용됩니다',
+  tagsSection: '태그',
+  defaultTags: '기본 태그',
+  tagsCommaSeparated: '쉼표로 구분하여 입력',
+  tagCategories: '태그 카테고리 (자동완성용)',
+  domainTags: '분야 태그',
+  peopleTags: '사람 태그',
+  orgTags: '조직 태그',
+  contextTags: '맥락 태그',
+  tagAutocompleteHint: '자주 사용하는 태그를 미리 등록하면 입력 시 자동완성됩니다',
+  bodyStructure: '본문 구조',
+  sectionHeaders: '섹션 헤더',
+  sectionPlaceholder: '섹션 {index}',
+  removeSection: '섹션 삭제',
+  addSection: '+ 섹션 추가',
+  sectionSeparatorHint: '각 섹션은 구분선(---)으로 구분됩니다',
+
+  // ── Template editor (folder) ──
+  level: '레벨',
+  cssClasses: 'CSS Classes',
+  cssClassesPlaceholder: 'folder-custom (쉼표로 구분)',
+  tagsComma: '태그 (쉼표로 구분)',
+  bodyMarkdown: '본문 (Markdown)',
+
+  // ── Editor toolbar ──
+  toolbarOpen: '툴바 열기',
+  toolbarClose: '툴바 닫기',
+  bold: '굵게 (Ctrl+B)',
+  italic: '기울임 (Ctrl+I)',
+  strikethrough: '취소선',
+  underline: '밑줄 (Ctrl+U)',
+  highlight: '하이라이트',
+  subscript: '아래 첨자',
+  superscript: '위 첨자',
+  heading1: '제목 1',
+  heading2: '제목 2',
+  heading3: '제목 3',
+  bulletList: '글머리 목록',
+  orderedList: '번호 목록',
+  checklist: '체크리스트',
+  blockquote: '인용',
+  callout: '콜아웃',
+  codeBlock: '코드 블록',
+  horizontalRule: '구분선',
+  insertTable: '표 삽입',
+  insertLinkCard: '링크 카드 삽입',
+  indent: '들여쓰기 (Tab)',
+  outdent: '내어쓰기 (Shift+Tab)',
+
+  // ── Comment panel ──
+  selectDueDate: '마감 날짜를 선택하세요.',
+  memoTitle: '메모',
+  addTask: '할일 추가',
+  addMemo: '메모 추가',
+  taskPlaceholder: '할일 내용 입력... (Ctrl+Enter: 추가)',
+  memoPlaceholder: '메모 입력... (Ctrl+Enter: 추가)',
+  dueDate: '마감 날짜',
+  dueDateRequired: '마감 날짜 *',
+  dueTime: '마감 시간',
+  selectTextToAdd: '텍스트를 선택하여 메모를 추가하세요',
+  markUnresolved: '미해결로 변경',
+  resolve: '해결',
+  resolved: '해결됨 ({count})',
+
+  // ── Canvas editor ──
+  canvasNewNode: '새 노드',
+  canvasResetZoom: '확대/축소 초기화',
+  canvasEnterContent: '내용을 입력하세요',
+  canvasMultiSelect: '다중 선택 ({nodeCount}개 노드, {edgeCount}개 화살표)',
+  canvasNodeColor: '노드 색상',
+  canvasArrowColor: '화살표 색상',
+  canvasDeleteSelection: '선택 항목 삭제',
+  shapeProcess: '처리 (Process)',
+  shapeTerminal: '터미널 (Terminal)',
+  shapeDecision: '판단 (Decision)',
+  shapeIO: '입력/출력 (I/O)',
+  shapeSubroutine: '서브루틴 (Subroutine)',
+  shapeDatabase: '데이터베이스 (Database)',
+
+  // ── Hover editor ──
+  attachmentHeader: '첨부파일',
+  metadata: '메타데이터',
+  memo: '메모',
+  conflictDetected: '이 노트가 다른 기기에서 수정되었습니다',
+  acceptExternal: '외부 변경 적용',
+  keepMine: '내 변경 유지',
+  keepBoth: '둘 다 보관',
+  conflictCopy: '충돌 복사본 — 원본:',
+  replaceOriginal: '이 버전으로 원본 대체',
+  keepOriginal: '원본 유지 (이 파일 삭제)',
+  preserveBoth: '둘 다 보존',
+  syncInProgressHover: 'Synology Drive 동기화 중...',
+
+  // ── Editor context menu ──
+  cellDefault: '기본',
+  cellDarkGray: '진한 회색',
+  cellGray: '회색',
+  cellBlue: '파랑',
+  cellGreen: '초록',
+  cellBrown: '갈색',
+  cellPurple: '자주',
+  cellRed: '빨강',
+  addMemoContext: '메모 추가',
+  addTaskContext: '할일 추가',
+  heading: '제목',
+  boldShort: '굵게',
+  italicShort: '기울임',
+  strikethroughShort: '취소선',
+  underlineShort: '밑줄',
+  highlightShort: '하이라이트',
+  inlineCode: '코드',
+  addRowBefore: '행 위에 추가',
+  addRowAfter: '행 아래에 추가',
+  addColumnBefore: '열 왼쪽에 추가',
+  addColumnAfter: '열 오른쪽에 추가',
+  cellBgColor: '셀 배경색',
+  deleteRow: '행 삭제',
+  deleteColumn: '열 삭제',
+  deleteTable: '표 삭제',
+  indentShort: '들여쓰기',
+  outdentShort: '내어쓰기',
+
+  // ── Folder tree ──
+  collapseAll: '모두 접기',
+  expandAll: '모두 펼치기',
+
+  // ── Keyboard shortcuts ──
+  shortcutsAll: '전체',
+  shortcutsInputPlaceholder: '키 입력... (Esc: 취소, Enter: 저장)',
+  shortcutsReset: '기본값 복원',
+
+  // ── Graph view ──
+  graphLoading: '그래프 데이터 로딩 중...',
+  graphNoNotes: '표시할 노트가 없습니다',
+  graphSearchPlaceholder: '노드 검색...',
+  graphSettings: '그래프 설정',
+  showTags: '태그 표시',
+  showAttachments: '첨부파일 표시',
+  noteColor: '노트',
+  tagColor: '태그',
+  attachmentColor: '첨부파일',
+  physics: '물리 시뮬레이션',
+  chargeStrength: '반발력',
+  linkDistance: '링크 거리',
+  resetDefaults: '기본값 복원',
+  folderLabel: 'FOLDER ({count})',
+  notesCount: '{count}개 노트',
+  tagsCountGraph: '{count}개 태그',
+  attachmentsCountGraph: '{count}개 첨부',
+  connectionsCount: '{count}개 연결',
+
+  // ── App extras ──
+  openWindowsList: '열린 창 목록',
+  sidebarToggle: '사이드바 펼치기',
+  windowMinimized: '최소화',
+  windowFocused: '포커스',
+  windowActive: '활성',
+  contextFocus: '포커스',
+  contextRestore: '복원',
+  contextMinimize: '최소화',
+
+  // ── Settings extras ──
+  newTemplate: '새 템플릿',
+  builtIn: '기본',
+  fontNameLabel: '글꼴 이름',
+  fontNamePlaceholder: '표시될 이름',
+  fontFamilyLabel: '글꼴 패밀리',
+  fontFamilyPlaceholder: '예: "D2Coding", monospace',
+  howToUse: '사용 방법',
+  fontNameTip: '글꼴 이름: 설정에서 표시될 이름입니다. 원하는 이름을 자유롭게 입력하세요.',
+  fontFamilyTip: '글꼴 패밀리: CSS font-family 값입니다. 시스템에 설치된 글꼴의 정확한 이름을 따옴표로 감싸서 입력하세요.',
+  examplesLabel: '예시:',
+  unusedTags: '미사용 태그',
+  noUnusedTags: '미사용 태그가 없습니다.',
+  unusedTagsMsg: '{count}개의 태그가 어떤 노트에서도 사용되지 않습니다.',
+  removeAll: '모두 삭제 ({count}개)',
+  addSystemFont: '시스템에 설치된 글꼴을 추가합니다',
+
+  // ── Metadata ──
+  yamlParseError: 'YAML 파싱 오류:',
+  yamlPlaceholder: 'YAML 형식의 메타데이터를 입력하세요...',
+  yamlTip: '팁: YAML 문법을 사용하여 메타데이터를 직접 편집할 수 있습니다.',
+  yamlFormModeTip: '폼 모드로 전환하면 검증 및 자동 완성 기능을 사용할 수 있습니다.',
+  validationErrors: '검증 오류 ({count})',
+  validationMsg: '모든 검증 오류를 해결해야 메타데이터를 저장할 수 있습니다.',
+  selectFileForMetadata: '파일을 선택하여 메타데이터를 편집하세요.',
+  metadataLoading: '메타데이터 로딩 중...',
+  noMetadata: '이 파일에는 메타데이터가 없습니다.',
+  formMode: '폼 모드',
+  yamlMode: 'YAML 모드',
+  saving: '저장 중...',
+  facetedTags: '패싯 태그',
+  tagOntologyLoading: '태그 온톨로지 로딩 중...',
+  addBtn: '+ 추가',
+  removeBtn: '제거',
+  semanticRelations: '시맨틱 관계',
+  cancelAddRelation: '취소',
+  addRelation: '+ 관계 추가',
+  relationType: '관계 유형',
+  targetNote: '대상 노트',
+  noteSearchPlaceholder: '노트 제목 입력...',
+  noRelations: '관계가 없습니다. 추가 버튼을 클릭하세요.',
+  relationSupports: '관련',
+  relationSupportsDesc: '일반적인 관련 관계 (가장 많이 사용)',
+  relationRefutes: '참조',
+  relationRefutesDesc: '참고 자료 또는 인용',
+  relationExtends: '후속',
+  relationExtendsDesc: '이어지는 내용 또는 발전',
+  relationDerivesFrom: '기반',
+  relationDerivesFromDesc: '기반이 되는 내용',
+  basicInfoMeta: '기본 정보',
+  titleLabel: '제목',
+  createdLabel: '생성일',
+  modifiedLabel: '수정일',
+  noteStatus: '노트 상태',
+  workflowLabel: '진행 단계',
+  confidenceLabel: '검증 상태',
+  maturityLabel: '완성도 (1-5)',
+  maturityInitial: '초기',
+  maturityGrowth: '성장',
+  maturityMature: '성숙',
+  maturityStable: '안정',
+  maturityImmutable: '불변',
+  meetingInfo: '미팅 정보',
+  dateLabel: '날짜',
+  participantsComma: '참가자 (쉼표로 구분)',
+  paperInfo: '논문 정보',
+  authorsComma: '저자 (쉼표로 구분)',
+  venueLabel: '학회/저널',
+  yearLabel: '연도',
+  contactInfo: '연락처 정보',
+  emailLabel: '이메일',
+  phoneLabel: '전화번호',
+  organizationLabel: '조직',
+  roleLabel: '역할',
+  tagSearchMeta: '태그 검색...',
+  noSearchResultsMeta: '검색 결과가 없습니다.',
+  createNewTag: '+ 새 태그 생성: "{query}"',
+  tagCreateFailed: '태그 생성 실패: {error}',
+  deleteTagFull: '태그 삭제 (온톨로지에서 완전 삭제)',
+  tagDelete: '태그 삭제',
+  rootTag: '루트',
+  noSubTags: '하위 태그가 없습니다.',
+  recentTags: '최근 사용한 태그',
+  deletedTag: '삭제된 태그: {tag}',
+  removeFromRecent: '최근 태그에서 제거',
+  tagsLabel: '태그',
+  tagInput: '태그 입력',
+
+  // ── RibbonBar ──
+  unknownType: '알 수 없음',
+  enterNoteTitle: '노트 제목을 입력하세요',
+  newNoteDefault: '새 노트',
+
+  // ── ParticipantInput ──
+  participantPlaceholder: '@이름 또는 직접 입력',
 };
 
-const en: Translations = {
-  // Settings modal
+const en: Record<string, string> = {
+  // ── Settings modal ──
   settings: 'Settings',
   general: 'General',
   editor: 'Editor',
@@ -263,7 +707,7 @@ const en: Translations = {
   shortcuts: 'Shortcuts',
   developer: 'Developer',
 
-  // General tab - Appearance
+  // ── Appearance ──
   appearance: 'Appearance',
   theme: 'Theme',
   themeDesc: 'Select the color theme for the app',
@@ -278,12 +722,12 @@ const en: Translations = {
   addFont: 'Add Font',
   removeFont: 'Remove',
 
-  // General tab - Language
+  // ── Language ──
   languageRegion: 'Language',
   language: 'Language',
   languageDesc: 'Select the interface language',
 
-  // Editor tab
+  // ── Editor settings ──
   editingToolbar: 'Editing Toolbar',
   defaultCollapsed: 'Default Collapsed',
   defaultCollapsedDesc: 'Start with toolbar collapsed when opening editor or container',
@@ -298,7 +742,7 @@ const en: Translations = {
   windowSizeLarge: 'Large',
   windowSizeWide: 'Wide',
 
-  // Tags tab
+  // ── Tags settings ──
   tags: 'Tags',
   tagColors: 'Tag Colors',
   tagColorsDesc: 'Assign custom colors to frequently used tags',
@@ -307,40 +751,63 @@ const en: Translations = {
   tagNamePlaceholder: 'Enter tag name...',
   noTagsConfigured: 'No tags configured',
 
-  // Templates tab
+  // ── Templates settings ──
   noteTemplates: 'Note Templates',
   noteTemplatesDesc: 'Templates available when creating notes',
   edit: 'Edit',
   delete: 'Delete',
 
-  // Containers tab
+  // ── Containers settings ──
   containerSettings: 'Container Settings',
   containerSettingsDesc: 'Manage container types and assigned templates',
   noContainers: 'No containers',
   selectTemplate: 'Select template...',
 
-  // Developer tab
+  // ── Developer ──
   developerTools: 'Developer Tools',
   openDevTools: 'Open DevTools',
   openDevToolsDesc: 'Browser developer tools (F12 or Ctrl+Shift+I)',
   open: 'Open',
 
-  // Common
+  // ── Common ──
   on: 'ON',
   off: 'OFF',
   cancel: 'Cancel',
   save: 'Save',
   close: 'Close',
+  confirm: 'OK',
+  change: 'Change',
+  add: 'Add',
+  create: 'Create',
+  back: 'Back',
+  name: 'Name',
+  type: 'Type',
+  remove: 'Remove',
 
-  // Sidebar
+  // ── Sidebar ──
   files: 'Files',
   newNote: 'New Note',
   newFolder: 'New Folder',
   search: 'Search',
   noVaultOpen: 'Please open a vault',
   openVault: 'Open Vault',
+  cannotCreateFolder: 'Cannot Create Folder',
+  storageNoFolderMsg: 'Storage containers cannot have folders inside.\n\nIf you need a folder structure, change the container type to Standard.',
+  containerTypeSelect: 'Select Container Type',
+  newContainerHint: 'New Container',
+  standardContainer: 'Standard',
+  standardContainerDesc: 'A general container for storing various types of notes.\nYou can create notes with any template type.',
+  storageContainer: 'Storage',
+  storageContainerDesc: 'A container dedicated to a specific template.\nOnly the selected template type can be used.',
+  newContainerTitle: 'New Container',
+  containerNamePlaceholder: 'Enter container name',
+  folderNamePlaceholder: 'Enter folder name',
+  containerDescPlaceholder: 'Enter container description...',
+  goToParent: 'Go to parent folder',
+  noteTitlePlaceholder: 'Note title... (Esc: cancel)',
+  folderNamePrompt: 'Folder name... (Esc: cancel)',
 
-  // Search
+  // ── Search ──
   frontmatter: 'Frontmatter',
   contentSearch: 'Content Search',
   detailedSearch: 'Detailed Search',
@@ -359,30 +826,586 @@ const en: Translations = {
   tagSearch: 'Search tags...',
   dateFilter: 'Date filter',
   typeFilter: 'Type filter',
+  conflictFilesOnly: 'Conflict files only',
+  conflictFilesMsg: '{count} Synology sync conflict files detected.\nConflict files are excluded from batch deletion. Compare with originals and resolve manually.',
+  conflictExcluded: '\n({count} conflict files excluded)',
+  dummyFile: 'dummy files',
+  deleteComplete: 'Delete Complete',
+  deletedFilesMsg: '{count} dummy files deleted.',
+  filesDeletedMsg: '{count} files deleted.',
+  wikilinksRemovedMsg: '{count} wiki-links removed.',
+  deleteFailed: 'Delete Failed',
+  batchDeleteFailed: 'Batch deletion failed.',
+  fileDeleteFailed: 'Failed to delete file.',
+  selectedFiles: 'selected files',
+  syncInProgressMsg: 'Synology Drive sync in progress... Please wait until files stabilize before editing.',
+  filter: 'Filter',
+  titleColumn: 'Title',
+  noteType: 'Type',
+  memos: 'Memos',
+  createdDate: 'Created',
+  modifiedDate: 'Modified',
+  indexInitializing: 'Initializing index...',
+  noAttachments: 'No attachments',
+  fileName: 'File name',
+  ownerNote: 'Owner note',
+  attachedNote: 'Attached note',
+  container: 'Container',
+  graphLoadingSearch: 'Loading graph...',
+  notesCountLabel: '{count} notes',
+  resultsCountLabel: '{count} results',
+  attachmentsCountLabel: '{count} attachments',
+  deleteSelectedAttachments: 'Delete selected ({count})',
+  syncConflictMsg: '{count} sync conflict files detected — compare with originals and resolve manually. Automatically excluded from batch deletion.',
+  enterSearchTerm: 'Enter search term',
+  // Search filters
+  tag: 'Tag',
+  allTags: 'All tags',
+  all: 'All',
+  hasMemos: 'Has memos',
+  noMemos: 'No memos',
+  extension: 'Extension',
+  folderNotesLabel: 'Folder Notes',
+  showLabel: 'Show',
+  hideLabel: 'Hidden',
+  startDate: 'Start',
+  endDate: 'End',
+  resetTypeFilter: 'Reset type filter',
+  resetTagFilter: 'Reset tag filter',
+  resetMemoFilter: 'Reset memo filter',
+  resetCreatedFilter: 'Reset created date filter',
+  resetModifiedFilter: 'Reset modified date filter',
+  containerPlaceholder: 'Container name...',
+  resetContainerFilter: 'Reset container filter',
+  extensionPlaceholder: 'e.g. png, pdf...',
+  resetExtensionFilter: 'Reset extension filter',
+  notePathPlaceholder: 'Search note path...',
+  resetNotePathFilter: 'Reset note path filter',
+  dummyOnly: 'Dummy Only',
+  showAll: 'Show All',
+  batchDeleteDummyTitle: 'Batch delete filtered dummy files',
+  // Canvas / hover
+  deleteLabel: 'Delete',
+  goBack: 'Go back',
+  attachmentHeading: 'Attachments',
+  // NoteTemplateEditor placeholders
+  exampleName: 'e.g. Weekly Report',
+  examplePrefix: 'e.g. RPT',
 
-  // Context menu
+  // ── Context menu ──
   openInNewWindow: 'Open in New Window',
   rename: 'Rename',
   moveTo: 'Move to...',
   copyPath: 'Copy Path',
   revealInExplorer: 'Reveal in Explorer',
+  deleteFailedTitle: 'Delete Failed',
+  noteDeleteFailedMsg: 'Failed to delete note.',
+  folderDeleteFailedMsg: 'Failed to delete folder.',
+  fileDeleteFailedMsg: 'Failed to delete file.',
+  cannotChangeToStorage: 'Cannot Change to Storage',
+  storageTypeRestrictionMsg: 'Storage containers cannot have folder structures.\n\nContainers with subfolders cannot be changed to Storage type.\nPlease delete or move subfolders first.',
+  openNote: 'Open Note',
+  renameWikiLink: 'Rename Wiki-link...',
+  deleteLink: 'Delete Link',
+  containerType: 'Container Type',
+  typeStandard: 'Standard',
+  typeStorage: 'Storage',
+  folderStatus: 'Folder Status',
+  renameFolder: 'Rename Folder...',
+  moveFolder: 'Move Folder...',
+  deleteContainer: 'Delete Container',
+  deleteFolderContext: 'Delete Folder',
+  deleteFileContext: 'Delete File',
+  openAttachmentFolder: 'Open Attachment Folder',
+  openOwnerNote: 'Open Owner Note',
+  openInternal: 'Open Internal',
+  openDefaultApp: 'Open with Default App',
+  revealFolder: 'Reveal in Folder',
+  renameNote: 'Rename Note...',
+  moveNote: 'Move Note...',
+  deleteNoteContext: 'Delete Note',
 
-  // Editor placeholder
+  // ── Editor placeholder ──
   editorPlaceholder: 'Start typing...',
   editorEmptyText: 'Select a Container or open Search',
 
-  // Hover windows
+  // ── Hover windows ──
   hoverWindows: 'Hover Windows',
   activeWindows: 'Active Windows',
   minimizedWindows: 'Minimized Windows',
+  focused: 'Focused',
+  active: 'Active',
+  noOpenWindows: 'No open windows',
+  restore: 'Restore',
+  minimize: 'Minimize',
+
+  // ── Template descriptions ──
+  templateDescNote: 'Note - A general-purpose note for free-form writing',
+  templateDescSketch: 'Sketch - Canvas-based free-form memo',
+  templateDescMtg: 'Meeting - Record attendees, agenda, and decisions',
+  templateDescSem: 'Seminar - Organize seminar and lecture notes',
+  templateDescEvent: 'Event - Manage event schedules and details',
+  templateDescOfa: 'Official - Manage official documents and records',
+  templateDescPaper: 'Paper - Store academic paper info and notes',
+  templateDescLit: 'Literature - Manage books and reference materials',
+  templateDescData: 'Data - Systematically organize data and materials',
+  templateDescTheo: 'Theory - Organize and study concepts and theories',
+  templateDescContact: 'Contact - Manage contact information',
+  templateDescSetup: 'Setup - Record settings and configuration info',
+  templateDescCustom: 'Custom template',
+  templateDescNoteShort: 'General purpose note',
+  templateDescSketchShort: 'Canvas-based free-form memo',
+  templateDescMtgShort: 'Meeting attendees, agenda, decisions',
+  templateDescSemShort: 'Seminar and lecture notes',
+  templateDescEventShort: 'Event schedule and details',
+  templateDescOfaShort: 'Official documents and records',
+  templateDescPaperShort: 'Academic paper info and notes',
+  templateDescLitShort: 'Books and reference materials',
+  templateDescDataShort: 'Organized data and materials',
+  templateDescTheoShort: 'Concepts and theory notes',
+  templateDescContactShort: 'Contact information management',
+  templateDescSetupShort: 'Settings and configuration',
+  templateDescCustomShort: 'Custom template',
+
+  // ── Vault selector ──
+  selectVaultToStart: 'Select a vault to get started',
+  vaultList: 'Vault List',
+  currentVault: 'Current',
+  removeFromList: 'Remove from list',
+  openExistingVaultDesc: 'Open an existing Notology vault',
+  addVaultBtn: 'Add Vault',
+  createNewVaultDesc: 'Create a new vault in the selected folder',
+  vaultHintText: 'A vault is a folder where your notes and files are stored',
+  exitApp: 'Exit',
+
+  // ── Vault lock ──
+  vaultInUse: 'Vault is in use',
+  vaultInUseMsg: 'This vault is being used on another device.',
+  deviceLabel: 'Device:',
+  lastActivityLabel: 'Last activity:',
+  lockStartedLabel: 'Lock started:',
+  staleSessionWarning: 'The previous session appears to have ended abnormally. You can force open the vault.',
+  multiDeviceWarning: 'Opening a vault on multiple devices simultaneously may corrupt data. Please close Notology on the other device first.',
+  forceOpen: 'Force Open',
+
+  // ── Confirm delete ──
+  batchDelete: 'Batch Delete',
+  deleteFile: 'Delete File',
+  deleteFolder: 'Delete Folder',
+  deleteNote: 'Delete Note',
+  confirmBatchDelete: 'Delete {count} files?',
+  confirmDeleteFile: 'Delete this file?',
+  confirmDeleteFolder: 'Delete this folder?',
+  confirmDeleteNote: 'Delete this note?',
+  warnWikilinks: 'Connected wiki-links will also be removed.',
+  warnSubitems: 'All subitems will be deleted together.',
+  warnAttachments: 'The attachment folder will also be deleted.',
+
+  // ── Rename ──
+  renameFailed: 'Rename failed: {error}',
+  renameTitle: 'Rename',
+
+  // ── Title input ──
+  enterTitle: 'Please enter a title',
+  createNewNoteTitle: 'Create New Note',
+  enterNoteTitlePlaceholder: 'Enter note title',
+  createEnter: 'Create (Enter)',
+
+  // ── Loading ──
+  loadingVault: 'Loading vault',
+
+  // ── Move note ──
+  currentBadge: '(current)',
+  moveNoteTitle: 'Move Note:',
+  moving: 'Moving...',
+  currentLocation: 'Current location',
+  moveBtn: 'Move',
+
+  // ── Update checker ──
+  updateNotFound: 'No updates found.',
+  updateInstallFailed: 'Update install failed: {error}',
+  newVersionAvailable: 'New version available: v{version}',
+  installUpdate: 'Install Update',
+  install: 'Install',
+  later: 'Later',
+  restarting: 'Restarting...',
+
+  // ── Sync status ──
+  statusSynced: 'Saved',
+  statusEditing: 'Editing',
+  statusConflict: 'Conflict',
+  statusEditingElsewhere: 'Editing on another device',
+
+  // ── Template selector ──
+  templateSelectorTitle: 'Select Template',
+  templateSearchPlaceholder: 'Search templates...',
+  defaultTemplates: 'Default Templates',
+  customTemplates: 'Custom Templates',
+  noSearchResultsTemplate: 'No results found',
+
+  // ── Contact input ──
+  contactTitle: 'New Contact Information',
+  contactNameRequired: 'Please enter a name',
+  contactNameField: 'Name *',
+  contactNamePlaceholder: 'John Doe',
+  contactEmail: 'Email',
+  contactCompany: 'Company',
+  contactCompanyPlaceholder: 'Company name',
+  contactPosition: 'Position',
+  contactPositionPlaceholder: 'Title / Role',
+  contactPhone: 'Phone',
+  contactPhonePlaceholder: '+1-234-567-8900',
+  contactLocation: 'Location',
+  contactLocationPlaceholder: 'City, Country',
+  createCtrlEnter: 'Create (Ctrl+Enter)',
+
+  // ── Meeting input ──
+  meetingTitle: 'New Meeting Note',
+  meetingTitleRequired: 'Please enter a meeting title',
+  meetingTitleField: 'Meeting Title *',
+  meetingTitlePlaceholder: 'e.g., Weekly Team Meeting',
+  meetingParticipants: 'Participants',
+  meetingParticipantsPlaceholder: 'e.g., @John, @Jane or type names directly',
+  meetingDate: 'Date',
+  meetingTime: 'Time',
+
+  // ── Paper input ──
+  paperTitle: 'New Paper Note',
+  paperTitleRequired: 'Please enter a paper title',
+  paperTitleField: 'Paper Title *',
+  paperTitlePlaceholder: 'Paper title',
+  paperAuthors: 'Authors',
+  paperYear: 'Year',
+  paperVenue: 'Venue',
+  paperDoi: 'DOI',
+  paperUrl: 'URL',
+
+  // ── Literature input ──
+  literatureTitle: 'New Literature Note',
+  literatureTitleRequired: 'Please enter a literature title',
+  literatureTitleField: 'Literature Title *',
+  literatureTitlePlaceholder: 'Literature title',
+  literatureAuthors: 'Authors',
+  literatureYear: 'Year',
+  literaturePublisher: 'Publisher',
+  literatureSource: 'Source',
+  literatureSourcePlaceholder: 'e.g., report, whitepaper, guidebook',
+  literatureUrl: 'URL',
+
+  // ── Event input ──
+  eventTitle: 'New Event Note',
+  eventTitleRequired: 'Please enter an event title',
+  eventTitleField: 'Event Title *',
+  eventTitlePlaceholder: 'e.g., 2024 AI Conference',
+  eventDate: 'Date',
+  eventLocation: 'Location',
+  eventLocationPlaceholder: 'e.g., Convention Center',
+  eventOrganizer: 'Organizer',
+  eventOrganizerPlaceholder: 'Organization / Group',
+  eventParticipants: 'Participants',
+  eventParticipantsPlaceholder: 'e.g., John, Jane, Bob',
+
+  // ── Calendar ──
+  calendarTask: 'Tasks',
+  calendarMemo: 'Memos',
+  calendarMemoCount: '{count}',
+  calendarNoTasks: 'No tasks',
+  calendarNoMemos: 'No memos',
+
+  // ── Note template editor ──
+  templateIconNote: 'Note',
+  templateIconMeeting: 'Meeting',
+  templateIconOfa: 'Official',
+  templateIconSeminar: 'Seminar',
+  templateIconEvent: 'Event',
+  templateIconContact: 'Contact',
+  templateIconSetup: 'Setup',
+  templateIconData: 'Data',
+  templateIconTheory: 'Theory',
+  templateIconPaper: 'Paper',
+  templateIconSketch: 'Sketch',
+  templateIconLiterature: 'Literature',
+  templateEditTitle: 'Edit Template',
+  templateNewTitle: 'Create New Template',
+  basicInfo: 'Basic Info',
+  templateNameField: 'Template Name',
+  prefix: 'Prefix',
+  appearanceSection: 'Appearance',
+  icon: 'Icon',
+  colorTheme: 'Color Theme',
+  customColor: 'Custom Color',
+  colorHint: 'Selected color is automatically applied to editor, search, and hover windows',
+  tagsSection: 'Tags',
+  defaultTags: 'Default Tags',
+  tagsCommaSeparated: 'Separate with commas',
+  tagCategories: 'Tag Categories (for autocomplete)',
+  domainTags: 'Domain tags',
+  peopleTags: 'People tags',
+  orgTags: 'Organization tags',
+  contextTags: 'Context tags',
+  tagAutocompleteHint: 'Pre-register frequently used tags for autocomplete when typing',
+  bodyStructure: 'Body Structure',
+  sectionHeaders: 'Section Headers',
+  sectionPlaceholder: 'Section {index}',
+  removeSection: 'Remove Section',
+  addSection: '+ Add Section',
+  sectionSeparatorHint: 'Each section is separated by a divider (---)',
+
+  // ── Template editor (folder) ──
+  level: 'Level',
+  cssClasses: 'CSS Classes',
+  cssClassesPlaceholder: 'folder-custom (comma separated)',
+  tagsComma: 'Tags (comma separated)',
+  bodyMarkdown: 'Body (Markdown)',
+
+  // ── Editor toolbar ──
+  toolbarOpen: 'Open Toolbar',
+  toolbarClose: 'Close Toolbar',
+  bold: 'Bold (Ctrl+B)',
+  italic: 'Italic (Ctrl+I)',
+  strikethrough: 'Strikethrough',
+  underline: 'Underline (Ctrl+U)',
+  highlight: 'Highlight',
+  subscript: 'Subscript',
+  superscript: 'Superscript',
+  heading1: 'Heading 1',
+  heading2: 'Heading 2',
+  heading3: 'Heading 3',
+  bulletList: 'Bullet List',
+  orderedList: 'Ordered List',
+  checklist: 'Checklist',
+  blockquote: 'Blockquote',
+  callout: 'Callout',
+  codeBlock: 'Code Block',
+  horizontalRule: 'Horizontal Rule',
+  insertTable: 'Insert Table',
+  insertLinkCard: 'Insert Link Card',
+  indent: 'Indent (Tab)',
+  outdent: 'Outdent (Shift+Tab)',
+
+  // ── Comment panel ──
+  selectDueDate: 'Please select a due date.',
+  memoTitle: 'Memos',
+  addTask: 'Add Task',
+  addMemo: 'Add Memo',
+  taskPlaceholder: 'Enter task... (Ctrl+Enter: add)',
+  memoPlaceholder: 'Enter memo... (Ctrl+Enter: add)',
+  dueDate: 'Due Date',
+  dueDateRequired: 'Due Date *',
+  dueTime: 'Due Time',
+  selectTextToAdd: 'Select text to add a memo',
+  markUnresolved: 'Mark Unresolved',
+  resolve: 'Resolve',
+  resolved: 'Resolved ({count})',
+
+  // ── Canvas editor ──
+  canvasNewNode: 'New Node',
+  canvasResetZoom: 'Reset Zoom',
+  canvasEnterContent: 'Enter content',
+  canvasMultiSelect: 'Multi-select ({nodeCount} nodes, {edgeCount} arrows)',
+  canvasNodeColor: 'Node Color',
+  canvasArrowColor: 'Arrow Color',
+  canvasDeleteSelection: 'Delete Selection',
+  shapeProcess: 'Process',
+  shapeTerminal: 'Terminal',
+  shapeDecision: 'Decision',
+  shapeIO: 'Input/Output (I/O)',
+  shapeSubroutine: 'Subroutine',
+  shapeDatabase: 'Database',
+
+  // ── Hover editor ──
+  attachmentHeader: 'Attachments',
+  metadata: 'Metadata',
+  memo: 'Memos',
+  conflictDetected: 'This note was modified on another device',
+  acceptExternal: 'Accept External Changes',
+  keepMine: 'Keep My Changes',
+  keepBoth: 'Keep Both',
+  conflictCopy: 'Conflict copy — Original:',
+  replaceOriginal: 'Replace original with this version',
+  keepOriginal: 'Keep original (delete this file)',
+  preserveBoth: 'Preserve Both',
+  syncInProgressHover: 'Synology Drive syncing...',
+
+  // ── Editor context menu ──
+  cellDefault: 'Default',
+  cellDarkGray: 'Dark Gray',
+  cellGray: 'Gray',
+  cellBlue: 'Blue',
+  cellGreen: 'Green',
+  cellBrown: 'Brown',
+  cellPurple: 'Purple',
+  cellRed: 'Red',
+  addMemoContext: 'Add Memo',
+  addTaskContext: 'Add Task',
+  heading: 'Heading',
+  boldShort: 'Bold',
+  italicShort: 'Italic',
+  strikethroughShort: 'Strikethrough',
+  underlineShort: 'Underline',
+  highlightShort: 'Highlight',
+  inlineCode: 'Code',
+  addRowBefore: 'Add Row Above',
+  addRowAfter: 'Add Row Below',
+  addColumnBefore: 'Add Column Left',
+  addColumnAfter: 'Add Column Right',
+  cellBgColor: 'Cell Background Color',
+  deleteRow: 'Delete Row',
+  deleteColumn: 'Delete Column',
+  deleteTable: 'Delete Table',
+  indentShort: 'Indent',
+  outdentShort: 'Outdent',
+
+  // ── Folder tree ──
+  collapseAll: 'Collapse All',
+  expandAll: 'Expand All',
+
+  // ── Keyboard shortcuts ──
+  shortcutsAll: 'All',
+  shortcutsInputPlaceholder: 'Press key... (Esc: cancel, Enter: save)',
+  shortcutsReset: 'Reset to Default',
+
+  // ── Graph view ──
+  graphLoading: 'Loading graph data...',
+  graphNoNotes: 'No notes to display',
+  graphSearchPlaceholder: 'Search nodes...',
+  graphSettings: 'Graph Settings',
+  showTags: 'Show Tags',
+  showAttachments: 'Show Attachments',
+  noteColor: 'Notes',
+  tagColor: 'Tags',
+  attachmentColor: 'Attachments',
+  physics: 'Physics Simulation',
+  chargeStrength: 'Charge Strength',
+  linkDistance: 'Link Distance',
+  resetDefaults: 'Reset to Default',
+  folderLabel: 'FOLDER ({count})',
+  notesCount: '{count} notes',
+  tagsCountGraph: '{count} tags',
+  attachmentsCountGraph: '{count} attachments',
+  connectionsCount: '{count} connections',
+
+  // ── App extras ──
+  openWindowsList: 'Open windows list',
+  sidebarToggle: 'Toggle sidebar',
+  windowMinimized: 'minimized',
+  windowFocused: 'focused',
+  windowActive: 'active',
+  contextFocus: 'Focus',
+  contextRestore: 'Restore',
+  contextMinimize: 'Minimize',
+
+  // ── Settings extras ──
+  newTemplate: 'New Template',
+  builtIn: 'Built-in',
+  fontNameLabel: 'Font Name',
+  fontNamePlaceholder: 'Display name',
+  fontFamilyLabel: 'Font Family',
+  fontFamilyPlaceholder: 'e.g., "D2Coding", monospace',
+  howToUse: 'How to use',
+  fontNameTip: 'Font Name: The display name shown in settings. Enter any name you like.',
+  fontFamilyTip: 'Font Family: CSS font-family value. Enter the exact name of a font installed on your system, wrapped in quotes.',
+  examplesLabel: 'Examples:',
+  unusedTags: 'Unused Tags',
+  noUnusedTags: 'No unused tags found.',
+  unusedTagsMsg: '{count} tags are not used in any notes.',
+  removeAll: 'Remove All ({count})',
+  addSystemFont: 'Add fonts installed on your system',
+
+  // ── Metadata ──
+  yamlParseError: 'YAML Parse Error:',
+  yamlPlaceholder: 'Enter metadata in YAML format...',
+  yamlTip: 'Tip: You can edit metadata directly using YAML syntax.',
+  yamlFormModeTip: 'Switch to form mode for validation and autocomplete.',
+  validationErrors: 'Validation Errors ({count})',
+  validationMsg: 'All validation errors must be resolved before saving metadata.',
+  selectFileForMetadata: 'Select a file to edit metadata.',
+  metadataLoading: 'Loading metadata...',
+  noMetadata: 'This file has no metadata.',
+  formMode: 'Form Mode',
+  yamlMode: 'YAML Mode',
+  saving: 'Saving...',
+  facetedTags: 'Faceted Tags',
+  tagOntologyLoading: 'Loading tag ontology...',
+  addBtn: '+ Add',
+  removeBtn: 'Remove',
+  semanticRelations: 'Semantic Relations',
+  cancelAddRelation: 'Cancel',
+  addRelation: '+ Add Relation',
+  relationType: 'Relation Type',
+  targetNote: 'Target Note',
+  noteSearchPlaceholder: 'Enter note title...',
+  noRelations: 'No relations. Click the add button.',
+  relationSupports: 'Related',
+  relationSupportsDesc: 'General relationship (most commonly used)',
+  relationRefutes: 'Reference',
+  relationRefutesDesc: 'Reference material or citation',
+  relationExtends: 'Extends',
+  relationExtendsDesc: 'Continuation or development',
+  relationDerivesFrom: 'Based on',
+  relationDerivesFromDesc: 'Foundational content',
+  basicInfoMeta: 'Basic Info',
+  titleLabel: 'Title',
+  createdLabel: 'Created',
+  modifiedLabel: 'Modified',
+  noteStatus: 'Note Status',
+  workflowLabel: 'Workflow Stage',
+  confidenceLabel: 'Verification Status',
+  maturityLabel: 'Maturity (1-5)',
+  maturityInitial: 'Initial',
+  maturityGrowth: 'Growth',
+  maturityMature: 'Mature',
+  maturityStable: 'Stable',
+  maturityImmutable: 'Immutable',
+  meetingInfo: 'Meeting Info',
+  dateLabel: 'Date',
+  participantsComma: 'Participants (comma separated)',
+  paperInfo: 'Paper Info',
+  authorsComma: 'Authors (comma separated)',
+  venueLabel: 'Venue / Journal',
+  yearLabel: 'Year',
+  contactInfo: 'Contact Info',
+  emailLabel: 'Email',
+  phoneLabel: 'Phone',
+  organizationLabel: 'Organization',
+  roleLabel: 'Role',
+  tagSearchMeta: 'Search tags...',
+  noSearchResultsMeta: 'No results found.',
+  createNewTag: '+ Create new tag: "{query}"',
+  tagCreateFailed: 'Tag creation failed: {error}',
+  deleteTagFull: 'Delete tag (remove from ontology)',
+  tagDelete: 'Delete Tag',
+  rootTag: 'Root',
+  noSubTags: 'No sub-tags.',
+  recentTags: 'Recent Tags',
+  deletedTag: 'Deleted tag: {tag}',
+  removeFromRecent: 'Remove from recent',
+  tagsLabel: 'Tags',
+  tagInput: 'Enter tag',
+
+  // ── RibbonBar ──
+  unknownType: 'Unknown',
+  enterNoteTitle: 'Enter note title',
+  newNoteDefault: 'New Note',
+
+  // ── ParticipantInput ──
+  participantPlaceholder: '@name or type directly',
 };
 
-const translations: Record<LanguageSetting, Translations> = { ko, en };
+const translations: Record<LanguageSetting, Record<string, string>> = { ko, en };
 
-export function t(key: keyof Translations, lang: LanguageSetting): string {
-  return translations[lang][key] || translations['ko'][key] || key;
+export function t(key: string, lang: LanguageSetting): string {
+  return translations[lang]?.[key] || translations['ko']?.[key] || key;
 }
 
-export function getTranslations(lang: LanguageSetting): Translations {
+export function tf(key: string, lang: LanguageSetting, params: Record<string, string | number>): string {
+  let str = t(key, lang);
+  for (const [k, v] of Object.entries(params)) {
+    str = str.replace(`{${k}}`, String(v));
+  }
+  return str;
+}
+
+export function getTranslations(lang: LanguageSetting): Record<string, string> {
   return translations[lang];
 }

@@ -1,4 +1,6 @@
 import { memo } from 'react';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 export type SyncStatus = 'synced' | 'editing' | 'conflict' | 'editing-elsewhere';
 
@@ -7,15 +9,16 @@ interface SyncStatusIndicatorProps {
   deviceName?: string;
 }
 
-const STATUS_LABELS: Record<SyncStatus, string> = {
-  synced: '저장됨',
-  editing: '편집 중',
-  conflict: '충돌 감지',
-  'editing-elsewhere': '다른 기기에서 편집 중',
+const STATUS_LABEL_KEYS: Record<SyncStatus, string> = {
+  synced: 'statusSynced',
+  editing: 'statusEditing',
+  conflict: 'statusConflict',
+  'editing-elsewhere': 'statusEditingElsewhere',
 };
 
 export const SyncStatusIndicator = memo(function SyncStatusIndicator({ status, deviceName }: SyncStatusIndicatorProps) {
-  const label = STATUS_LABELS[status];
+  const language = useSettingsStore(s => s.language);
+  const label = t(STATUS_LABEL_KEYS[status], language);
   const title = deviceName ? `${label} (${deviceName})` : label;
 
   return (

@@ -3,11 +3,14 @@ import { memoCommands } from '../services/tauriCommands';
 import { useVaultPath } from '../stores/zustand/fileTreeStore';
 import { hoverActions } from '../stores/zustand/hoverStore';
 import { useCalendarRefreshTrigger } from '../stores/zustand/refreshStore';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t, tf } from '../utils/i18n';
 import type { CalendarMemo, CalendarViewMode } from '../types';
 
 function Calendar() {
   const vaultPath = useVaultPath();
   const calendarRefreshTrigger = useCalendarRefreshTrigger();
+  const language = useSettingsStore(s => s.language);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [memos, setMemos] = useState<CalendarMemo[]>([]);
@@ -186,13 +189,13 @@ function Calendar() {
             className={`calendar-toggle-btn ${viewMode === 'task' ? 'active' : ''}`}
             onClick={() => setViewMode('task')}
           >
-            할일
+            {t('calendarTask', language)}
           </button>
           <button
             className={`calendar-toggle-btn ${viewMode === 'memo' ? 'active' : ''}`}
             onClick={() => setViewMode('memo')}
           >
-            메모
+            {t('calendarMemo', language)}
           </button>
         </div>
       </div>
@@ -247,13 +250,13 @@ function Calendar() {
         <div className="calendar-memo-list">
           <div className="calendar-memo-list-header">
             {selectedDate && (
-              <span>{new Date(selectedDate).toLocaleDateString('ko-KR', {
+              <span>{new Date(selectedDate).toLocaleDateString(language === 'ko' ? 'ko-KR' : 'en-US', {
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
               })}</span>
             )}
-            <span className="calendar-memo-count">{selectedDateMemos.length}개</span>
+            <span className="calendar-memo-count">{tf('calendarMemoCount', language, { count: selectedDateMemos.length })}</span>
           </div>
           <div className="calendar-memo-items">
             {selectedDateMemos.map(memo => (
@@ -281,7 +284,7 @@ function Calendar() {
             ))}
             {selectedDateMemos.length === 0 && selectedDate && (
               <div className="calendar-memo-empty">
-                {viewMode === 'task' ? '할일이 없습니다' : '메모가 없습니다'}
+                {viewMode === 'task' ? t('calendarNoTasks', language) : t('calendarNoMemos', language)}
               </div>
             )}
           </div>

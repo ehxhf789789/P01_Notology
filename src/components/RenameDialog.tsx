@@ -1,10 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { renameFile } from '../stores/appActions';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t, tf } from '../utils/i18n';
 
 function RenameDialog() {
   const renameDialogState = useModalStore(s => s.renameDialogState);
   const hideRenameDialog = useModalStore(s => s.hideRenameDialog);
+  const language = useSettingsStore(s => s.language);
   const [newName, setNewName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -56,7 +59,7 @@ function RenameDialog() {
       hideRenameDialog();
     } catch (e) {
       console.error('Failed to rename:', e);
-      alert(`이름 변경 실패: ${e}`);
+      alert(tf('renameFailed', language, { error: String(e) }));
     }
   };
 
@@ -71,7 +74,7 @@ function RenameDialog() {
   return (
     <div className="rename-dialog-overlay" onClick={hideRenameDialog}>
       <div className="rename-dialog" onClick={e => e.stopPropagation()}>
-        <div className="rename-dialog-title">이름 변경</div>
+        <div className="rename-dialog-title">{t('renameTitle', language)}</div>
         <input
           ref={inputRef}
           className="rename-dialog-input"
@@ -82,8 +85,8 @@ function RenameDialog() {
           autoFocus
         />
         <div className="rename-dialog-actions">
-          <button className="rename-dialog-btn cancel" onClick={hideRenameDialog}>취소</button>
-          <button className="rename-dialog-btn confirm" onClick={handleRename}>변경</button>
+          <button className="rename-dialog-btn cancel" onClick={hideRenameDialog}>{t('cancel', language)}</button>
+          <button className="rename-dialog-btn confirm" onClick={handleRename}>{t('change', language)}</button>
         </div>
       </div>
     </div>

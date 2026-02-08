@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react';
 import type { Relation, RelationType } from '../../types/frontmatter';
+import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t } from '../../utils/i18n';
+import type { LanguageSetting } from '../../utils/i18n';
 
 interface RelationEditorProps {
   relations: Relation[];
@@ -7,14 +10,24 @@ interface RelationEditorProps {
   availableNotes: string[]; // List of note titles
 }
 
-const RELATION_TYPES: Array<{ type: RelationType; label: string; description: string }> = [
-  { type: 'supports', label: '관련', description: '일반적인 관련 관계 (가장 많이 사용)' },
-  { type: 'refutes', label: '참조', description: '참고 자료 또는 인용' },
-  { type: 'extends', label: '후속', description: '이어지는 내용 또는 발전' },
-  { type: 'derives-from', label: '기반', description: '기반이 되는 내용' },
+const RELATION_TYPE_KEYS: Array<{ type: RelationType; labelKey: string; descKey: string }> = [
+  { type: 'supports', labelKey: 'relationSupports', descKey: 'relationSupportsDesc' },
+  { type: 'refutes', labelKey: 'relationRefutes', descKey: 'relationRefutesDesc' },
+  { type: 'extends', labelKey: 'relationExtends', descKey: 'relationExtendsDesc' },
+  { type: 'derives-from', labelKey: 'relationDerivesFrom', descKey: 'relationDerivesFromDesc' },
 ];
 
+function getRelationTypes(lang: LanguageSetting) {
+  return RELATION_TYPE_KEYS.map(rt => ({
+    type: rt.type,
+    label: t(rt.labelKey, lang),
+    description: t(rt.descKey, lang),
+  }));
+}
+
 function RelationEditor({ relations, onChange, availableNotes }: RelationEditorProps) {
+  const language = useSettingsStore(s => s.language);
+  const relationTypes = getRelationTypes(language);
   const [isAdding, setIsAdding] = useState(false);
   const [newRelation, setNewRelation] = useState<Relation>({
     relation_type: 'supports',
@@ -47,7 +60,7 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
   };
 
   const getRelationLabel = (type: RelationType): string => {
-    return RELATION_TYPES.find((rt) => rt.type === type)?.label || type;
+    return relationTypes.find((rt) => rt.type === type)?.label || type;
   };
 
   const handleTargetChange = (value: string) => {
@@ -88,12 +101,12 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
   return (
     <div className="relation-editor">
       <div className="relation-editor-header">
-        <h3 className="relation-editor-title">시맨틱 관계</h3>
+        <h3 className="relation-editor-title">{t('semanticRelations', language)}</h3>
         <button
           className="relation-add-btn"
           onClick={() => setIsAdding(!isAdding)}
         >
-          {isAdding ? '취소' : '+ 관계 추가'}
+          {isAdding ? t('cancelAddRelation', language) : t('addRelation', language)}
         </button>
       </div>
 
@@ -102,7 +115,7 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
         <div className="relation-add-form">
           <div className="relation-form-row">
             <div className="relation-form-field">
-              <label>관계 유형</label>
+              <label>{t('relationType', language)}</label>
               <select
                 value={newRelation.relation_type}
                 onChange={(e) =>
@@ -112,7 +125,7 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
                   })
                 }
               >
-                {RELATION_TYPES.map((rt) => (
+                {relationTypes.map((rt) => (
                   <option key={rt.type} value={rt.type} title={rt.description}>
                     {rt.label}
                   </option>
@@ -121,7 +134,7 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
             </div>
 
             <div className="relation-form-field" style={{ position: 'relative' }}>
-              <label>대상 노트</label>
+              <label>{t('targetNote', language)}</label>
               <input
                 ref={inputRef}
                 type="text"
@@ -132,7 +145,7 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
                     setShowSuggestions(true);
                   }
                 }}
-                placeholder="노트 제목 입력..."
+                placeholder={t('noteSearchPlaceholder', language)}
               />
               {showSuggestions && filteredNotes.length > 0 && (
                 <div ref={suggestionsRef} className="note-suggestions">
@@ -151,14 +164,14 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
           </div>
 
           <button className="relation-form-submit" onClick={addRelation}>
-            추가
+            {t('add', language)}
           </button>
         </div>
       )}
 
       {/* Existing Relations */}
       {relations.length === 0 && !isAdding && (
-        <div className="relation-empty">관계가 없습니다. 추가 버튼을 클릭하세요.</div>
+        <div className="relation-empty">{t('noRelations', language)}</div>
       )}
 
       {relations.length > 0 && (
@@ -174,7 +187,7 @@ function RelationEditor({ relations, onChange, availableNotes }: RelationEditorP
                 <button
                   className="relation-remove-btn"
                   onClick={() => removeRelation(index)}
-                  title="제거"
+                  title={t('removeBtn', language)}
                 >
                   ×
                 </button>

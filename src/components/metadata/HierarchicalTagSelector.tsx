@@ -11,6 +11,8 @@ import {
   clearOntologyCache,
 } from '../../utils/tagOntologyUtils';
 import { refreshActions } from '../../stores/zustand/refreshStore';
+import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t, tf } from '../../utils/i18n';
 
 interface HierarchicalTagSelectorProps {
   namespace: FacetNamespace;
@@ -28,6 +30,7 @@ function HierarchicalTagSelector({
   vaultPath,
 }: HierarchicalTagSelectorProps) {
   const incrementOntologyRefresh = refreshActions.incrementOntologyRefresh;
+  const language = useSettingsStore(s => s.language);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentPath, setCurrentPath] = useState<TagNode[]>([]);
   const [recentTags, setRecentTags] = useState<string[]>([]);
@@ -137,7 +140,7 @@ function HierarchicalTagSelector({
       onSelect(newTagId);
     } catch (error) {
       console.error('Failed to create tag:', error);
-      alert(`태그 생성 실패: ${error}`);
+      alert(tf('tagCreateFailed', language, { error: String(error) }));
     }
   };
 
@@ -166,7 +169,7 @@ function HierarchicalTagSelector({
         <input
           ref={inputRef}
           type="text"
-          placeholder="태그 검색..."
+          placeholder={t('tagSearchMeta', language)}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           onKeyDown={handleKeyDown}
@@ -180,12 +183,12 @@ function HierarchicalTagSelector({
         <div className="tag-search-results">
           {searchResults.length === 0 ? (
             <div className="tag-empty">
-              <div>검색 결과가 없습니다.</div>
+              <div>{t('noSearchResultsMeta', language)}</div>
               <button
                 className="tag-create-btn"
                 onClick={handleCreateNewTag}
               >
-                + 새 태그 생성: "{searchQuery.trim()}"
+                {tf('createNewTag', language, { query: searchQuery.trim() })}
               </button>
             </div>
           ) : (
@@ -216,7 +219,7 @@ function HierarchicalTagSelector({
                   <button
                     className="tag-item-delete"
                     onClick={(e) => handleDeleteTag(e, result.id)}
-                    title="태그 삭제 (온톨로지에서 완전 삭제)"
+                    title={t('deleteTagFull', language)}
                   >
                     🗑
                   </button>
@@ -237,7 +240,7 @@ function HierarchicalTagSelector({
                 className="breadcrumb-item"
                 onClick={() => handleBreadcrumbClick(-1)}
               >
-                루트
+                {t('rootTag', language)}
               </button>
               {currentPath.map((node, index) => (
                 <div key={node.id} className="breadcrumb-separator-wrapper">
@@ -256,7 +259,7 @@ function HierarchicalTagSelector({
           {/* Tag List */}
           <div className={`tag-list ${isKeyboardNavActive ? 'keyboard-nav-active' : ''}`}>
             {visibleTags.length === 0 ? (
-              <div className="tag-empty">하위 태그가 없습니다.</div>
+              <div className="tag-empty">{t('noSubTags', language)}</div>
             ) : (
               visibleTags.map((tag, index) => (
                 <div key={tag.id} className="tag-item-wrapper">
@@ -283,7 +286,7 @@ function HierarchicalTagSelector({
                   <button
                     className="tag-item-delete"
                     onClick={(e) => handleDeleteTag(e, tag.id)}
-                    title="태그 삭제"
+                    title={t('tagDelete', language)}
                   >
                     ×
                   </button>
@@ -295,7 +298,7 @@ function HierarchicalTagSelector({
           {/* Recent Tags */}
           {currentPath.length === 0 && recentTags.length > 0 && (
             <div className="tag-recent">
-              <div className="tag-recent-title">최근 사용한 태그</div>
+              <div className="tag-recent-title">{t('recentTags', language)}</div>
               <div className="tag-recent-list">
                 {recentTags.map((tagId) => {
                   const definition = ontology.definitions[tagId];
@@ -308,7 +311,7 @@ function HierarchicalTagSelector({
                       <button
                         className={`tag-chip-small ${isOrphan ? 'tag-chip-small-orphan' : ''}`}
                         onClick={() => !isOrphan && handleSelectTag(tagId)}
-                        title={isOrphan ? `삭제된 태그: ${tagId}` : tagId}
+                        title={isOrphan ? tf('deletedTag', language, { tag: tagId }) : tagId}
                         disabled={isOrphan}
                       >
                         {displayLabel}
@@ -316,7 +319,7 @@ function HierarchicalTagSelector({
                       <button
                         className="tag-chip-remove"
                         onClick={(e) => handleRemoveRecentTag(e, tagId)}
-                        title="최근 태그에서 제거"
+                        title={t('removeFromRecent', language)}
                       >
                         ×
                       </button>

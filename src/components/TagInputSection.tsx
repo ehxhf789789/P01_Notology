@@ -6,6 +6,7 @@ import { FACET_INFOS } from '../types';
 import { useVaultPath } from '../stores/zustand/fileTreeStore';
 import { useOntologyRefreshTrigger, refreshActions } from '../stores/zustand/refreshStore';
 import { loadTagOntology, searchTags, addNewTag } from '../utils/tagOntologyUtils';
+import { t } from '../utils/i18n';
 
 export interface FacetedTagSelection {
   domain: string[];
@@ -206,7 +207,7 @@ function TagInputSection({ value, onChange, language = 'ko', collapsed: initialC
       >
         <span className={`tag-input-collapse-icon ${isCollapsed ? 'collapsed' : ''}`}>▼</span>
         <span className="tag-input-section-title">
-          {language === 'ko' ? '태그' : 'Tags'}
+          {t('tagsLabel', language)}
         </span>
         {totalTags > 0 && (
           <span className="tag-input-section-count">{totalTags}</span>
@@ -257,7 +258,7 @@ function TagInputSection({ value, onChange, language = 'ko', collapsed: initialC
                           setSuggestions([]);
                         }, 150);
                       }}
-                      placeholder={language === 'ko' ? '태그 입력' : 'Enter tag'}
+                      placeholder={t('tagInput', language)}
                       autoComplete="off"
                     />
                   ) : (

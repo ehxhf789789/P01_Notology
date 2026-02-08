@@ -15,7 +15,7 @@ import { useIsNasSynced, useIsBulkSyncing } from '../stores/zustand/vaultConfigS
 import { selectContainer, refreshHoverWindowsForFile } from '../stores/appActions';
 import { contentCacheActions } from '../stores/zustand/contentCacheStore';
 import type { NoteFilter, NoteMetadata, SearchResult, SearchMode, AttachmentInfo } from '../types';
-import { t } from '../utils/i18n';
+import { t, tf } from '../utils/i18n';
 import { getTemplateCustomColor as getTemplateColor } from '../utils/noteTypeHelpers';
 import { NOTE_TYPES } from './search/searchHelpers';
 import { SearchFilters } from './search/SearchFilters';
@@ -562,8 +562,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
 
     if (dummyFiles.length === 0 && conflictFiles.length > 0) {
       modalActions.showAlertModal(
-        '충돌 파일만 존재',
-        `${conflictFiles.length}개의 Synology 동기화 충돌 파일이 있습니다.\n충돌 파일은 일괄 삭제 대상에서 제외됩니다. 원본 파일과 비교 후 수동으로 처리해 주세요.`
+        t('conflictFilesOnly', language),
+        tf('conflictFilesMsg', language, { count: conflictFiles.length })
       );
       return;
     }
@@ -574,11 +574,11 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
 
     const count = dummyFiles.length;
     const conflictNote = conflictFiles.length > 0
-      ? `\n(충돌 파일 ${conflictFiles.length}개는 제외됨)`
+      ? tf('conflictExcluded', language, { count: conflictFiles.length })
       : '';
 
     // Show confirmation modal - deletion happens in the callback after user confirms
-    modalActions.showConfirmDelete(`더미 파일${conflictNote}`, 'file', async () => {
+    modalActions.showConfirmDelete(`${t('dummyFile', language)}${conflictNote}`, 'file', async () => {
       try {
         const paths = dummyFiles.map(a => a.path);
         const deleted = await searchCommands.deleteMultipleFiles(paths);
@@ -590,10 +590,10 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         // Refresh attachments list
         await searchAttachments();
 
-        modalActions.showAlertModal('삭제 완료', `${deleted}개의 더미 파일이 삭제되었습니다.${conflictNote}`);
+        modalActions.showAlertModal(t('deleteComplete', language), `${tf('deletedFilesMsg', language, { count: deleted })}${conflictNote}`);
       } catch (e) {
         console.error('Failed to batch delete dummy files:', e);
-        modalActions.showAlertModal('삭제 실패', `일괄 삭제에 실패했습니다.\n\n${e}`);
+        modalActions.showAlertModal(t('deleteFailed', language), `${t('batchDeleteFailed', language)}\n\n${e}`);
       }
     }, count);
   }, [filteredAttachments, searchAttachments]);
@@ -607,7 +607,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     const pathsToDelete = Array.from(selectedAttachments);
 
     // Show confirmation modal - deletion happens in the callback after user confirms
-    modalActions.showConfirmDelete('선택된 파일', 'file', async () => {
+    modalActions.showConfirmDelete(t('selectedFiles', language), 'file', async () => {
       try {
         // Use new command that also removes wikilinks from owning notes
         const [deleted, linksRemoved, modifiedNotes] = await searchCommands.deleteAttachmentsWithLinks(pathsToDelete);
@@ -626,14 +626,14 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         }
 
         // Show result using alert modal
-        let msg = `${deleted}개의 파일이 삭제되었습니다.`;
+        let msg = tf('filesDeletedMsg', language, { count: deleted });
         if (linksRemoved > 0) {
-          msg += `\n${linksRemoved}개의 위키링크가 제거되었습니다.`;
+          msg += `\n${tf('wikilinksRemovedMsg', language, { count: linksRemoved })}`;
         }
-        modalActions.showAlertModal('삭제 완료', msg);
+        modalActions.showAlertModal(t('deleteComplete', language), msg);
       } catch (e) {
         console.error('Failed to batch delete selected files:', e);
-        modalActions.showAlertModal('삭제 실패', `파일을 삭제하지 못했습니다.\n\n${e}`);
+        modalActions.showAlertModal(t('deleteFailed', language), `${t('fileDeleteFailed', language)}\n\n${e}`);
       }
     }, count);
   }, [selectedAttachments, searchAttachments]);
@@ -672,7 +672,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       {/* Bulk sync banner — only visible when NAS sync is detected and bulk sync is active */}
       {isNasSynced && isBulkSyncing && (
         <div className="bulk-sync-banner">
-          <span>Synology Drive 동기화 진행 중... 파일이 안정화될 때까지 편집을 잠시 대기해 주세요.</span>
+          <span>{t('syncInProgressMsg', language)}</span>
         </div>
       )}
       <div className="search-tabs">
@@ -728,7 +728,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
             <input
               className="search-input"
               type="text"
-              placeholder="태그 검색..."
+              placeholder={t('tagSearch', language)}
               value={detailsTagFilter}
               onChange={e => setDetailsTagFilter(e.target.value)}
             />
@@ -777,7 +777,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
               <button
                 className={`search-filter-btn ${showAttachmentsFilters ? 'active' : ''}`}
                 onClick={() => setShowAttachmentsFilters(!showAttachmentsFilters)}
-                title="필터"
+                title={t('filter', language)}
               >
                 <Filter size={14} />
               </button>
@@ -837,16 +837,16 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
             <thead>
               <tr>
                 <th className="search-th clickable" onClick={() => handleSortChange('title')}>
-                  제목{getSortIndicator('title')}
+                  {t('titleColumn', language)}{getSortIndicator('title')}
                 </th>
-                <th className="search-th">타입</th>
-                <th className="search-th">태그</th>
-                <th className="search-th">메모</th> {/* Note body presence */}
+                <th className="search-th">{t('noteType', language)}</th>
+                <th className="search-th">{t('tags', language)}</th>
+                <th className="search-th">{t('memos', language)}</th> {/* Note body presence */}
                 <th className="search-th clickable" onClick={() => handleSortChange('created')}>
-                  생성일{getSortIndicator('created')}
+                  {t('createdDate', language)}{getSortIndicator('created')}
                 </th>
                 <th className="search-th clickable" onClick={() => handleSortChange('modified')}>
-                  수정일{getSortIndicator('modified')}
+                  {t('modifiedDate', language)}{getSortIndicator('modified')}
                 </th>
               </tr>
             </thead>
@@ -865,7 +865,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
               {filteredNotes.length === 0 && (
                 <tr>
                   <td className="search-td search-empty" colSpan={6}>
-                    {searchReady ? '결과 없음' : '인덱스 초기화 중...'}
+                    {searchReady ? t('noResults', language) : t('indexInitializing', language)}
                   </td>
                 </tr>
               )}
@@ -876,7 +876,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         <div className="search-content-results">
           {filteredContentResults.length === 0 ? (
             <div className="search-content-empty">
-              {!contentsQuery.trim() ? '검색어를 입력하세요' : searchReady ? '결과 없음' : '인덱스 초기화 중...'}
+              {!contentsQuery.trim() ? t('enterSearchTerm', language) : searchReady ? t('noResults', language) : t('indexInitializing', language)}
             </div>
           ) : (
             filteredContentResults.map(result => (
@@ -895,16 +895,16 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         <div className="search-table-wrapper" ref={searchTableRef}>
           {conflictCount > 0 && (
             <div className="bulk-sync-banner" style={{ borderBottom: '1px solid rgba(232, 168, 56, 0.3)', animation: 'none', opacity: 1 }}>
-              <span>동기화 충돌 파일 {conflictCount}개 감지됨 — 원본과 비교 후 수동으로 처리해 주세요. 일괄 삭제 대상에서 자동 제외됩니다.</span>
+              <span>{tf('syncConflictMsg', language, { count: conflictCount })}</span>
             </div>
           )}
             <table className="search-table">
               <thead>
                 <tr>
-                  <th className="search-th">파일명</th>
-                  <th className="search-th">소속 노트</th>
-                  <th className="search-th">첨부 노트</th>
-                  <th className="search-th">컨테이너</th>
+                  <th className="search-th">{t('fileName', language)}</th>
+                  <th className="search-th">{t('ownerNote', language)}</th>
+                  <th className="search-th">{t('attachedNote', language)}</th>
+                  <th className="search-th">{t('container', language)}</th>
                 </tr>
               </thead>
               <tbody>
@@ -921,7 +921,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                 {filteredAttachments.length === 0 && (
                   <tr>
                     <td className="search-td search-empty" colSpan={4}>
-                      {searchReady ? '첨부파일 없음' : '인덱스 초기화 중...'}
+                      {searchReady ? t('noAttachments', language) : t('indexInitializing', language)}
                     </td>
                   </tr>
                 )}
@@ -933,7 +933,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         <div className="search-details-results">
           {filteredDetailsNotes.length === 0 ? (
             <div className="search-content-empty">
-              {searchReady ? '결과 없음' : '인덱스 초기화 중...'}
+              {searchReady ? t('noResults', language) : t('indexInitializing', language)}
             </div>
           ) : (
             filteredDetailsNotes.map(note => (
@@ -950,7 +950,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
           )}
         </div>
       ) : mode === 'graph' ? (
-        <Suspense fallback={<div className="graph-loading">그래프 로딩 중...</div>}>
+        <Suspense fallback={<div className="graph-loading">{t('graphLoadingSearch', language)}</div>}>
           <GraphView containerPath={containerPath} refreshTrigger={refreshTrigger} />
         </Suspense>
       ) : null}
@@ -958,12 +958,12 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       {mode !== 'graph' && <div className="search-status-bar">
         <span className="search-count">
           {mode === 'frontmatter'
-            ? `${filteredNotes.length}개 노트`
+            ? tf('notesCountLabel', language, { count: filteredNotes.length })
             : mode === 'contents'
-              ? `${filteredContentResults.length}개 결과`
+              ? tf('resultsCountLabel', language, { count: filteredContentResults.length })
               : mode === 'attachments'
-                ? `${filteredAttachments.length}개 첨부파일`
-                : `${filteredDetailsNotes.length}개 노트`}
+                ? tf('attachmentsCountLabel', language, { count: filteredAttachments.length })
+                : tf('notesCountLabel', language, { count: filteredDetailsNotes.length })}
         </span>
       </div>}
 
@@ -987,7 +987,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
               handleBatchDeleteSelected();
             }}
           >
-            선택 항목 삭제 ({selectedAttachments.size}개)
+            {tf('deleteSelectedAttachments', language, { count: selectedAttachments.size })}
           </button>
         </div>
       )}

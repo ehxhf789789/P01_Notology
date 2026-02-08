@@ -8,6 +8,8 @@ import {
   parseShortcut,
   type ShortcutBinding,
 } from '../utils/shortcuts';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 interface KeyboardShortcutsProps {
   customShortcuts: ShortcutBinding[];
@@ -15,6 +17,7 @@ interface KeyboardShortcutsProps {
 }
 
 function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShortcutsProps) {
+  const language = useSettingsStore(s => s.language);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingKeys, setEditingKeys] = useState('');
@@ -143,7 +146,7 @@ function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShort
           className={`shortcuts-filter-btn ${selectedCategory === 'all' ? 'active' : ''}`}
           onClick={() => setSelectedCategory('all')}
         >
-          전체
+          {t('shortcutsAll', language)}
         </button>
         {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
           <button
@@ -174,7 +177,7 @@ function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShort
                     onKeyDown={handleKeyCapture}
                     autoFocus
                     readOnly
-                    placeholder="키 입력... (Esc: 취소, Enter: 저장)"
+                    placeholder={t('shortcutsInputPlaceholder', language)}
                   />
                 ) : (
                   <button className="shortcuts-key-btn" onClick={() => handleStartEdit(binding)}>
@@ -185,7 +188,7 @@ function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShort
                   </button>
                 )}
                 {isCustomized && !isEditing && (
-                  <button className="shortcuts-reset-btn" onClick={() => handleReset(binding.id)} title="기본값 복원">
+                  <button className="shortcuts-reset-btn" onClick={() => handleReset(binding.id)} title={t('shortcutsReset', language)}>
                     ↺
                   </button>
                 )}

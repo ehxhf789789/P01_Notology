@@ -2,6 +2,8 @@ import { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { CalloutType } from '../extensions/Callout';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -18,6 +20,7 @@ const CALLOUT_TYPES: { type: CalloutType; label: string }[] = [
 ];
 
 const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps) {
+  const language = useSettingsStore(s => s.language);
   const [expanded, setExpanded] = useState(false);
   const [showCalloutPicker, setShowCalloutPicker] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
@@ -61,7 +64,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
         <button
           className="editor-toolbar-toggle"
           onClick={() => setExpanded(true)}
-          title="툴바 열기"
+          title={t('toolbarOpen', language)}
         >
           <ChevronDown size={12} />
         </button>
@@ -71,7 +74,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
           <button
             className="editor-toolbar-toggle-close"
             onClick={() => { setExpanded(false); setShowCalloutPicker(false); }}
-            title="툴바 닫기"
+            title={t('toolbarClose', language)}
           >
             <ChevronUp size={12} />
           </button>
@@ -81,49 +84,49 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
             <button
               className={`editor-toolbar-btn ${editor.isActive('bold') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleBold().run()}
-              title="굵게 (Ctrl+B)"
+              title={t('bold', language)}
             >
               B
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('italic') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleItalic().run()}
-              title="기울임 (Ctrl+I)"
+              title={t('italic', language)}
             >
               <em>I</em>
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('strike') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleStrike().run()}
-              title="취소선"
+              title={t('strikethrough', language)}
             >
               <s>S</s>
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('underline') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleUnderline().run()}
-              title="밑줄 (Ctrl+U)"
+              title={t('underline', language)}
             >
               <u>U</u>
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('highlight') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleHighlight().run()}
-              title="하이라이트"
+              title={t('highlight', language)}
             >
               H
             </button>
             <button
               className={`editor-toolbar-btn btn-small ${editor.isActive('subscript') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleSubscript().run()}
-              title="아래 첨자"
+              title={t('subscript', language)}
             >
               X₂
             </button>
             <button
               className={`editor-toolbar-btn btn-small ${editor.isActive('superscript') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleSuperscript().run()}
-              title="위 첨자"
+              title={t('superscript', language)}
             >
               X²
             </button>
@@ -134,21 +137,21 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
             <button
               className={`editor-toolbar-btn ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-              title="제목 1"
+              title={t('heading1', language)}
             >
               H1
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-              title="제목 2"
+              title={t('heading2', language)}
             >
               H2
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('heading', { level: 3 }) ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-              title="제목 3"
+              title={t('heading3', language)}
             >
               H3
             </button>
@@ -159,21 +162,21 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
             <button
               className={`editor-toolbar-btn ${editor.isActive('bulletList') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleBulletList().run()}
-              title="글머리 목록"
+              title={t('bulletList', language)}
             >
               •≡
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('orderedList') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              title="번호 목록"
+              title={t('orderedList', language)}
             >
               1.
             </button>
             <button
               className={`editor-toolbar-btn ${editor.isActive('taskList') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleTaskList().run()}
-              title="체크리스트"
+              title={t('checklist', language)}
             >
               ☑
             </button>
@@ -184,7 +187,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
             <button
               className={`editor-toolbar-btn ${editor.isActive('blockquote') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleBlockquote().run()}
-              title="인용"
+              title={t('blockquote', language)}
             >
               ❝
             </button>
@@ -192,7 +195,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
               <button
                 className={`editor-toolbar-btn ${editor.isActive('callout') ? 'active' : ''}`}
                 onClick={() => setShowCalloutPicker(!showCalloutPicker)}
-                title="콜아웃"
+                title={t('callout', language)}
               >
                 ⓘ
               </button>
@@ -213,14 +216,14 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
             <button
               className={`editor-toolbar-btn ${editor.isActive('codeBlock') ? 'active' : ''}`}
               onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-              title="코드 블록"
+              title={t('codeBlock', language)}
             >
               {'</>'}
             </button>
             <button
               className="editor-toolbar-btn"
               onClick={() => editor.chain().focus().setHorizontalRule().run()}
-              title="구분선"
+              title={t('horizontalRule', language)}
             >
               ―
             </button>
@@ -231,7 +234,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
             <button
               className="editor-toolbar-btn"
               onClick={() => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()}
-              title="표 삽입"
+              title={t('insertTable', language)}
             >
               ⊞
             </button>
@@ -243,7 +246,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
                   editor.chain().focus().setLinkCard({ url }).run();
                 }
               }}
-              title="링크 카드 삽입"
+              title={t('insertLinkCard', language)}
             >
               🔗
             </button>
@@ -262,7 +265,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
                   editor.chain().focus().indent().run();
                 }
               }}
-              title="들여쓰기 (Tab)"
+              title={t('indent', language)}
             >
               ⇥
             </button>
@@ -277,7 +280,7 @@ const EditorToolbar = memo(function EditorToolbar({ editor }: EditorToolbarProps
                   editor.chain().focus().outdent().run();
                 }
               }}
-              title="내어쓰기 (Shift+Tab)"
+              title={t('outdent', language)}
             >
               ⇤
             </button>

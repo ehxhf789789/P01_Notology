@@ -4,6 +4,7 @@ import { noteCommands, utilCommands } from '../services/tauriCommands';
 import { useDropTarget } from '../hooks/useDragDrop';
 import { hoverActions } from '../stores/zustand/hoverStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import type { CanvasData, CanvasNode, CanvasEdge, CanvasSelection } from '../types';
 
 interface CanvasEditorProps {
@@ -17,6 +18,7 @@ interface CanvasEditorProps {
 function CanvasEditor({ data, onChange, readOnly = false, notePath, onSelectionChange }: CanvasEditorProps) {
   const openHoverFile = hoverActions.open;
   const theme = useSettingsStore((s) => s.theme);
+  const language = useSettingsStore((s) => s.language);
 
   // Determine effective theme (considering system preference)
   const getEffectiveTheme = () => {
@@ -1152,7 +1154,7 @@ function CanvasEditor({ data, onChange, readOnly = false, notePath, onSelectionC
                   <button
                     className="canvas-node-delete"
                     onClick={() => deleteNode(node.id)}
-                    title="삭제"
+                    title={t('deleteLabel', language)}
                   >
                     ×
                   </button>

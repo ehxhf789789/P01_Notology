@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import TagInputSection, { type FacetedTagSelection } from './TagInputSection';
 
 const DEFAULT_TAGS: FacetedTagSelection = {
@@ -38,7 +39,7 @@ function TitleInputModal() {
 
   const handleSubmit = () => {
     if (!inputValue.trim()) {
-      alert(language === 'ko' ? '제목을 입력하세요' : 'Please enter a title');
+      alert(t('enterTitle', language));
       return;
     }
     callback({ title: inputValue.trim(), tags: selectedTags });
@@ -65,7 +66,7 @@ function TitleInputModal() {
   return (
     <div className="modal-overlay">
       <div className={`title-input-modal ${templateInfo ? 'with-template-info' : ''}`}>
-        <div className="title-input-header">{title || '새 노트 생성'}</div>
+        <div className="title-input-header">{title || t('createNewNoteTitle', language)}</div>
         {templateInfo && (
           <div className="title-input-template-info">
             <span
@@ -86,7 +87,7 @@ function TitleInputModal() {
             value={inputValue}
             onChange={e => setInputValue(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder || (language === 'ko' ? '노트 제목을 입력하세요' : 'Enter note title')}
+            placeholder={placeholder || t('enterNoteTitlePlaceholder', language)}
           />
           <TagInputSection
             value={selectedTags}
@@ -97,10 +98,10 @@ function TitleInputModal() {
         </div>
         <div className="title-input-actions">
           <button className="title-input-btn title-input-cancel" onClick={handleCancel}>
-            취소
+            {t('cancel', language)}
           </button>
           <button className="title-input-btn title-input-submit" onClick={handleSubmit}>
-            생성 (Enter)
+            {t('createEnter', language)}
           </button>
         </div>
       </div>

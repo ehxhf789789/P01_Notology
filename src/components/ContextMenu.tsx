@@ -7,6 +7,8 @@ import { useContainerConfigs, useFolderStatuses, vaultConfigActions } from '../s
 import { deleteNote, deleteFolder, refreshHoverWindowsForFile } from '../stores/appActions';
 import type { ContainerType, FolderStatus } from '../types';
 import { FOLDER_STATUS_INFO } from '../types';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 // Render folder status icon using Lucide
 function renderStatusIcon(status: FolderStatus) {
@@ -25,6 +27,7 @@ function renderStatusIcon(status: FolderStatus) {
 }
 
 function ContextMenu() {
+  const language = useSettingsStore(s => s.language);
   const contextMenu = useModalStore(s => s.contextMenu);
   const fileTree = useFileTree();
   const vaultPath = useVaultPath();
@@ -199,7 +202,7 @@ function ContextMenu() {
         await fileTreeActions.refreshFileTree();
       } catch (e) {
         console.error('Failed to delete note:', e);
-        modalActions.showAlertModal('삭제 실패', `노트를 삭제하지 못했습니다.\n\n${e}`);
+        modalActions.showAlertModal(t('deleteFailedTitle', language), `${t('noteDeleteFailedMsg', language)}\n\n${e}`);
       }
     });
   };
@@ -215,7 +218,7 @@ function ContextMenu() {
         await fileTreeActions.refreshFileTree();
       } catch (e) {
         console.error('Failed to delete folder:', e);
-        modalActions.showAlertModal('삭제 실패', `폴더를 삭제하지 못했습니다.\n\n${e}`);
+        modalActions.showAlertModal(t('deleteFailedTitle', language), `${t('folderDeleteFailedMsg', language)}\n\n${e}`);
       }
     });
   };
@@ -246,8 +249,8 @@ function ContextMenu() {
       if (containerHasSubfolders) {
         modalActions.hideContextMenu();
         modalActions.showAlertModal(
-          'Storage 유형으로 변경 불가',
-          'Storage 컨테이너는 내부에 폴더 구조를 가질 수 없습니다.\n\n하위 폴더가 있는 컨테이너는 Storage 유형으로 변경할 수 없습니다.\n먼저 하위 폴더를 삭제하거나 이동해 주세요.'
+          t('cannotChangeToStorage', language),
+          t('storageTypeRestrictionMsg', language)
         );
         return;
       }
@@ -295,11 +298,11 @@ function ContextMenu() {
         }
 
         if (deleted === 0) {
-          modalActions.showAlertModal('삭제 실패', '파일을 삭제하지 못했습니다.');
+          modalActions.showAlertModal(t('deleteFailedTitle', language), t('fileDeleteFailedMsg', language));
         }
       } catch (e) {
         console.error('Failed to delete attachment:', e);
-        modalActions.showAlertModal('삭제 실패', `파일을 삭제하지 못했습니다.\n\n${e}`);
+        modalActions.showAlertModal(t('deleteFailedTitle', language), `${t('fileDeleteFailedMsg', language)}\n\n${e}`);
       }
     });
   };
@@ -316,17 +319,17 @@ function ContextMenu() {
       {wikiLinkDeleteCallback ? (
         <>
           <button className="context-menu-item" onClick={handleOpenNewWindow}>
-            노트 열기
+            {t('openNote', language)}
           </button>
           <div className="context-menu-separator" />
           <button className="context-menu-item" onClick={handleRenameWikiLink}>
-            위키링크 이름 변경...
+            {t('renameWikiLink', language)}
           </button>
           <button className="context-menu-item delete" onClick={() => {
             wikiLinkDeleteCallback();
             modalActions.hideContextMenu();
           }}>
-            링크 삭제
+            {t('deleteLink', language)}
           </button>
         </>
       ) : isFolder ? (
@@ -339,7 +342,7 @@ function ContextMenu() {
                 onMouseEnter={() => setShowTypeSubmenu(true)}
                 onMouseLeave={() => setShowTypeSubmenu(false)}
               >
-                <span>컨테이너 유형</span>
+                <span>{t('containerType', language)}</span>
                 <span className="context-menu-arrow">▶</span>
                 {showTypeSubmenu && (
                   <div className="context-menu-submenu">
@@ -349,7 +352,7 @@ function ContextMenu() {
                     >
                       <span className="context-menu-check">{currentType === 'standard' ? '✓' : ''}</span>
                       <span>Standard</span>
-                      <span className="context-menu-type-desc">일반</span>
+                      <span className="context-menu-type-desc">{t('typeStandard', language)}</span>
                     </button>
                     <button
                       className={`context-menu-item ${currentType === 'storage' ? 'checked' : ''}`}
@@ -357,7 +360,7 @@ function ContextMenu() {
                     >
                       <span className="context-menu-check">{currentType === 'storage' ? '✓' : ''}</span>
                       <span>Storage</span>
-                      <span className="context-menu-type-desc">보관</span>
+                      <span className="context-menu-type-desc">{t('typeStorage', language)}</span>
                     </button>
                   </div>
                 )}
@@ -371,7 +374,7 @@ function ContextMenu() {
             onMouseEnter={() => setShowStatusSubmenu(true)}
             onMouseLeave={() => setShowStatusSubmenu(false)}
           >
-            <span>폴더 상태</span>
+            <span>{t('folderStatus', language)}</span>
             <span className="context-menu-arrow">▶</span>
             {showStatusSubmenu && (
               <div className="context-menu-submenu">
@@ -400,19 +403,19 @@ function ContextMenu() {
           </div>
           <div className="context-menu-separator" />
           <button className="context-menu-item" onClick={handleRenameFolder}>
-            폴더 이름 변경...
+            {t('renameFolder', language)}
           </button>
           {!isRootContainer && (
             <button className="context-menu-item" onClick={handleMoveFolder}>
-              폴더 이동...
+              {t('moveFolder', language)}
             </button>
           )}
           <button className="context-menu-item delete" onClick={handleDeleteFolder}>
-            {isRootContainer ? '컨테이너 삭제' : '폴더 삭제'}
+            {isRootContainer ? t('deleteContainer', language) : t('deleteFolderContext', language)}
           </button>
           <div className="context-menu-separator" />
           <button className="context-menu-item" onClick={handleRevealFolder}>
-            탐색기에서 열기
+            {t('revealInExplorer', language)}
           </button>
         </>
       ) : isNote ? (
@@ -420,35 +423,35 @@ function ContextMenu() {
           {!fromSearch && (
             <>
               <button className="context-menu-item" onClick={handleOpenNewWindow}>
-                새 창에서 열기
+                {t('openInNewWindow', language)}
               </button>
               <div className="context-menu-separator" />
             </>
           )}
           <button className="context-menu-item" onClick={handleRename}>
-            노트 이름 변경...
+            {t('renameNote', language)}
           </button>
           <button className="context-menu-item" onClick={handleMoveNote}>
-            노트 이동...
+            {t('moveNote', language)}
           </button>
           <button className="context-menu-item delete" onClick={handleDelete}>
-            노트 삭제
+            {t('deleteNoteContext', language)}
           </button>
           <div className="context-menu-separator" />
           <button className="context-menu-item" onClick={handleOpenDefault}>
-            기본 앱으로 열기
+            {t('openDefaultApp', language)}
           </button>
           <button className="context-menu-item" onClick={handleRevealFolder}>
-            폴더에서 보기
+            {t('revealFolder', language)}
           </button>
         </>
       ) : (
         <>
           <button className="context-menu-item" onClick={handleOpenDefault}>
-            기본 앱으로 열기
+            {t('openDefaultApp', language)}
           </button>
           <button className="context-menu-item" onClick={handleRevealFolder}>
-            첨부 폴더 열기
+            {t('openAttachmentFolder', language)}
           </button>
           {hasValidNotePath && (
             <>
@@ -457,24 +460,24 @@ function ContextMenu() {
                 hoverActions.open(notePath);
                 modalActions.hideContextMenu();
               }}>
-                소속 노트 열기
+                {t('openOwnerNote', language)}
               </button>
             </>
           )}
           <div className="context-menu-separator" />
           <button className="context-menu-item" onClick={handleRename}>
-            이름 변경...
+            {t('rename', language)}...
           </button>
           {!hideDelete && (
             <button className="context-menu-item delete" onClick={handleDeleteAttachment}>
-              파일 삭제
+              {t('deleteFileContext', language)}
             </button>
           )}
           {filePath && isPreviewable && (
             <>
               <div className="context-menu-separator" />
               <button className="context-menu-item" onClick={handleOpenNewWindow}>
-                내부에서 열기
+                {t('openInternal', language)}
               </button>
             </>
           )}

@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 function AlertModal() {
   const alertModalState = useModalStore(s => s.alertModalState);
   const hideAlertModal = useModalStore(s => s.hideAlertModal);
+  const language = useSettingsStore(s => s.language);
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -39,7 +42,7 @@ function AlertModal() {
             className="alert-modal-btn"
             onClick={hideAlertModal}
           >
-            확인
+            {t('confirm', language)}
           </button>
         </div>
       </div>

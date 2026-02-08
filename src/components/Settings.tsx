@@ -3,7 +3,7 @@ import { useVaultPath } from '../stores/zustand/fileTreeStore';
 import { useSettingsStore, type ThemeSetting, type FontSetting, type LanguageSetting, type CustomFont } from '../stores/zustand/settingsStore';
 import { useTemplateStore } from '../stores/zustand/templateStore';
 import { refreshActions } from '../stores/zustand/refreshStore';
-import { t } from '../utils/i18n';
+import { t, tf } from '../utils/i18n';
 import NoteTemplateEditor from './NoteTemplateEditor';
 import KeyboardShortcuts from './KeyboardShortcuts';
 import type { NoteTemplate } from '../types';
@@ -194,7 +194,7 @@ function Settings({ onClose }: SettingsProps) {
                   <div className="settings-row">
                     <div className="settings-row-info">
                       <span className="settings-row-label">{t('customFonts', language)}</span>
-                      <span className="settings-row-desc">{language === 'ko' ? '시스템에 설치된 글꼴을 추가합니다' : 'Add fonts installed on your system'}</span>
+                      <span className="settings-row-desc">{t('addSystemFont', language)}</span>
                     </div>
                     <button
                       className="settings-action-btn"
@@ -341,12 +341,12 @@ function Settings({ onClose }: SettingsProps) {
                       <button
                         className="template-add-btn-v2"
                         onClick={() => setIsCreatingNoteTemplate(true)}
-                        title={language === 'ko' ? '새 템플릿' : 'New Template'}
+                        title={t('newTemplate', language)}
                       >
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                           <path d="M7 0a1 1 0 0 1 1 1v5h5a1 1 0 1 1 0 2H8v5a1 1 0 1 1-2 0V8H1a1 1 0 0 1 0-2h5V1a1 1 0 0 1 1-1z"/>
                         </svg>
-                        <span>{language === 'ko' ? '새 템플릿' : 'New Template'}</span>
+                        <span>{t('newTemplate', language)}</span>
                       </button>
                     </div>
                     <p className="settings-section-desc">{t('noteTemplatesDesc', language)}</p>
@@ -357,21 +357,21 @@ function Settings({ onClose }: SettingsProps) {
                         const customColor = nt.customColor;
                         const isBuiltIn = nt.id.startsWith('note-') && !nt.id.startsWith('note-custom-');
                         const isEnabled = enabledTemplateIds.includes(nt.id);
-                        const descriptions: Record<string, { ko: string; en: string }> = {
-                          'NOTE': { ko: '자유롭게 작성하는 기본 노트', en: 'General purpose note' },
-                          'SKETCH': { ko: '캔버스 기반의 자유로운 메모', en: 'Canvas-based free-form memo' },
-                          'MTG': { ko: '회의 참석자, 안건, 결정사항 기록', en: 'Meeting attendees, agenda, decisions' },
-                          'SEM': { ko: '세미나 및 강연 내용 정리', en: 'Seminar and lecture notes' },
-                          'EVENT': { ko: '행사 일정과 세부 정보 관리', en: 'Event schedule and details' },
-                          'OFA': { ko: '공식 문서와 업무 기록 관리', en: 'Official documents and records' },
-                          'PAPER': { ko: '학술 논문 정보와 메모 저장', en: 'Academic paper info and notes' },
-                          'LIT': { ko: '도서 및 참고 자료 관리', en: 'Books and reference materials' },
-                          'DATA': { ko: '데이터 및 자료를 체계적으로 정리', en: 'Organized data and materials' },
-                          'THEO': { ko: '개념과 이론 정리 및 학습', en: 'Concepts and theory notes' },
-                          'CONTACT': { ko: '인물 정보와 연락처 관리', en: 'Contact information management' },
-                          'SETUP': { ko: '환경 설정과 구성 정보 기록', en: 'Settings and configuration' },
+                        const descKeys: Record<string, string> = {
+                          'NOTE': 'templateDescNoteShort',
+                          'SKETCH': 'templateDescSketchShort',
+                          'MTG': 'templateDescMtgShort',
+                          'SEM': 'templateDescSemShort',
+                          'EVENT': 'templateDescEventShort',
+                          'OFA': 'templateDescOfaShort',
+                          'PAPER': 'templateDescPaperShort',
+                          'LIT': 'templateDescLitShort',
+                          'DATA': 'templateDescDataShort',
+                          'THEO': 'templateDescTheoShort',
+                          'CONTACT': 'templateDescContactShort',
+                          'SETUP': 'templateDescSetupShort',
                         };
-                        const desc = descriptions[nt.frontmatter.type || 'NOTE'] || { ko: '사용자 정의 템플릿', en: 'Custom template' };
+                        const descKey = descKeys[nt.frontmatter.type || 'NOTE'] || 'templateDescCustomShort';
                         return (
                           <div
                             key={nt.id}
@@ -401,11 +401,11 @@ function Settings({ onClose }: SettingsProps) {
                                   {nt.prefix}
                                 </span>
                               </div>
-                              <p className="template-card-desc">{language === 'ko' ? desc.ko : desc.en}</p>
+                              <p className="template-card-desc">{t(descKey, language)}</p>
                             </div>
                             <div className="template-card-footer">
                               {isBuiltIn ? (
-                                <span className="template-card-badge">{language === 'ko' ? '기본' : 'Built-in'}</span>
+                                <span className="template-card-badge">{t('builtIn', language)}</span>
                               ) : (
                                 <div className="template-card-actions">
                                   <button className="template-card-action-btn" onClick={() => setEditingNoteTemplate(nt)}>
@@ -450,42 +450,33 @@ function Settings({ onClose }: SettingsProps) {
             <h3>{t('addFont', language)}</h3>
             <div className="add-font-form">
               <label>
-                {language === 'ko' ? '글꼴 이름' : 'Font Name'}
+                {t('fontNameLabel', language)}
                 <input
                   type="text"
                   value={newFontName}
                   onChange={e => setNewFontName(e.target.value)}
-                  placeholder={language === 'ko' ? '표시될 이름' : 'Display name'}
+                  placeholder={t('fontNamePlaceholder', language)}
                 />
               </label>
               <label>
-                {language === 'ko' ? '글꼴 패밀리' : 'Font Family'}
+                {t('fontFamilyLabel', language)}
                 <input
                   type="text"
                   value={newFontFamily}
                   onChange={e => setNewFontFamily(e.target.value)}
-                  placeholder={language === 'ko' ? '예: "D2Coding", monospace' : 'e.g., "D2Coding", monospace'}
+                  placeholder={t('fontFamilyPlaceholder', language)}
                 />
               </label>
               <div className="add-font-help">
                 <p className="add-font-help-title">
-                  {language === 'ko' ? '사용 방법' : 'How to use'}
+                  {t('howToUse', language)}
                 </p>
                 <ol className="add-font-help-list">
-                  {language === 'ko' ? (
-                    <>
-                      <li><strong>글꼴 이름:</strong> 설정에서 표시될 이름입니다. 원하는 이름을 자유롭게 입력하세요.</li>
-                      <li><strong>글꼴 패밀리:</strong> CSS font-family 값입니다. 시스템에 설치된 글꼴의 정확한 이름을 따옴표로 감싸서 입력하세요.</li>
-                    </>
-                  ) : (
-                    <>
-                      <li><strong>Font Name:</strong> Display name shown in settings. Enter any name you prefer.</li>
-                      <li><strong>Font Family:</strong> CSS font-family value. Enter the exact font name installed on your system, wrapped in quotes.</li>
-                    </>
-                  )}
+                  <li>{t('fontNameTip', language)}</li>
+                  <li>{t('fontFamilyTip', language)}</li>
                 </ol>
                 <p className="add-font-help-example">
-                  {language === 'ko' ? '예시:' : 'Examples:'}
+                  {t('examplesLabel', language)}
                 </p>
                 <ul className="add-font-example-list">
                   <li><code>"D2Coding"</code></li>
@@ -506,17 +497,15 @@ function Settings({ onClose }: SettingsProps) {
       {showUnusedTagsModal && (
         <div className="settings-modal-overlay" onClick={() => setShowUnusedTagsModal(false)}>
           <div className="unused-tags-modal" onClick={e => e.stopPropagation()}>
-            <h3>{language === 'ko' ? '미사용 태그' : 'Unused Tags'}</h3>
+            <h3>{t('unusedTags', language)}</h3>
             {unusedTags.length === 0 ? (
               <p className="unused-tags-empty">
-                {language === 'ko' ? '미사용 태그가 없습니다.' : 'No unused tags found.'}
+                {t('noUnusedTags', language)}
               </p>
             ) : (
               <>
                 <p className="unused-tags-info">
-                  {language === 'ko'
-                    ? `${unusedTags.length}개의 태그가 어떤 노트에서도 사용되지 않습니다.`
-                    : `${unusedTags.length} tag(s) are not used in any note.`}
+                  {tf('unusedTagsMsg', language, { count: unusedTags.length })}
                 </p>
                 <div className="unused-tags-list">
                   {unusedTags.map(tagId => (
@@ -525,7 +514,7 @@ function Settings({ onClose }: SettingsProps) {
                       <button
                         className="unused-tag-remove"
                         onClick={() => handleRemoveUnusedTags([tagId])}
-                        title={language === 'ko' ? '삭제' : 'Remove'}
+                        title={t('remove', language)}
                       >
                         ×
                       </button>
@@ -534,13 +523,13 @@ function Settings({ onClose }: SettingsProps) {
                 </div>
                 <div className="unused-tags-actions">
                   <button onClick={() => setShowUnusedTagsModal(false)}>
-                    {language === 'ko' ? '닫기' : 'Close'}
+                    {t('close', language)}
                   </button>
                   <button
                     className="danger"
                     onClick={() => handleRemoveUnusedTags(unusedTags)}
                   >
-                    {language === 'ko' ? `모두 삭제 (${unusedTags.length}개)` : `Remove All (${unusedTags.length})`}
+                    {tf('removeAll', language, { count: unusedTags.length })}
                   </button>
                 </div>
               </>

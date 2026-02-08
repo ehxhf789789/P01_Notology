@@ -192,8 +192,8 @@ function Sidebar({ width }: SidebarProps) {
   const handleNewSubfolderClick = () => {
     if (isInsideStorageContainer()) {
       modalActions.showAlertModal(
-        '폴더 생성 불가',
-        'Storage 컨테이너 내부에는 폴더를 생성할 수 없습니다.\n\n폴더 구조가 필요하다면 컨테이너 유형을 Standard로 변경해 주세요.'
+        t('cannotCreateFolder', language),
+        t('storageNoFolderMsg', language)
       );
       return;
     }
@@ -293,8 +293,8 @@ function Sidebar({ width }: SidebarProps) {
             className="container-type-selector-v2"
           >
             <div className="container-type-selector-header-v2">
-              <span>컨테이너 유형 선택</span>
-              <span className="container-type-selector-hint">새 컨테이너</span>
+              <span>{t('containerTypeSelect', language)}</span>
+              <span className="container-type-selector-hint">{t('newContainerHint', language)}</span>
             </div>
             <div className="container-type-selector-content">
               <button
@@ -311,8 +311,7 @@ function Sidebar({ width }: SidebarProps) {
                 <div className="container-type-info-v2">
                   <span className="container-type-name-v2">Standard</span>
                   <span className="container-type-desc-v2">
-                    다양한 종류의 노트를 자유롭게 저장하는 일반 컨테이너입니다.
-                    모든 템플릿 유형의 노트를 생성할 수 있습니다.
+                    {t('standardContainerDesc', language)}
                   </span>
                 </div>
               </button>
@@ -330,8 +329,7 @@ function Sidebar({ width }: SidebarProps) {
                 <div className="container-type-info-v2">
                   <span className="container-type-name-v2">Storage</span>
                   <span className="container-type-desc-v2">
-                    특정 템플릿 전용 보관 컨테이너입니다.
-                    선택한 템플릿 유형의 노트만 생성됩니다.
+                    {t('storageContainerDesc', language)}
                   </span>
                 </div>
               </button>
@@ -344,7 +342,7 @@ function Sidebar({ width }: SidebarProps) {
                   setPendingContainerPath(null);
                 }}
               >
-                취소
+                {t('cancel', language)}
               </button>
             </div>
           </div>
@@ -362,26 +360,26 @@ function Sidebar({ width }: SidebarProps) {
       {showNewContainer && createPortal(
         <div className="modal-overlay" onClick={cancelNew}>
           <div className="new-container-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="new-container-modal-header">새 Container</div>
+            <div className="new-container-modal-header">{t('newContainerTitle', language)}</div>
             <input
               ref={inputRef}
               className="new-container-modal-input"
               type="text"
-              placeholder="Container 이름을 입력하세요"
+              placeholder={t('containerNamePlaceholder', language)}
               value={newContainerName}
               onChange={(e) => setNewContainerName(e.target.value)}
               onKeyDown={handleKeyDown}
             />
             <div className="new-container-modal-actions">
               <button className="new-container-modal-btn cancel" onClick={cancelNew}>
-                취소
+                {t('cancel', language)}
               </button>
               <button
                 className="new-container-modal-btn create"
                 onClick={handleCreateContainer}
                 disabled={!newContainerName.trim()}
               >
-                생성
+                {t('create', language)}
               </button>
             </div>
           </div>
@@ -395,27 +393,27 @@ function Sidebar({ width }: SidebarProps) {
           <div className="new-container-modal" onClick={(e) => e.stopPropagation()}>
             <div className="new-container-modal-header">
               <FolderPlus size={16} style={{ marginRight: '8px' }} />
-              새 폴더
+              {t('newFolder', language)}
             </div>
             <input
               ref={subfolderInputRef}
               className="new-container-modal-input"
               type="text"
-              placeholder="폴더 이름을 입력하세요"
+              placeholder={t('folderNamePlaceholder', language)}
               value={newSubfolderName}
               onChange={(e) => setNewSubfolderName(e.target.value)}
               onKeyDown={handleSubfolderKeyDown}
             />
             <div className="new-container-modal-actions">
               <button className="new-container-modal-btn cancel" onClick={cancelNewSubfolder}>
-                취소
+                {t('cancel', language)}
               </button>
               <button
                 className="new-container-modal-btn create"
                 onClick={handleCreateSubfolder}
                 disabled={!newSubfolderName.trim()}
               >
-                생성
+                {t('create', language)}
               </button>
             </div>
           </div>

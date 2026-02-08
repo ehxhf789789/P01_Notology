@@ -65,24 +65,21 @@ const DEFAULT_SIDEBAR_WIDTH = 280;
 
 const HOVER_PANEL_WIDTH = 280;
 
-// Template descriptions for Ctrl+N detailed popup
-const TEMPLATE_DESCRIPTIONS: Record<string, string> = {
-  'NOTE': '일반 노트 - 자유롭게 작성하는 기본 노트입니다',
-  'SKETCH': '스케치 - 캔버스 기반의 자유로운 메모입니다',
-  'MTG': '회의록 - 참석자, 안건, 결정사항을 기록합니다',
-  'SEM': '세미나 - 세미나 및 강연 내용을 정리합니다',
-  'EVENT': '이벤트 - 행사 일정과 세부 정보를 관리합니다',
-  'OFA': '공문서 - 공식 문서와 업무 기록을 관리합니다',
-  'PAPER': '논문 - 학술 논문 정보와 메모를 저장합니다',
-  'LIT': '문헌 - 도서 및 참고 자료를 관리합니다',
-  'DATA': '데이터 - 데이터 및 자료를 체계적으로 정리합니다',
-  'THEO': '이론 - 개념과 이론을 정리하고 학습합니다',
-  'CONTACT': '연락처 - 인물 정보와 연락처를 관리합니다',
-  'SETUP': '설정 - 환경 설정과 구성 정보를 기록합니다',
+// Template description keys for Ctrl+N detailed popup
+const TEMPLATE_DESC_KEYS: Record<string, string> = {
+  'NOTE': 'templateDescNote',
+  'SKETCH': 'templateDescSketch',
+  'MTG': 'templateDescMtg',
+  'SEM': 'templateDescSem',
+  'EVENT': 'templateDescEvent',
+  'OFA': 'templateDescOfa',
+  'PAPER': 'templateDescPaper',
+  'LIT': 'templateDescLit',
+  'DATA': 'templateDescData',
+  'THEO': 'templateDescTheo',
+  'CONTACT': 'templateDescContact',
+  'SETUP': 'templateDescSetup',
 };
-
-// Default description for custom templates
-const DEFAULT_CUSTOM_DESCRIPTION = '사용자 정의 템플릿입니다';
 
 // File type icon component for collapsed sidebar
 function CollapsedFileTypeIcon({ type }: { type: 'editor' | 'pdf' | 'image' | 'code' | 'web' }) {
@@ -283,6 +280,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
   const visibleHoverFiles = useMemo(() => hoverFiles.filter(w => !w.cached), [hoverFiles]);
   const animatedHoverWindows = useAnimatedWindowList(visibleHoverFiles);
   const noteTemplates = useNoteTemplates();
+  const language = useLanguage();
 
   const [windowContextMenu, setWindowContextMenu] = useState<{ x: number; y: number; windowId: string } | null>(null);
   const [windowContextMenuPos, setWindowContextMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -325,7 +323,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
       <button
         className="hover-panel-collapsed-toggle"
         onClick={() => uiActions.setShowHoverPanel(true)}
-        title="열린 창 목록"
+        title={t('openWindowsList', language)}
       >
         <PanelRightOpen size={18} />
         <span className="hover-panel-collapsed-badge">{visibleHoverFiles.length}</span>
@@ -392,7 +390,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
                     }
                     setWindowContextMenu({ x, y, windowId: win.id });
                   }}
-                  title={`${fileName} (${win.minimized ? '최소화' : isFocused ? '포커스' : '활성'})`}
+                  title={`${fileName} (${win.minimized ? t('windowMinimized', language) : isFocused ? t('windowFocused', language) : t('windowActive', language)})`}
                   style={customColor ? { '--template-color': customColor } as React.CSSProperties : undefined}
                 >
                   {win.type === 'editor' && noteType ? (
@@ -434,7 +432,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
                 });
               }}
             >
-              포커스
+              {t('contextFocus', language)}
             </button>
             {win.minimized ? (
               <button
@@ -449,7 +447,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
                   });
                 }}
               >
-                복원
+                {t('contextRestore', language)}
               </button>
             ) : (
               <button
@@ -464,7 +462,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
                   });
                 }}
               >
-                최소화
+                {t('contextMinimize', language)}
               </button>
             )}
             <button
@@ -479,7 +477,7 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
                 });
               }}
             >
-              닫기
+              {t('close', language)}
             </button>
           </div>
         );
@@ -684,7 +682,7 @@ function AppLayout() {
               const templateInfo = template ? {
                 name: template.name,
                 prefix: template.prefix,
-                description: TEMPLATE_DESCRIPTIONS[template.prefix.toUpperCase()] || DEFAULT_CUSTOM_DESCRIPTION,
+                description: t(TEMPLATE_DESC_KEYS[template.prefix.toUpperCase()] || 'templateDescCustom', language),
                 noteType,
                 customColor: template.customColor,
               } : undefined;
@@ -700,7 +698,7 @@ function AppLayout() {
                     console.error('Failed to create note:', err);
                   }
                 }
-              }, '노트 제목을 입력하세요', '새 노트', templateInfo);
+              }, t('enterNoteTitlePlaceholder', language), t('newNoteDefault', language), templateInfo);
             }
           } else {
             // Standard container: show template selector
@@ -724,7 +722,7 @@ function AppLayout() {
                   const templateInfo = template ? {
                     name: template.name,
                     prefix: template.prefix,
-                    description: TEMPLATE_DESCRIPTIONS[template.prefix.toUpperCase()] || DEFAULT_CUSTOM_DESCRIPTION,
+                    description: t(TEMPLATE_DESC_KEYS[template.prefix.toUpperCase()] || 'templateDescCustom', language),
                     noteType,
                     customColor: template.customColor,
                   } : undefined;
@@ -740,7 +738,7 @@ function AppLayout() {
                         console.error('Failed to create note:', err);
                       }
                     }
-                  }, '노트 제목을 입력하세요', '새 노트', templateInfo);
+                  }, t('enterNoteTitlePlaceholder', language), t('newNoteDefault', language), templateInfo);
                 }
               }
             );
@@ -820,7 +818,7 @@ function AppLayout() {
               <button
                 className="sidebar-collapsed-toggle"
                 onClick={() => uiActions.setShowSidebar(true)}
-                title="사이드바 펼치기"
+                title={t('sidebarToggle', language)}
               >
                 <PanelLeftOpen size={18} />
               </button>

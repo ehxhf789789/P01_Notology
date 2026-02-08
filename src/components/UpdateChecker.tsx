@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { check, type DownloadEvent } from '@tauri-apps/plugin-updater';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { Download, X, RefreshCw } from 'lucide-react';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t, tf } from '../utils/i18n';
 
 interface UpdateInfo {
   version: string;
@@ -10,6 +12,7 @@ interface UpdateInfo {
 }
 
 function UpdateChecker() {
+  const language = useSettingsStore(s => s.language);
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -53,7 +56,7 @@ function UpdateChecker() {
 
       const update = await check();
       if (!update) {
-        setError('업데이트를 찾을 수 없습니다.');
+        setError(t('updateNotFound', language));
         setIsDownloading(false);
         return;
       }
@@ -86,7 +89,7 @@ function UpdateChecker() {
       await relaunch();
     } catch (e) {
       console.error('Failed to download/install update:', e);
-      setError(`업데이트 설치 실패: ${e}`);
+      setError(tf('updateInstallFailed', language, { error: String(e) }));
       setIsDownloading(false);
       setIsInstalling(false);
     }
@@ -109,7 +112,7 @@ function UpdateChecker() {
         </div>
         <div className="update-checker-info">
           <div className="update-checker-title">
-            새 버전 사용 가능: v{updateInfo.version}
+            {tf('newVersionAvailable', language, { version: updateInfo.version })}
           </div>
           {updateInfo.body && (
             <div className="update-checker-body">
@@ -138,22 +141,22 @@ function UpdateChecker() {
               <button
                 className="update-checker-btn update-checker-btn-primary"
                 onClick={handleDownloadAndInstall}
-                title="업데이트 설치"
+                title={t('installUpdate', language)}
               >
                 <Download size={14} />
-                <span>설치</span>
+                <span>{t('install', language)}</span>
               </button>
               <button
                 className="update-checker-btn update-checker-btn-dismiss"
                 onClick={handleDismiss}
-                title="나중에"
+                title={t('later', language)}
               >
                 <X size={14} />
               </button>
             </>
           )}
           {isInstalling && (
-            <span className="update-checker-installing">재시작 중...</span>
+            <span className="update-checker-installing">{t('restarting', language)}</span>
           )}
         </div>
       </div>

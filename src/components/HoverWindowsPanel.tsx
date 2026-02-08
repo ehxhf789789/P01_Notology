@@ -114,7 +114,7 @@ const HoverWindowsPanel = memo(function HoverWindowsPanel({ width }: HoverWindow
                     <button
                       className="hover-window-item-btn"
                       onClick={() => startTransition(() => handleWindowClick(win.id))}
-                      title={`${fileName} (${isFocused ? '포커스' : '활성'})`}
+                      title={`${fileName} (${isFocused ? t('focused', language) : t('active', language)})`}
                     >
                       {win.type === 'editor' && noteType ? (
                         <span
@@ -132,14 +132,14 @@ const HoverWindowsPanel = memo(function HoverWindowsPanel({ width }: HoverWindow
                       <button
                         className="hover-window-item-action"
                         onClick={() => startTransition(() => minimizeHoverFile(win.id))}
-                        title="최소화"
+                        title={t('minimize', language)}
                       >
                         <Minimize2 size={12} />
                       </button>
                       <button
                         className="hover-window-item-action hover-window-item-close"
                         onClick={() => startTransition(() => closeHoverFile(win.id))}
-                        title="닫기"
+                        title={t('close', language)}
                       >
                         <X size={12} />
                       </button>
@@ -175,7 +175,7 @@ const HoverWindowsPanel = memo(function HoverWindowsPanel({ width }: HoverWindow
                     <button
                       className="hover-window-item-btn"
                       onClick={() => startTransition(() => handleWindowClick(win.id))}
-                      title={`${fileName} (최소화)`}
+                      title={`${fileName} (${t('minimize', language)})`}
                     >
                       {win.type === 'editor' && noteType ? (
                         <span
@@ -193,14 +193,14 @@ const HoverWindowsPanel = memo(function HoverWindowsPanel({ width }: HoverWindow
                       <button
                         className="hover-window-item-action"
                         onClick={() => startTransition(() => restoreHoverFile(win.id))}
-                        title="복원"
+                        title={t('restore', language)}
                       >
                         <Maximize2 size={12} />
                       </button>
                       <button
                         className="hover-window-item-action hover-window-item-close"
                         onClick={() => startTransition(() => closeHoverFile(win.id))}
-                        title="닫기"
+                        title={t('close', language)}
                       >
                         <X size={12} />
                       </button>
@@ -215,7 +215,7 @@ const HoverWindowsPanel = memo(function HoverWindowsPanel({ width }: HoverWindow
         {/* Empty state */}
         {hoverCount === 0 && (
           <div className="hover-windows-empty">
-            <p>열린 창이 없습니다</p>
+            <p>{t('noOpenWindows', language)}</p>
           </div>
         )}
       </div>

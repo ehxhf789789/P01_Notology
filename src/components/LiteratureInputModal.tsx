@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import TagInputSection, { type FacetedTagSelection } from './TagInputSection';
 
 export interface LiteratureFormData {
@@ -61,7 +62,7 @@ function LiteratureInputModal() {
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      alert('문헌 제목을 입력하세요');
+      alert(t('literatureTitleRequired', language));
       return;
     }
     callback({ ...formData, tags: selectedTags });
@@ -85,23 +86,23 @@ function LiteratureInputModal() {
   return (
     <div className="modal-overlay">
       <div className="literature-input-modal" onKeyDown={handleKeyDown}>
-        <div className="literature-input-header">새 문헌 노트 생성</div>
+        <div className="literature-input-header">{t('literatureTitle', language)}</div>
 
         <div className="literature-input-body">
           <div className="literature-input-field">
-            <label className="literature-input-label">문헌 제목 *</label>
+            <label className="literature-input-label">{t('literatureTitleField', language)}</label>
             <input
               ref={titleInputRef}
               className="literature-input-input"
               type="text"
               value={formData.title}
               onChange={e => setFormData({ ...formData, title: e.target.value })}
-              placeholder="문헌 제목"
+              placeholder={t('literatureTitlePlaceholder', language)}
             />
           </div>
 
           <div className="literature-input-field">
-            <label className="literature-input-label">저자</label>
+            <label className="literature-input-label">{t('literatureAuthors', language)}</label>
             <input
               className="literature-input-input"
               type="text"
@@ -113,7 +114,7 @@ function LiteratureInputModal() {
 
           <div className="literature-input-row">
             <div className="literature-input-field">
-              <label className="literature-input-label">발행년도</label>
+              <label className="literature-input-label">{t('literatureYear', language)}</label>
               <input
                 className="literature-input-input"
                 type="text"
@@ -124,7 +125,7 @@ function LiteratureInputModal() {
             </div>
 
             <div className="literature-input-field">
-              <label className="literature-input-label">출판사</label>
+              <label className="literature-input-label">{t('literaturePublisher', language)}</label>
               <input
                 className="literature-input-input"
                 type="text"
@@ -136,13 +137,13 @@ function LiteratureInputModal() {
           </div>
 
           <div className="literature-input-field">
-            <label className="literature-input-label">출처</label>
+            <label className="literature-input-label">{t('literatureSource', language)}</label>
             <input
               className="literature-input-input"
               type="text"
               value={formData.source}
               onChange={e => setFormData({ ...formData, source: e.target.value })}
-              placeholder="예: 보고서, 백서, 가이드북 등"
+              placeholder={t('literatureSourcePlaceholder', language)}
             />
           </div>
 
@@ -167,10 +168,10 @@ function LiteratureInputModal() {
 
         <div className="literature-input-actions">
           <button className="literature-input-btn literature-input-cancel" onClick={handleCancel}>
-            취소
+            {t('cancel', language)}
           </button>
           <button className="literature-input-btn literature-input-submit" onClick={handleSubmit}>
-            생성 (Ctrl+Enter)
+            {t('createCtrlEnter', language)}
           </button>
         </div>
       </div>

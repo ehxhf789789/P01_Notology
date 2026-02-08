@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 export interface EventFormData {
   title: string;
@@ -12,6 +14,7 @@ export interface EventFormData {
 function EventInputModal() {
   const eventInputModalState = useModalStore(s => s.eventInputModalState);
   const hideEventInputModal = useModalStore(s => s.hideEventInputModal);
+  const language = useSettingsStore(s => s.language);
   const [formData, setFormData] = useState<EventFormData>({
     title: '',
     date: '',
@@ -48,7 +51,7 @@ function EventInputModal() {
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      alert('행사 제목을 입력하세요');
+      alert(t('eventTitleRequired', language));
       return;
     }
     callback(formData);
@@ -70,23 +73,23 @@ function EventInputModal() {
   return (
     <div className="modal-overlay">
       <div className="event-input-modal" onKeyDown={handleKeyDown}>
-        <div className="event-input-header">새 행사 노트 생성</div>
+        <div className="event-input-header">{t('eventTitle', language)}</div>
 
         <div className="event-input-body">
           <div className="event-input-field">
-            <label className="event-input-label">행사 제목 *</label>
+            <label className="event-input-label">{t('eventTitleField', language)}</label>
             <input
               ref={titleInputRef}
               className="event-input-input"
               type="text"
               value={formData.title}
               onChange={e => setFormData({ ...formData, title: e.target.value })}
-              placeholder="예: 2024 AI 학회"
+              placeholder={t('eventTitlePlaceholder', language)}
             />
           </div>
 
           <div className="event-input-field">
-            <label className="event-input-label">날짜</label>
+            <label className="event-input-label">{t('eventDate', language)}</label>
             <input
               className="event-input-input"
               type="date"
@@ -96,45 +99,45 @@ function EventInputModal() {
           </div>
 
           <div className="event-input-field">
-            <label className="event-input-label">장소</label>
+            <label className="event-input-label">{t('eventLocation', language)}</label>
             <input
               className="event-input-input"
               type="text"
               value={formData.location}
               onChange={e => setFormData({ ...formData, location: e.target.value })}
-              placeholder="예: 서울 코엑스"
+              placeholder={t('eventLocationPlaceholder', language)}
             />
           </div>
 
           <div className="event-input-field">
-            <label className="event-input-label">주최</label>
+            <label className="event-input-label">{t('eventOrganizer', language)}</label>
             <input
               className="event-input-input"
               type="text"
               value={formData.organizer}
               onChange={e => setFormData({ ...formData, organizer: e.target.value })}
-              placeholder="주최 기관/단체"
+              placeholder={t('eventOrganizerPlaceholder', language)}
             />
           </div>
 
           <div className="event-input-field">
-            <label className="event-input-label">참가자</label>
+            <label className="event-input-label">{t('eventParticipants', language)}</label>
             <input
               className="event-input-input"
               type="text"
               value={formData.participants}
               onChange={e => setFormData({ ...formData, participants: e.target.value })}
-              placeholder="예: 홍길동, 김철수, 이영희"
+              placeholder={t('eventParticipantsPlaceholder', language)}
             />
           </div>
         </div>
 
         <div className="event-input-actions">
           <button className="event-input-btn event-input-cancel" onClick={handleCancel}>
-            취소
+            {t('cancel', language)}
           </button>
           <button className="event-input-btn event-input-submit" onClick={handleSubmit}>
-            생성 (Ctrl+Enter)
+            {t('createCtrlEnter', language)}
           </button>
         </div>
       </div>

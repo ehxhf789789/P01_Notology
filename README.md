@@ -7,6 +7,7 @@
   <p>
     <a href="#download">Download</a> &middot;
     <a href="README.ko.md">한국어</a> &middot;
+    <a href="#who-is-notology-for">Use Cases</a> &middot;
     <a href="#notology-vs-obsidian">vs Obsidian</a> &middot;
     <a href="#features-in-depth">Features</a>
   </p>
@@ -22,8 +23,12 @@
 
 ---
 
-<!-- HERO GIF: Full app overview (editor + sidebar + hover windows open) -->
-<!-- ![Notology Overview](docs/gifs/01-overview.gif) -->
+<!-- HERO IMAGE: docs/images/hero-overview.png -->
+<!-- Full app screenshot showing: dark theme, sidebar with folder tree on the left, -->
+<!-- rich text editor in the center with a NOTE template open (headings, callouts, task lists visible), -->
+<!-- two hover windows floating on the right (one editor, one PDF), and the search panel partially visible. -->
+<!-- Resolution: 1920x1080, PNG format. -->
+<!-- ![Notology Overview](docs/images/hero-overview.png) -->
 
 ## What is Notology?
 
@@ -36,6 +41,83 @@ Notology is a **desktop knowledge management app** that combines structured note
 - **Typed notes** &mdash; 12 templates (meeting, paper, contact, etc.) with structured frontmatter, not just blank pages
 - **Native performance** &mdash; Rust backend (Tauri v2) + React frontend. No Electron overhead
 - **Offline-first** &mdash; no account, no subscription, no internet required
+
+---
+
+## Who is Notology For?
+
+Notology adapts to any knowledge-intensive workflow. Here are real-world examples:
+
+### Writers & Storytellers
+
+<!-- IMAGE: docs/images/usecase-writer.png -->
+<!-- Screenshot showing: a folder tree with folders like "Characters/", "Locations/", "Plot Arcs/", -->
+<!-- a CONTACT template used as a character sheet (name, traits, relationships in frontmatter), -->
+<!-- and the Graph View showing character-to-location connections via wiki-links. -->
+<!-- ![Writer Use Case](docs/images/usecase-writer.png) -->
+
+Manage your novel's universe intuitively. Use **CONTACT templates** as character sheets with structured fields for traits, backstory, and relationships. Create **folder notes** for locations, plot arcs, and timelines. The **Graph View** reveals hidden connections between characters, events, and settings &mdash; giving you a bird's-eye view of your entire story world.
+
+> *Example vault structure:*
+> ```
+> My Novel/
+> ├── Characters/
+> │   ├── Characters.md          (folder note: character index)
+> │   ├── CONTACT_Aria.md        (character sheet)
+> │   └── CONTACT_Marcus.md
+> ├── Locations/
+> │   ├── Locations.md
+> │   └── NOTE_The Old Library.md
+> ├── Plot Arcs/
+> │   ├── NOTE_Act 1 - The Call.md
+> │   └── NOTE_Act 2 - The Journey.md
+> └── Research/
+>     ├── LIT_Medieval Architecture.md
+>     └── DATA_Historical Timeline.md
+> ```
+
+### Researchers & Academics
+
+<!-- IMAGE: docs/images/usecase-researcher.png -->
+<!-- Screenshot showing: PAPER template with DOI/authors fields filled, LIT template with key arguments, -->
+<!-- multiple hover windows open side-by-side (one PDF paper, one note with annotations), -->
+<!-- and search results filtering by type:PAPER. -->
+<!-- ![Researcher Use Case](docs/images/usecase-researcher.png) -->
+
+Build your personal research library. Use **PAPER templates** to capture DOI, authors, and abstracts for every paper you read. Link papers together with `[[wiki-links]]` to trace idea lineage. Open **hover windows** to read PDFs and take notes simultaneously. Use **THEORY templates** to explore hypotheses and **DATA templates** to document datasets and methodology.
+
+- **Literature review**: LIT template captures source, key arguments, and your critical notes
+- **Cross-referencing**: Wiki-links between papers, theories, and data create an interconnected knowledge base
+- **Instant recall**: Tantivy full-text search finds any paper, quote, or concept across thousands of notes in milliseconds
+
+### Office Professionals
+
+<!-- IMAGE: docs/images/usecase-office.png -->
+<!-- Screenshot showing: MTG template with attendees and agenda filled in, calendar view with task dots, -->
+<!-- sidebar showing folders organized by project ("Project Alpha/", "Admin/", "Weekly Reports/"), -->
+<!-- and the detail search mode filtering by date range. -->
+<!-- ![Office Use Case](docs/images/usecase-office.png) -->
+
+Streamline daily workflow and personal knowledge management. **MTG templates** auto-generate meeting minutes with attendees, agenda, and action items. Track deadlines in the **Calendar View**. Organize projects with containers and find anything instantly with **5 search modes**. The **memo system** lets you annotate documents without modifying originals.
+
+- **Meeting minutes**: MTG template with date-prefixed filenames keeps everything chronological
+- **Project organization**: One folder per project, folder notes as project dashboards
+- **Portable office**: Store your vault on a NAS and access it from office, home, or on the go
+
+### Students (High School & University)
+
+<!-- IMAGE: docs/images/usecase-student.png -->
+<!-- Screenshot showing: SEM template with speaker/topic fields, editor with callout blocks -->
+<!-- (info, tip, warning types) for study notes, wiki-links connecting concepts across subjects, -->
+<!-- and Graph View showing a knowledge network colored by domain tags. -->
+<!-- ![Student Use Case](docs/images/usecase-student.png) -->
+
+Systematize your learning across all subjects. Use **SEM templates** for lecture notes with speaker and topic fields. Create concept maps with **wiki-links** that connect ideas across subjects &mdash; link a physics concept to a math derivation to a lab report. The **Graph View** reveals how your knowledge connects, reinforcing memory through visual association.
+
+- **Study notes**: Markdown formatting with callout blocks, code blocks, and math notation
+- **Exam prep**: Full-text search across all notes &mdash; find every mention of a concept instantly
+- **Knowledge mapping**: Graph View shows which topics are well-connected and which need more study
+- **Portable**: Carry your entire study vault on a USB drive between home, school, and library
 
 ---
 
@@ -64,7 +146,12 @@ Notology is inspired by Obsidian's vault-based approach and wiki-link philosophy
 
 A TipTap-based editor that renders Markdown as rich text in real time.
 
-<!-- GIF: 01-editor.gif -->
+<!-- GIF: docs/gifs/01-editor.gif -->
+<!-- Recording (8-10 seconds): Start with an empty NOTE template. Type "# Meeting Summary" (renders as H1), -->
+<!-- then "- Action item 1" (renders as bullet), then "> Important quote" (renders as blockquote). -->
+<!-- Toggle the editor toolbar between expanded and collapsed mode. Show a callout block being inserted -->
+<!-- (select "info" type) with colored border appearing. End by typing a task list "- [ ] Review docs". -->
+<!-- Window size: 1200x700, dark theme. Smooth cursor movement, no rushed actions. -->
 <!-- ![Editor](docs/gifs/01-editor.gif) -->
 
 - **Markdown + WYSIWYG hybrid** &mdash; type `# `, `- `, `> ` and watch it render instantly
@@ -80,7 +167,13 @@ A TipTap-based editor that renders Markdown as rich text in real time.
 
 The backbone of your knowledge graph. Link any note to any other note with `[[double brackets]]`.
 
-<!-- GIF: 02-wikilinks.gif -->
+<!-- GIF: docs/gifs/02-wikilinks.gif -->
+<!-- Recording (8-10 seconds): In an open note, type "Related to [[" and show the auto-complete dropdown -->
+<!-- appearing with note suggestions (show 4-5 note titles in the list). Select a note, link renders. -->
+<!-- Then type "![[" to embed an image, show the image rendering inline. -->
+<!-- Finally, open the search detail view and scroll to the "Backlinks" section showing 3-4 notes -->
+<!-- that reference the current note. -->
+<!-- Window size: 1200x700, dark theme. -->
 <!-- ![Wiki-links](docs/gifs/02-wikilinks.gif) -->
 
 - **Auto-complete** &mdash; type `[[` and get real-time suggestions from all notes in your vault
@@ -93,7 +186,13 @@ The backbone of your knowledge graph. Link any note to any other note with `[[do
 
 Unlike blank-page note apps, Notology provides **typed notes** with structured frontmatter.
 
-<!-- GIF: 03-templates.gif -->
+<!-- GIF: docs/gifs/03-templates.gif -->
+<!-- Recording (10-12 seconds): Press Ctrl+N to open the template selector modal. -->
+<!-- Show the 12 template icons in a grid. Click "MTG" (Meeting) - show the auto-generated filename -->
+<!-- with date prefix appearing. The new note opens with pre-filled YAML frontmatter -->
+<!-- (title, attendees, agenda fields). Then press Ctrl+N again, select "PAPER" - show the -->
+<!-- DOI, authors, abstract fields in frontmatter. Brief pause to show the structured body template. -->
+<!-- Window size: 1200x700, dark theme. -->
 <!-- ![Templates](docs/gifs/03-templates.gif) -->
 
 | Template | Icon | Use Case | Auto-generated Fields |
@@ -122,7 +221,14 @@ Unlike blank-page note apps, Notology provides **typed notes** with structured f
 
 Open multiple notes simultaneously in floating, draggable windows &mdash; without leaving the app.
 
-<!-- GIF: 04-hover-windows.gif -->
+<!-- GIF: docs/gifs/04-hover-windows.gif -->
+<!-- Recording (10-12 seconds): Open a note from the sidebar (it opens in a hover window). -->
+<!-- Drag the window to reposition it. Open a second note (another hover window appears). -->
+<!-- Resize the first window by dragging its corner. Drag the second window to the right -->
+<!-- edge of the screen to trigger the snap zone (window auto-arranges to half-screen). -->
+<!-- Open a PDF file (third hover window with embedded PDF viewer). Minimize one window -->
+<!-- (show the minimize animation). Click the minimized tab to restore it. -->
+<!-- Window size: 1400x900, dark theme. Show at least 3 hover windows simultaneously. -->
 <!-- ![Hover Windows](docs/gifs/04-hover-windows.gif) -->
 
 - **Drag & drop** positioning anywhere on screen
@@ -146,7 +252,14 @@ Open multiple notes simultaneously in floating, draggable windows &mdash; withou
 
 Visualize your entire knowledge network as a force-directed graph.
 
-<!-- GIF: 05-graph.gif -->
+<!-- GIF: docs/gifs/05-graph.gif -->
+<!-- Recording (10-12 seconds): Switch to the Graph tab in the search panel. Show the full graph -->
+<!-- with 30-50 nodes rendered (notes in various template colors, tag nodes in gray, -->
+<!-- folder notes with distinct borders). Drag a node and release it (physics simulation responds). -->
+<!-- Adjust the "repulsion" slider to spread nodes apart. Adjust "link distance" slider. -->
+<!-- Type a search query in the filter box - non-matching nodes fade out, matches glow yellow. -->
+<!-- Click a node to open it as a hover window. Show both dark and light theme if possible. -->
+<!-- Window size: 1400x900. -->
 <!-- ![Graph View](docs/gifs/05-graph.gif) -->
 
 - **Force-directed layout** powered by d3-force
@@ -156,12 +269,19 @@ Visualize your entire knowledge network as a force-directed graph.
 - **Filter** by note type, tag, or search query
 - **Click to open** any note directly from the graph
 - **Real-time** &mdash; graph updates as you create/edit notes
+- **Dark & Light mode** &mdash; fully adaptive to your theme preference
 
 ### 6. Canvas Editor
 
 A spatial thinking tool for creating flowcharts, mind maps, and diagrams.
 
-<!-- GIF: 06-canvas.gif -->
+<!-- GIF: docs/gifs/06-canvas.gif -->
+<!-- Recording (10-12 seconds): Open a SKETCH template. The infinite canvas appears. -->
+<!-- Add a rectangle node (type "Start Process" inside it). Add a diamond node (type "Decision?"). -->
+<!-- Draw a connection arrow from rectangle to diamond. Add a circle node (type "End"). -->
+<!-- Draw arrows from diamond to circle. Pan the canvas by dragging, then zoom in/out with scroll. -->
+<!-- Show the parallelogram shape being added. End with the complete flowchart visible. -->
+<!-- Window size: 1200x700, dark theme. -->
 <!-- ![Canvas](docs/gifs/06-canvas.gif) -->
 
 - **Infinite canvas** with pan and zoom
@@ -174,7 +294,14 @@ A spatial thinking tool for creating flowcharts, mind maps, and diagrams.
 
 Powered by **Tantivy** (the Rust equivalent of Apache Lucene), search is instant even with thousands of notes.
 
-<!-- GIF: 07-search.gif -->
+<!-- GIF: docs/gifs/07-search.gif -->
+<!-- Recording (12-15 seconds): Open the search panel (Ctrl+Shift+F). Type a query in Notes mode -->
+<!-- - show instant results appearing. Switch to "Body" tab - show full-text results with -->
+<!-- highlighted matching snippets. Switch to "Attachments" tab - show PDF/image files listed. -->
+<!-- Switch to "Details" tab - show the metadata filter UI (date range picker, type filter, -->
+<!-- tag filter dropdowns). Select a date range and type filter, results update live. -->
+<!-- Finally switch to "Graph" tab - show the visual graph with search highlighting. -->
+<!-- Window size: 1400x900, dark theme. -->
 <!-- ![Search](docs/gifs/07-search.gif) -->
 
 | Mode | What it does | Example |
@@ -189,7 +316,13 @@ Powered by **Tantivy** (the Rust equivalent of Apache Lucene), search is instant
 
 Track tasks, memos, and events on a monthly calendar.
 
-<!-- GIF: 08-calendar.gif -->
+<!-- GIF: docs/gifs/08-calendar.gif -->
+<!-- Recording (8-10 seconds): Open the calendar (Ctrl+Shift+C). Show the monthly grid with -->
+<!-- task count dots on several dates. Click a date that has tasks - show the detail panel -->
+<!-- expanding with note titles, task checkboxes, and memos for that day. -->
+<!-- Navigate to the next month with the arrow button. Click another date. -->
+<!-- Click "Create note" button on a date to show the template selector. -->
+<!-- Window size: 1200x700, dark theme. -->
 <!-- ![Calendar](docs/gifs/08-calendar.gif) -->
 
 - Monthly grid with **task count indicators** per day
@@ -218,6 +351,13 @@ Your vault is just a folder. No database, no proprietary format. This means you 
 
 Add persistent annotations to any note without modifying the note body.
 
+<!-- IMAGE: docs/images/10-comments.png -->
+<!-- Screenshot showing: an open note with highlighted text and a comment bubble, -->
+<!-- the comment panel on the right side with 3-4 comments (including one with a task checkbox), -->
+<!-- and the memo count badge visible in the search results list on the left. -->
+<!-- Window size: 1400x900, dark theme. -->
+<!-- ![Comments](docs/images/10-comments.png) -->
+
 - **Inline comments** &mdash; highlight text and add a comment
 - **Memos** &mdash; standalone notes attached to a file
 - **Task tracking** &mdash; comments can contain tasks with checkboxes
@@ -225,7 +365,14 @@ Add persistent annotations to any note without modifying the note body.
 
 ### 11. Settings & Customization
 
-<!-- Screenshot: settings panel -->
+<!-- IMAGE: docs/images/11-settings.png -->
+<!-- Screenshot showing: the Settings panel open with sections visible: -->
+<!-- Appearance (theme selector showing Dark/Light/System, font selector), -->
+<!-- Language toggle (Korean/English), Keyboard shortcuts section with remappable keys, -->
+<!-- and the template editor showing enabled/disabled template toggles. -->
+<!-- Show both dark and light theme variants side by side if possible. -->
+<!-- Window size: 1200x700. -->
+<!-- ![Settings](docs/images/11-settings.png) -->
 
 - **Themes** &mdash; Dark, Light, System (auto-detect)
 - **Fonts** &mdash; built-in options + custom font loading
@@ -319,6 +466,44 @@ npx tauri build -- --no-default-features
 | **Search** | [Tantivy](https://github.com/quickwit-oss/tantivy) (Rust full-text engine) |
 | **Graph** | [force-graph](https://github.com/vasturiano/force-graph) (d3-force) |
 | **File watch** | [notify](https://github.com/notify-rs/notify) (cross-platform) |
+
+---
+
+## Visual Asset Guide
+
+Below is a complete guide for all images and GIFs referenced in this README. Use this as a checklist when creating visual assets.
+
+### Directory Structure
+
+```
+docs/
+├── images/
+│   ├── hero-overview.png        (1920x1080) Main app screenshot
+│   ├── usecase-writer.png       (1400x900)  Writer/novelist use case
+│   ├── usecase-researcher.png   (1400x900)  Researcher/academic use case
+│   ├── usecase-office.png       (1400x900)  Office professional use case
+│   ├── usecase-student.png      (1400x900)  Student use case
+│   ├── 10-comments.png          (1400x900)  Comment & memo system
+│   └── 11-settings.png          (1200x700)  Settings panel
+└── gifs/
+    ├── 01-editor.gif            (1200x700, 8-10s)   Editor features
+    ├── 02-wikilinks.gif         (1200x700, 8-10s)   Wiki-links & backlinks
+    ├── 03-templates.gif         (1200x700, 10-12s)  Template selector & frontmatter
+    ├── 04-hover-windows.gif     (1400x900, 10-12s)  Multi-window editing
+    ├── 05-graph.gif             (1400x900, 10-12s)  Graph view & physics
+    ├── 06-canvas.gif            (1200x700, 10-12s)  Canvas editor flowchart
+    ├── 07-search.gif            (1400x900, 12-15s)  5 search modes
+    └── 08-calendar.gif          (1200x700, 8-10s)   Calendar view
+```
+
+### Recording Guidelines
+
+- **Theme**: Use dark theme by default; include light theme variant for hero image and Graph View GIF
+- **Content**: Use realistic-looking sample data (not "Lorem ipsum"). Create a demo vault with 20-30 notes across multiple templates
+- **Cursor**: Show natural mouse movements. Pause briefly on key UI elements before clicking
+- **Frame rate**: 15-20 FPS for GIFs (good quality, reasonable file size)
+- **Format**: PNG for static images, GIF for animated recordings. Optimize GIFs to stay under 5 MB each
+- **Tool**: [ScreenToGif](https://www.screentogif.com/) (free, open source) or [ShareX](https://getsharex.com/) recommended
 
 ---
 

@@ -1,7 +1,9 @@
 import { useFileTree, fileTreeActions, refreshActions, hoverActions, modalActions } from '../stores/zustand';
 import { useContainerConfigs } from '../stores/zustand/vaultConfigStore';
 import { useTemplateStore } from '../stores/zustand/templateStore';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { createNoteWithTemplate } from '../stores/appActions';
+import { t } from '../utils/i18n';
 
 // Templates that have their own input modals (skip TitleInputModal)
 const SPECIAL_TEMPLATE_IDS = ['note-contact', 'note-mtg', 'note-paper', 'note-lit', 'note-event'];
@@ -10,6 +12,7 @@ function RibbonBar() {
   const fileTree = useFileTree();
   const containerConfigs = useContainerConfigs();
   const noteTemplates = useTemplateStore(s => s.noteTemplates);
+  const language = useSettingsStore(s => s.language);
 
   // Get storage containers
   const containers = fileTree.filter(node => node.is_dir);
@@ -51,7 +54,7 @@ function RibbonBar() {
           console.error('RibbonBar: Failed to create note:', e);
         }
       }
-    }, '노트 제목을 입력하세요', `새 ${templateInfo.name} 노트 (${containerName})`);
+    }, t('enterNoteTitle', language), `${t('newNoteDefault', language)} - ${templateInfo.name} (${containerName})`);
   };
 
   const getTemplateInfo = (templateId: string): { prefix: string; name: string; noteType: string; customColor?: string } => {

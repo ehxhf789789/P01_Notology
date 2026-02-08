@@ -2,12 +2,15 @@ import { useState, useEffect, useCallback } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { useFileTree } from '../stores/zustand/fileTreeStore';
 import { moveNote } from '../stores/appActions';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import type { FileNode } from '../types';
 
 function MoveNoteModal() {
   const moveNoteModalPath = useModalStore(s => s.moveNoteModalPath);
   const hideMoveNoteModal = useModalStore(s => s.hideMoveNoteModal);
   const fileTree = useFileTree();
+  const language = useSettingsStore(s => s.language);
   const [selectedDir, setSelectedDir] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [isMoving, setIsMoving] = useState(false);
@@ -92,7 +95,7 @@ function MoveNoteModal() {
                 <span className="move-tree-toggle-spacer" />
               )}
               <span className="move-tree-name">{node.name}</span>
-              {isCurrent && <span className="move-tree-current">(현재)</span>}
+              {isCurrent && <span className="move-tree-current">{t('currentBadge', language)}</span>}
             </div>
             {isExpanded && node.children && (
               <div className="move-tree-children">
@@ -112,7 +115,7 @@ function MoveNoteModal() {
     <div className="move-note-backdrop" onClick={handleBackdropClick}>
       <div className="move-note-modal">
         <div className="move-note-header">
-          <span className="move-note-title">노트 이동: {noteName}</span>
+          <span className="move-note-title">{t('moveNoteTitle', language)} {noteName}</span>
           <button className="move-note-close" onClick={hideMoveNoteModal}>x</button>
         </div>
         <div className="move-note-body">
@@ -122,14 +125,14 @@ function MoveNoteModal() {
         </div>
         <div className="move-note-footer">
           <button className="move-note-btn cancel" onClick={hideMoveNoteModal}>
-            취소
+            {t('cancel', language)}
           </button>
           <button
             className="move-note-btn confirm"
             onClick={handleMove}
             disabled={!selectedDir || isMoving || isCurrentDir}
           >
-            {isMoving ? '이동 중...' : isCurrentDir ? '현재 위치' : '이동'}
+            {isMoving ? t('moving', language) : isCurrentDir ? t('currentLocation', language) : t('moveBtn', language)}
           </button>
         </div>
       </div>

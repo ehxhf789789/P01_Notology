@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import TagInputSection, { type FacetedTagSelection } from './TagInputSection';
 
 export interface ContactFormData {
@@ -107,7 +108,7 @@ function ContactInputModal() {
 
   const handleSubmit = () => {
     if (!formData.name.trim()) {
-      alert('이름을 입력하세요');
+      alert(t('contactNameRequired', language));
       return;
     }
     callback({ ...formData, tags: selectedTags });
@@ -145,24 +146,24 @@ function ContactInputModal() {
           onMouseDown={handleMouseDown}
           style={{ cursor: 'move' }}
         >
-          새 연락처 정보 입력
+          {t('contactTitle', language)}
         </div>
 
         <div className="contact-input-body">
           <div className="contact-input-field">
-            <label className="contact-input-label">이름 *</label>
+            <label className="contact-input-label">{t('contactNameField', language)}</label>
             <input
               ref={nameInputRef}
               className="contact-input-input"
               type="text"
               value={formData.name}
               onChange={e => setFormData({ ...formData, name: e.target.value })}
-              placeholder="홍길동"
+              placeholder={t('contactNamePlaceholder', language)}
             />
           </div>
 
           <div className="contact-input-field">
-            <label className="contact-input-label">이메일</label>
+            <label className="contact-input-label">{t('contactEmail', language)}</label>
             <input
               className="contact-input-input"
               type="email"
@@ -173,46 +174,46 @@ function ContactInputModal() {
           </div>
 
           <div className="contact-input-field">
-            <label className="contact-input-label">회사</label>
+            <label className="contact-input-label">{t('contactCompany', language)}</label>
             <input
               className="contact-input-input"
               type="text"
               value={formData.company}
               onChange={e => setFormData({ ...formData, company: e.target.value })}
-              placeholder="회사명"
+              placeholder={t('contactCompanyPlaceholder', language)}
             />
           </div>
 
           <div className="contact-input-field">
-            <label className="contact-input-label">직책</label>
+            <label className="contact-input-label">{t('contactPosition', language)}</label>
             <input
               className="contact-input-input"
               type="text"
               value={formData.position}
               onChange={e => setFormData({ ...formData, position: e.target.value })}
-              placeholder="직책/직급"
+              placeholder={t('contactPositionPlaceholder', language)}
             />
           </div>
 
           <div className="contact-input-field">
-            <label className="contact-input-label">전화번호</label>
+            <label className="contact-input-label">{t('contactPhone', language)}</label>
             <input
               className="contact-input-input"
               type="tel"
               value={formData.phone}
               onChange={e => setFormData({ ...formData, phone: e.target.value })}
-              placeholder="010-1234-5678"
+              placeholder={t('contactPhonePlaceholder', language)}
             />
           </div>
 
           <div className="contact-input-field">
-            <label className="contact-input-label">위치</label>
+            <label className="contact-input-label">{t('contactLocation', language)}</label>
             <input
               className="contact-input-input"
               type="text"
               value={formData.location}
               onChange={e => setFormData({ ...formData, location: e.target.value })}
-              placeholder="서울, 한국"
+              placeholder={t('contactLocationPlaceholder', language)}
             />
           </div>
 
@@ -226,10 +227,10 @@ function ContactInputModal() {
 
         <div className="contact-input-actions">
           <button className="contact-input-btn contact-input-cancel" onClick={handleCancel}>
-            취소
+            {t('cancel', language)}
           </button>
           <button className="contact-input-btn contact-input-submit" onClick={handleSubmit}>
-            생성 (Ctrl+Enter)
+            {t('createCtrlEnter', language)}
           </button>
         </div>
       </div>

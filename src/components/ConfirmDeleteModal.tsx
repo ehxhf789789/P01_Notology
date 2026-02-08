@@ -1,9 +1,12 @@
 import { useEffect } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t, tf } from '../utils/i18n';
 
 function ConfirmDeleteModal() {
   const confirmDeleteState = useModalStore(s => s.confirmDeleteState);
   const hideConfirmDelete = useModalStore(s => s.hideConfirmDelete);
+  const language = useSettingsStore(s => s.language);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -31,31 +34,31 @@ function ConfirmDeleteModal() {
 
   // Determine header text
   const getHeaderText = () => {
-    if (isBatch) return '일괄 삭제';
-    if (isFile) return '파일 삭제';
-    if (isFolder) return '폴더 삭제';
-    return '노트 삭제';
+    if (isBatch) return t('batchDelete', language);
+    if (isFile) return t('deleteFile', language);
+    if (isFolder) return t('deleteFolder', language);
+    return t('deleteNote', language);
   };
 
   // Determine message text
   const getMessage = () => {
     if (isBatch) {
-      return <><strong>{count}개의 파일</strong>을 삭제하시겠습니까?</>;
+      return <>{tf('confirmBatchDelete', language, { count: count! })}</>;
     }
     if (isFile) {
-      return <><strong>"{itemName}"</strong> 파일을 삭제하시겠습니까?</>;
+      return <><strong>"{itemName}"</strong> {t('confirmDeleteFile', language)}</>;
     }
     if (isFolder) {
-      return <><strong>"{itemName}"</strong> 폴더를 삭제하시겠습니까?</>;
+      return <><strong>"{itemName}"</strong> {t('confirmDeleteFolder', language)}</>;
     }
-    return <><strong>"{itemName}"</strong> 노트를 삭제하시겠습니까?</>;
+    return <><strong>"{itemName}"</strong> {t('confirmDeleteNote', language)}</>;
   };
 
   // Determine warning text
   const getWarning = () => {
-    if (isBatch || isFile) return '연결된 위키링크도 함께 제거됩니다.';
-    if (isFolder) return '모든 하위 항목이 함께 삭제됩니다.';
-    return '첨부 폴더도 함께 삭제됩니다.';
+    if (isBatch || isFile) return t('warnWikilinks', language);
+    if (isFolder) return t('warnSubitems', language);
+    return t('warnAttachments', language);
   };
 
   return (
@@ -74,10 +77,10 @@ function ConfirmDeleteModal() {
         </div>
         <div className="confirm-delete-actions">
           <button className="confirm-delete-btn confirm-delete-cancel" onClick={handleCancel}>
-            취소
+            {t('cancel', language)}
           </button>
           <button className="confirm-delete-btn confirm-delete-confirm" onClick={handleConfirm}>
-            삭제
+            {t('delete', language)}
           </button>
         </div>
       </div>

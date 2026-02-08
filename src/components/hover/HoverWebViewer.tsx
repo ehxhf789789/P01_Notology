@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { Minus, X } from 'lucide-react';
 import { useHoverStore, hoverActions, useIsClosing, useIsMinimizing, HOVER_ANIMATION } from '../../stores/zustand/hoverStore';
+import { useLanguage } from '../../stores/zustand';
+import { t } from '../../utils/i18n';
 import { runAnimation, HOVER_WINDOW_OPEN_DURATION, ANIMATION_BUFFER, hoverWindowPropsAreEqual, type HoverEditorWindowProps } from './hoverAnimationUtils';
 
 // Conditional logging - only in development
@@ -13,6 +15,7 @@ const HoverWebViewer = memo(function HoverWebViewer({ window: win }: HoverEditor
   const focusHoverFile = useHoverStore((s) => s.focusHoverFile);
   const minimizeHoverFile = useHoverStore((s) => s.minimizeHoverFile);
   const updateHoverWindow = useHoverStore((s) => s.updateHoverWindow);
+  const language = useLanguage();
   const [isDragging, setIsDragging] = useState(false);
   const [isResizing, setIsResizing] = useState(false);
   const [isOpening, setIsOpening] = useState(true);
@@ -208,7 +211,7 @@ const HoverWebViewer = memo(function HoverWebViewer({ window: win }: HoverEditor
       <div className="hover-editor-header" onMouseDown={handleDragStart} onDoubleClick={handleDoubleClick}>
         <span className="hover-editor-title">{displayUrl}</span>
         <div className="hover-editor-header-actions">
-          <button className="hover-editor-minimize" onClick={handleMinimize} title="최소화">
+          <button className="hover-editor-minimize" onClick={handleMinimize} title={t('minimize', language)}>
             <Minus size={14} />
           </button>
           <button className="hover-editor-close" onClick={handleClose}>

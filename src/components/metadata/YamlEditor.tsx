@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { Frontmatter } from '../../types/frontmatter';
 import { frontmatterToYaml, yamlToFrontmatter } from '../../utils/frontmatterUtils';
+import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t } from '../../utils/i18n';
 
 interface YamlEditorProps {
   frontmatter: Frontmatter;
@@ -8,6 +10,7 @@ interface YamlEditorProps {
 }
 
 function YamlEditor({ frontmatter, onChange }: YamlEditorProps) {
+  const language = useSettingsStore(s => s.language);
   const [yamlText, setYamlText] = useState('');
   const [parseError, setParseError] = useState<string | null>(null);
 
@@ -45,7 +48,7 @@ function YamlEditor({ frontmatter, onChange }: YamlEditorProps) {
     <div className="yaml-editor">
       {parseError && (
         <div className="yaml-editor-error">
-          <strong>YAML 파싱 오류:</strong> {parseError}
+          <strong>{t('yamlParseError', language)}</strong> {parseError}
         </div>
       )}
 
@@ -54,13 +57,12 @@ function YamlEditor({ frontmatter, onChange }: YamlEditorProps) {
         value={yamlText}
         onChange={(e) => handleYamlChange(e.target.value)}
         spellCheck={false}
-        placeholder="YAML 형식의 메타데이터를 입력하세요..."
+        placeholder={t('yamlPlaceholder', language)}
       />
 
       <div className="yaml-editor-hint">
         <p>
-          <strong>팁:</strong> YAML 문법을 사용하여 메타데이터를 직접 편집할 수 있습니다.
-          폼 모드로 전환하면 검증 및 자동 완성 기능을 사용할 수 있습니다.
+          {t('yamlTip', language)} {t('yamlFormModeTip', language)}
         </p>
       </div>
     </div>

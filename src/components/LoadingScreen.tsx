@@ -1,10 +1,13 @@
 import { useEffect, useState } from 'react';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 interface LoadingScreenProps {
   isLoading: boolean;
 }
 
 function LoadingScreen({ isLoading }: LoadingScreenProps) {
+  const language = useSettingsStore(s => s.language);
   const [dots, setDots] = useState('');
 
   useEffect(() => {
@@ -24,7 +27,7 @@ function LoadingScreen({ isLoading }: LoadingScreenProps) {
       <div className="loading-content">
         <div className="loading-spinner"></div>
         <div className="loading-text">Notology</div>
-        <div className="loading-status">보관소 로딩 중{dots}</div>
+        <div className="loading-status">{t('loadingVault', language)}{dots}</div>
       </div>
     </div>
   );

@@ -7,6 +7,8 @@ import { useTemplateStore } from '../stores/zustand/templateStore';
 import { selectContainer } from '../stores/appActions';
 import type { FileNode, FolderStatus } from '../types';
 import { FOLDER_STATUS_INFO } from '../types';
+import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 
 // Render folder status icon using Lucide
 function renderStatusIcon(status: FolderStatus) {
@@ -94,6 +96,7 @@ function getAllFolderPaths(node: FileNode): string[] {
 }
 
 function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSubfolder }: FolderTreeProps) {
+  const language = useSettingsStore(s => s.language);
   const fileTree = useFileTree();
   const selectedContainer = useSelectedContainer();
   const containerConfigs = useContainerConfigs();
@@ -323,7 +326,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
             <button
               className="folder-tree-expand-btn"
               onClick={hasExpandedFolders ? collapseAll : expandAll}
-              title={hasExpandedFolders ? '모두 접기' : '모두 펼치기'}
+              title={hasExpandedFolders ? t('collapseAll', language) : t('expandAll', language)}
             >
               {hasExpandedFolders ? <ChevronsDownUp size={14} /> : <ChevronsUpDown size={14} />}
             </button>
@@ -334,7 +337,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           <button
             className="folder-tree-new-btn"
             onClick={onNewSubfolder}
-            title="새 폴더"
+            title={t('newFolder', language)}
           >
             <FolderPlus size={14} />
           </button>
@@ -397,7 +400,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
         })}
 
         {containers.length === 0 && (
-          <div className="folder-tree-empty">Container가 없습니다</div>
+          <div className="folder-tree-empty">{t('noContainers', language)}</div>
         )}
       </div>
     </div>

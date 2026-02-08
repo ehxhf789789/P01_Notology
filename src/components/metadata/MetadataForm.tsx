@@ -7,6 +7,8 @@ import {
 import FacetedTagEditor from './FacetedTagEditor';
 import RelationEditor from './RelationEditor';
 import { fileCommands } from '../../services/tauriCommands';
+import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t } from '../../utils/i18n';
 
 interface MetadataFormProps {
   frontmatter: Frontmatter;
@@ -15,6 +17,7 @@ interface MetadataFormProps {
 }
 
 function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
+  const language = useSettingsStore(s => s.language);
   const [availableNotes, setAvailableNotes] = useState<string[]>([]);
 
   useEffect(() => {
@@ -88,10 +91,10 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
     <div className="metadata-form">
       {/* Identity Section */}
       <section className="form-section">
-        <h3 className="form-section-title">기본 정보</h3>
+        <h3 className="form-section-title">{t('basicInfoMeta', language)}</h3>
 
         <div className="form-field">
-          <label htmlFor="title">제목</label>
+          <label htmlFor="title">{t('titleLabel', language)}</label>
           <input
             id="title"
             type="text"
@@ -107,11 +110,11 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
 
         <div className="form-row">
           <div className="form-field">
-            <label htmlFor="created">생성일</label>
+            <label htmlFor="created">{t('createdLabel', language)}</label>
             <input id="created" type="text" value={formatDateTime(frontmatter.created)} disabled />
           </div>
           <div className="form-field">
-            <label htmlFor="modified">수정일</label>
+            <label htmlFor="modified">{t('modifiedLabel', language)}</label>
             <input id="modified" type="text" value={formatDateTime(frontmatter.modified)} disabled />
           </div>
         </div>
@@ -119,10 +122,10 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
 
       {/* State Section */}
       <section className="form-section">
-        <h3 className="form-section-title">노트 상태</h3>
+        <h3 className="form-section-title">{t('noteStatus', language)}</h3>
 
         <div className="form-field">
-          <label htmlFor="workflow">진행 단계</label>
+          <label htmlFor="workflow">{t('workflowLabel', language)}</label>
           <select
             id="workflow"
             value={frontmatter.state.workflow}
@@ -137,7 +140,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
         </div>
 
         <div className="form-field">
-          <label htmlFor="confidence">검증 상태</label>
+          <label htmlFor="confidence">{t('confidenceLabel', language)}</label>
           <select
             id="confidence"
             value={frontmatter.state.confidence}
@@ -152,7 +155,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
         </div>
 
         <div className="form-field">
-          <label htmlFor="maturity">완성도 (1-5)</label>
+          <label htmlFor="maturity">{t('maturityLabel', language)}</label>
           <div className="maturity-slider">
             <input
               id="maturity"
@@ -166,11 +169,11 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
             <span className="maturity-value">{frontmatter.state.maturity}</span>
           </div>
           <div className="maturity-labels">
-            <span>초기</span>
-            <span>성장</span>
-            <span>성숙</span>
-            <span>안정</span>
-            <span>불변</span>
+            <span>{t('maturityInitial', language)}</span>
+            <span>{t('maturityGrowth', language)}</span>
+            <span>{t('maturityMature', language)}</span>
+            <span>{t('maturityStable', language)}</span>
+            <span>{t('maturityImmutable', language)}</span>
           </div>
         </div>
       </section>
@@ -198,10 +201,10 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
         const fm = frontmatter as { date?: string; participants?: string[] };
         return (
           <section className="form-section">
-            <h3 className="form-section-title">미팅 정보</h3>
+            <h3 className="form-section-title">{t('meetingInfo', language)}</h3>
 
             <div className="form-field">
-              <label htmlFor="date">날짜</label>
+              <label htmlFor="date">{t('dateLabel', language)}</label>
               <input
                 id="date"
                 type="datetime-local"
@@ -211,7 +214,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
             </div>
 
             <div className="form-field">
-              <label htmlFor="participants">참가자 (쉼표로 구분)</label>
+              <label htmlFor="participants">{t('participantsComma', language)}</label>
               <input
                 id="participants"
                 type="text"
@@ -232,10 +235,10 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
         const fm = frontmatter as { authors?: string[]; venue?: string; year?: number; doi?: string; url?: string };
         return (
           <section className="form-section">
-            <h3 className="form-section-title">논문 정보</h3>
+            <h3 className="form-section-title">{t('paperInfo', language)}</h3>
 
             <div className="form-field">
-              <label htmlFor="authors">저자 (쉼표로 구분)</label>
+              <label htmlFor="authors">{t('authorsComma', language)}</label>
               <input
                 id="authors"
                 type="text"
@@ -251,7 +254,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
 
             <div className="form-row">
               <div className="form-field">
-                <label htmlFor="venue">학회/저널</label>
+                <label htmlFor="venue">{t('venueLabel', language)}</label>
                 <input
                   id="venue"
                   type="text"
@@ -260,7 +263,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="year">연도</label>
+                <label htmlFor="year">{t('yearLabel', language)}</label>
                 <input
                   id="year"
                   type="number"
@@ -297,10 +300,10 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
         const fm = frontmatter as { email?: string; phone?: string; organization?: string; role?: string };
         return (
           <section className="form-section">
-            <h3 className="form-section-title">연락처 정보</h3>
+            <h3 className="form-section-title">{t('contactInfo', language)}</h3>
 
             <div className="form-field">
-              <label htmlFor="email">이메일</label>
+              <label htmlFor="email">{t('emailLabel', language)}</label>
               <input
                 id="email"
                 type="email"
@@ -310,7 +313,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
             </div>
 
             <div className="form-field">
-              <label htmlFor="phone">전화번호</label>
+              <label htmlFor="phone">{t('phoneLabel', language)}</label>
               <input
                 id="phone"
                 type="tel"
@@ -321,7 +324,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
 
             <div className="form-row">
               <div className="form-field">
-                <label htmlFor="organization">조직</label>
+                <label htmlFor="organization">{t('organizationLabel', language)}</label>
                 <input
                   id="organization"
                   type="text"
@@ -330,7 +333,7 @@ function MetadataForm({ frontmatter, onChange, vaultPath }: MetadataFormProps) {
                 />
               </div>
               <div className="form-field">
-                <label htmlFor="role">역할</label>
+                <label htmlFor="role">{t('roleLabel', language)}</label>
                 <input
                   id="role"
                   type="text"

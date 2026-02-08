@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useFrontmatter } from '../../hooks/useFrontmatter';
 import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t } from '../../utils/i18n';
 import MetadataForm from './MetadataForm';
 import YamlEditor from './YamlEditor';
 import ValidationPanel from './ValidationPanel';
@@ -14,6 +15,7 @@ type EditorMode = 'form' | 'yaml';
 
 function MetadataEditor({ filePath, vaultPath }: MetadataEditorProps) {
   const autoSaveDelay = useSettingsStore((s) => s.autoSaveDelay);
+  const language = useSettingsStore((s) => s.language);
   const [mode, setMode] = useState<EditorMode>('form');
   const [isSaving, setIsSaving] = useState(false);
   const { frontmatter, errors, isLoading, updateFrontmatter, saveFrontmatter } =
@@ -96,7 +98,7 @@ function MetadataEditor({ filePath, vaultPath }: MetadataEditorProps) {
   if (!filePath) {
     return (
       <div className="metadata-editor-empty">
-        <p>파일을 선택하여 메타데이터를 편집하세요.</p>
+        <p>{t('selectFileForMetadata', language)}</p>
       </div>
     );
   }
@@ -104,7 +106,7 @@ function MetadataEditor({ filePath, vaultPath }: MetadataEditorProps) {
   if (isLoading) {
     return (
       <div className="metadata-editor-loading">
-        <p>메타데이터 로딩 중...</p>
+        <p>{t('metadataLoading', language)}</p>
       </div>
     );
   }
@@ -112,7 +114,7 @@ function MetadataEditor({ filePath, vaultPath }: MetadataEditorProps) {
   if (!frontmatter) {
     return (
       <div className="metadata-editor-empty">
-        <p>이 파일에는 메타데이터가 없습니다.</p>
+        <p>{t('noMetadata', language)}</p>
       </div>
     );
   }
@@ -126,19 +128,19 @@ function MetadataEditor({ filePath, vaultPath }: MetadataEditorProps) {
             className={`mode-toggle-btn ${mode === 'form' ? 'active' : ''}`}
             onClick={() => setMode('form')}
           >
-            폼 모드
+            {t('formMode', language)}
           </button>
           <button
             className={`mode-toggle-btn ${mode === 'yaml' ? 'active' : ''}`}
             onClick={() => setMode('yaml')}
           >
-            YAML 모드
+            {t('yamlMode', language)}
           </button>
         </div>
 
         {/* Auto-save indicator */}
         <div className="metadata-auto-save-status">
-          {isSaving && <span className="metadata-saving">저장 중...</span>}
+          {isSaving && <span className="metadata-saving">{t('saving', language)}</span>}
         </div>
       </div>
 

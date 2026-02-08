@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useLanguage } from '../stores/zustand';
+import { t, tf } from '../utils/i18n';
 import type { NoteTemplate } from '../types';
 
 interface NoteTemplateEditorProps {
@@ -22,19 +24,19 @@ const COLOR_THEMES = [
   { label: 'Rose (LIT)', value: 'lit-type', color: '#fb7185' },
 ];
 
-const ICON_OPTIONS = [
-  { value: 'note', label: '노트' },
-  { value: 'mtg', label: '회의' },
-  { value: 'ofa', label: '공문' },
-  { value: 'sem', label: '세미나' },
-  { value: 'event', label: '이벤트' },
-  { value: 'contact', label: '연락처' },
-  { value: 'setup', label: '설정' },
-  { value: 'data', label: '데이터' },
-  { value: 'theo', label: '이론' },
-  { value: 'paper', label: '논문' },
-  { value: 'sketch', label: '스케치' },
-  { value: 'lit', label: '문헌' },
+const ICON_KEYS: { value: string; key: string }[] = [
+  { value: 'note', key: 'templateIconNote' },
+  { value: 'mtg', key: 'templateIconMeeting' },
+  { value: 'ofa', key: 'templateIconOfa' },
+  { value: 'sem', key: 'templateIconSeminar' },
+  { value: 'event', key: 'templateIconEvent' },
+  { value: 'contact', key: 'templateIconContact' },
+  { value: 'setup', key: 'templateIconSetup' },
+  { value: 'data', key: 'templateIconData' },
+  { value: 'theo', key: 'templateIconTheory' },
+  { value: 'paper', key: 'templateIconPaper' },
+  { value: 'sketch', key: 'templateIconSketch' },
+  { value: 'lit', key: 'templateIconLiterature' },
 ];
 
 // Parse markdown body to extract headers
@@ -57,6 +59,8 @@ function generateBody(headers: string[]): string {
 }
 
 function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorProps) {
+  const language = useLanguage();
+  const iconOptions = useMemo(() => ICON_KEYS.map(i => ({ value: i.value, label: t(i.key, language) })), [language]);
   const [name, setName] = useState(template?.name || '');
   const [prefix, setPrefix] = useState(template?.prefix || '');
   const [namePattern, setNamePattern] = useState(template?.namePattern || '{{title}}');
@@ -103,13 +107,13 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
   return (
     <div className="template-editor">
       <div className="template-editor-header">
-        <button className="template-editor-back-btn" onClick={onCancel} title="뒤로 가기">
+        <button className="template-editor-back-btn" onClick={onCancel} title={t('goBack', language)}>
           <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
             <path d="M7.707 14.707a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l2.293 2.293a1 1 0 010 1.414z"/>
           </svg>
         </button>
         <h3 className="template-editor-title">
-          {template ? '템플릿 편집' : '새 템플릿 만들기'}
+          {template ? t('templateEditTitle', language) : t('templateNewTitle', language)}
         </h3>
       </div>
 
@@ -120,31 +124,31 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
             <polyline points="14 2 14 8 20 8"/>
           </svg>
-          기본 정보
+          {t('basicInfo', language)}
         </h4>
         <div className="template-editor-row">
           <div className="template-editor-field">
-            <label className="template-editor-label">템플릿 이름</label>
+            <label className="template-editor-label">{t('templateNameField', language)}</label>
             <input
               className="template-editor-input"
               value={name}
               onChange={e => setName(e.target.value)}
-              placeholder="예: Weekly Report"
+              placeholder={t('exampleName', language)}
             />
           </div>
           <div className="template-editor-field">
-            <label className="template-editor-label">접두어</label>
+            <label className="template-editor-label">{t('prefix', language)}</label>
             <input
               className="template-editor-input"
               value={prefix}
               onChange={e => setPrefix(e.target.value)}
-              placeholder="예: RPT"
+              placeholder={t('examplePrefix', language)}
               style={{ textTransform: 'uppercase' }}
             />
           </div>
         </div>
         <div className="template-editor-field">
-          <label className="template-editor-label">타입</label>
+          <label className="template-editor-label">{t('noteType', language)}</label>
           <input
             className="template-editor-input"
             value={type}
@@ -165,12 +169,12 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
             <line x1="3.95" y1="6.06" x2="8.54" y2="14"/>
             <line x1="10.88" y1="21.94" x2="15.46" y2="14"/>
           </svg>
-          외관
+          {t('appearanceSection', language)}
         </h4>
         <div className="template-editor-field">
-          <label className="template-editor-label">아이콘</label>
+          <label className="template-editor-label">{t('icon', language)}</label>
           <div className="icon-selector-grid">
-            {ICON_OPTIONS.map(opt => {
+            {iconOptions.map(opt => {
               const isSelected = icon === opt.value;
               const iconClass = `icon-${opt.value}`;
               return (
@@ -189,7 +193,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
           </div>
         </div>
         <div className="template-editor-field">
-          <label className="template-editor-label">색상 테마</label>
+          <label className="template-editor-label">{t('colorTheme', language)}</label>
           <div className="color-theme-picker">
             {COLOR_THEMES.map(theme => {
               const isSelected = !useCustomColor && cssclasses === theme.value;
@@ -224,7 +228,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                 checked={useCustomColor}
                 onChange={e => setUseCustomColor(e.target.checked)}
               />
-              사용자 지정 색상
+              {t('customColor', language)}
             </label>
             {useCustomColor && (
               <div className="color-custom-input-row">
@@ -246,7 +250,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
             )}
           </div>
           <span className="template-editor-hint">
-            선택한 색상이 편집기, 검색, Hover 창에 자동 적용됩니다
+            {t('colorHint', language)}
           </span>
         </div>
       </div>
@@ -258,19 +262,19 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
             <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
             <line x1="7" y1="7" x2="7.01" y2="7"/>
           </svg>
-          태그
+          {t('tagsSection', language)}
         </h4>
         <div className="template-editor-field">
-          <label className="template-editor-label">기본 태그</label>
+          <label className="template-editor-label">{t('defaultTags', language)}</label>
           <input
             className="template-editor-input"
             value={tags}
             onChange={e => setTags(e.target.value)}
-            placeholder="쉼표로 구분하여 입력"
+            placeholder={t('tagsCommaSeparated', language)}
           />
         </div>
         <div className="template-editor-field">
-          <label className="template-editor-label">태그 카테고리 (자동완성용)</label>
+          <label className="template-editor-label">{t('tagCategories', language)}</label>
           <div className="tag-categories-grid">
             <div className="tag-category-row">
               <span className="tag-category-label">domain/</span>
@@ -278,7 +282,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                 className="template-editor-input"
                 value={domainTags}
                 onChange={e => setDomainTags(e.target.value)}
-                placeholder="분야 태그"
+                placeholder={t('domainTags', language)}
               />
             </div>
             <div className="tag-category-row">
@@ -287,7 +291,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                 className="template-editor-input"
                 value={whoTags}
                 onChange={e => setWhoTags(e.target.value)}
-                placeholder="사람 태그"
+                placeholder={t('peopleTags', language)}
               />
             </div>
             <div className="tag-category-row">
@@ -296,7 +300,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                 className="template-editor-input"
                 value={orgTags}
                 onChange={e => setOrgTags(e.target.value)}
-                placeholder="조직 태그"
+                placeholder={t('orgTags', language)}
               />
             </div>
             <div className="tag-category-row">
@@ -305,12 +309,12 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                 className="template-editor-input"
                 value={ctxTags}
                 onChange={e => setCtxTags(e.target.value)}
-                placeholder="맥락 태그"
+                placeholder={t('contextTags', language)}
               />
             </div>
           </div>
           <span className="template-editor-hint">
-            자주 사용하는 태그를 미리 등록하면 입력 시 자동완성됩니다
+            {t('tagAutocompleteHint', language)}
           </span>
         </div>
       </div>
@@ -326,10 +330,10 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
             <line x1="3" y1="12" x2="3.01" y2="12"/>
             <line x1="3" y1="18" x2="3.01" y2="18"/>
           </svg>
-          본문 구조
+          {t('bodyStructure', language)}
         </h4>
         <div className="template-editor-field">
-          <label className="template-editor-label">섹션 헤더</label>
+          <label className="template-editor-label">{t('sectionHeaders', language)}</label>
           <div className="header-editor-container">
             {headers.map((header, index) => (
               <div key={index} className="header-editor-row">
@@ -343,7 +347,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                     newHeaders[index] = e.target.value;
                     setHeaders(newHeaders);
                   }}
-                  placeholder={`섹션 ${index + 1}`}
+                  placeholder={tf('sectionPlaceholder', language, { index: index + 1 })}
                 />
                 <button
                   type="button"
@@ -353,7 +357,7 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
                       setHeaders(headers.filter((_, i) => i !== index));
                     }
                   }}
-                  title="섹션 삭제"
+                  title={t('removeSection', language)}
                   disabled={headers.length === 1}
                 >
                   ×
@@ -365,18 +369,18 @@ function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorPr
               className="header-editor-add-btn"
               onClick={() => setHeaders([...headers, ''])}
             >
-              + 섹션 추가
+              {t('addSection', language)}
             </button>
           </div>
           <span className="template-editor-hint">
-            각 섹션은 구분선(---)으로 구분됩니다
+            {t('sectionSeparatorHint', language)}
           </span>
         </div>
       </div>
 
       <div className="template-editor-actions">
-        <button className="template-editor-cancel-btn" onClick={onCancel}>취소</button>
-        <button className="template-editor-save-btn" onClick={handleSave}>저장</button>
+        <button className="template-editor-cancel-btn" onClick={onCancel}>{t('cancel', language)}</button>
+        <button className="template-editor-save-btn" onClick={handleSave}>{t('save', language)}</button>
       </div>
     </div>
   );

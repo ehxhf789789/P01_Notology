@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import TagInputSection, { type FacetedTagSelection } from './TagInputSection';
 
 export interface PaperFormData {
@@ -61,7 +62,7 @@ function PaperInputModal() {
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      alert('논문 제목을 입력하세요');
+      alert(t('paperTitleRequired', language));
       return;
     }
     callback({ ...formData, tags: selectedTags });
@@ -85,23 +86,23 @@ function PaperInputModal() {
   return (
     <div className="modal-overlay">
       <div className="paper-input-modal" onKeyDown={handleKeyDown}>
-        <div className="paper-input-header">새 논문 노트 생성</div>
+        <div className="paper-input-header">{t('paperTitle', language)}</div>
 
         <div className="paper-input-body">
           <div className="paper-input-field">
-            <label className="paper-input-label">논문 제목 *</label>
+            <label className="paper-input-label">{t('paperTitleField', language)}</label>
             <input
               ref={titleInputRef}
               className="paper-input-input"
               type="text"
               value={formData.title}
               onChange={e => setFormData({ ...formData, title: e.target.value })}
-              placeholder="논문 제목"
+              placeholder={t('paperTitlePlaceholder', language)}
             />
           </div>
 
           <div className="paper-input-field">
-            <label className="paper-input-label">저자</label>
+            <label className="paper-input-label">{t('paperAuthors', language)}</label>
             <input
               className="paper-input-input"
               type="text"
@@ -113,7 +114,7 @@ function PaperInputModal() {
 
           <div className="paper-input-row">
             <div className="paper-input-field">
-              <label className="paper-input-label">발행년도</label>
+              <label className="paper-input-label">{t('paperYear', language)}</label>
               <input
                 className="paper-input-input"
                 type="text"
@@ -124,7 +125,7 @@ function PaperInputModal() {
             </div>
 
             <div className="paper-input-field">
-              <label className="paper-input-label">출판처</label>
+              <label className="paper-input-label">{t('paperVenue', language)}</label>
               <input
                 className="paper-input-input"
                 type="text"
@@ -167,10 +168,10 @@ function PaperInputModal() {
 
         <div className="paper-input-actions">
           <button className="paper-input-btn paper-input-cancel" onClick={handleCancel}>
-            취소
+            {t('cancel', language)}
           </button>
           <button className="paper-input-btn paper-input-submit" onClick={handleSubmit}>
-            생성 (Ctrl+Enter)
+            {t('createCtrlEnter', language)}
           </button>
         </div>
       </div>

@@ -9,6 +9,7 @@ import { SyncStatusIndicator, type SyncStatus } from './SyncStatusIndicator';
 import { useHoverStore, hoverActions, useIsClosing, useIsMinimizing, HOVER_ANIMATION } from '../stores/zustand/hoverStore';
 import { useFileTreeStore, useVaultPath, fileTreeActions } from '../stores/zustand/fileTreeStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { t } from '../utils/i18n';
 import { useTemplateStore } from '../stores/zustand/templateStore';
 import { useIsNasSynced, useIsBulkSyncing } from '../stores/zustand/vaultConfigStore';
 import { modalActions } from '../stores/zustand/modalStore';
@@ -69,6 +70,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const noteTemplates = useTemplateStore((s) => s.noteTemplates);
   const isBulkSyncing = useIsBulkSyncing();
   const isNasSynced = useIsNasSynced();
+  const language = useSettingsStore((s) => s.language);
 
   // OPTIMIZATION: Store action references in a ref - these are stable and don't need to trigger re-renders
   const appStoreActionsRef = useRef({
@@ -1734,7 +1736,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       editor.chain()
         .focus()
         .insertContentAt(endPos, [
-          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: '첨부파일' }] },
+          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: t('attachmentHeading', language) }] },
           { type: 'bulletList', content: listItems },
         ])
         .run();
@@ -1851,20 +1853,20 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
               <button
                 className={`hover-editor-fm-toggle ${showMetadata ? 'active' : ''}`}
                 onClick={() => setShowMetadata(!showMetadata)}
-                title="메타데이터"
+                title={t('metadata', language)}
               >
                 <LayoutList size={14} />
               </button>
               <button
                 className={`hover-editor-fm-toggle ${showComments ? 'active' : ''}`}
                 onClick={handleToggleComments}
-                title="메모"
+                title={t('memo', language)}
               >
                 <MessageSquare size={14} />
               </button>
             </>
           )}
-          <button className="hover-editor-minimize" onClick={handleMinimize} title="최소화">
+          <button className="hover-editor-minimize" onClick={handleMinimize} title={t('minimize', language)}>
             <Minus size={14} />
           </button>
           <button className="hover-editor-close" onClick={handleClose}>

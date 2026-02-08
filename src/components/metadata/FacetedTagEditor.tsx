@@ -5,6 +5,8 @@ import { FACET_NAMESPACES } from '../../types/tagOntology';
 import { loadTagOntology, addToRecentTags, addNewTag } from '../../utils/tagOntologyUtils';
 import HierarchicalTagSelector from './HierarchicalTagSelector';
 import { useOntologyRefreshTrigger, refreshActions } from '../../stores/zustand/refreshStore';
+import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t } from '../../utils/i18n';
 
 interface FacetedTagEditorProps {
   tags: FacetedTags;
@@ -13,6 +15,7 @@ interface FacetedTagEditorProps {
 }
 
 function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) {
+  const language = useSettingsStore(s => s.language);
   const ontologyRefreshTrigger = useOntologyRefreshTrigger();
   const incrementOntologyRefresh = refreshActions.incrementOntologyRefresh;
   const [ontology, setOntology] = useState<TagOntology | null>(null);
@@ -105,12 +108,12 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
   };
 
   if (!ontology) {
-    return <div className="faceted-tag-editor-loading">태그 온톨로지 로딩 중...</div>;
+    return <div className="faceted-tag-editor-loading">{t('tagOntologyLoading', language)}</div>;
   }
 
   return (
     <div className="faceted-tag-editor">
-      <h3 className="faceted-tag-editor-title">패싯 태그</h3>
+      <h3 className="faceted-tag-editor-title">{t('facetedTags', language)}</h3>
 
       {FACET_NAMESPACES.map((facet) => {
         const facetTags = tags[facet.namespace] || [];
@@ -130,7 +133,7 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
                   )
                 }
               >
-                + 추가
+                {t('addBtn', language)}
               </button>
             </div>
 
@@ -145,7 +148,7 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
                     <button
                       className="tag-remove-btn"
                       onClick={() => removeTag(facet.namespace, tagId)}
-                      title="제거"
+                      title={t('removeBtn', language)}
                     >
                       ×
                     </button>

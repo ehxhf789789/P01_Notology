@@ -4,11 +4,12 @@ import { listen } from '@tauri-apps/api/event';
 import { searchCommands } from '../services/tauriCommands';
 import { hoverActions } from '../stores/zustand/hoverStore';
 import { useVaultPath } from '../stores/zustand/fileTreeStore';
-import { useGraphSettings, useSettingsStore } from '../stores/zustand';
+import { useGraphSettings, useSettingsStore, useLanguage, useTheme } from '../stores/zustand';
 import { useNoteTemplates } from '../stores/zustand/templateStore';
 import { useSearchReady } from '../stores/zustand/refreshStore';
 import { getTemplateCustomColor } from '../utils/noteTypeHelpers';
 import { selectContainer } from '../stores/appActions';
+import { t, tf } from '../utils/i18n';
 import type { GraphData, GraphSettings } from '../types';
 import { DEFAULT_GRAPH_SETTINGS } from '../types';
 import { Settings } from 'lucide-react';
@@ -79,6 +80,11 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   const searchReady = useSearchReady();
   const graphSettings = useGraphSettings();
   const noteTemplates = useNoteTemplates();
+  const language = useLanguage();
+  const theme = useTheme();
+  const isDark = theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const isDarkRef = useRef(isDark);
+  isDarkRef.current = isDark;
   const [graphData, setGraphData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(false);
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
@@ -322,7 +328,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
           ctx.closePath();
           ctx.fillStyle = color;
           ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+          ctx.strokeStyle = isDarkRef.current ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.15)';
           ctx.lineWidth = 0.5;
           ctx.stroke();
         } else if (n.nodeType === 'attachment') {
@@ -346,7 +352,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
           ctx.arc(x, y, size, 0, 2 * Math.PI);
           ctx.fillStyle = color;
           ctx.fill();
-          ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+          ctx.strokeStyle = isDarkRef.current ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.25)';
           ctx.lineWidth = 1.5;
           ctx.stroke();
           ctx.beginPath();
@@ -384,13 +390,15 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
             const vPad = 2 / globalScale;
             const bgHeight = fontSize * 1.4;
             const labelY = y + size + 3;
-            ctx.fillStyle = 'rgba(0,0,0,0.75)';
+            ctx.fillStyle = isDarkRef.current ? 'rgba(0,0,0,0.75)' : 'rgba(255,255,255,0.9)';
             ctx.fillRect(x - textWidth / 2 - hPad, labelY - vPad, textWidth + hPad * 2, bgHeight + vPad * 2);
-            ctx.fillStyle = isSearchHighlight ? '#facc15' : '#ffffff';
+            ctx.fillStyle = isSearchHighlight ? '#facc15' : isDarkRef.current ? '#ffffff' : '#1a1a1a';
             ctx.fillText(label, x, labelY);
           } else {
             if (label.length > 24) label = label.substring(0, 22) + '...';
-            ctx.fillStyle = alpha < 0.5 ? `rgba(200,200,200,${alpha})` : 'rgba(200,200,200,0.9)';
+            ctx.fillStyle = isDarkRef.current
+              ? (alpha < 0.5 ? `rgba(200,200,200,${alpha})` : 'rgba(200,200,200,0.9)')
+              : (alpha < 0.5 ? `rgba(60,60,60,${alpha})` : 'rgba(60,60,60,0.9)');
             ctx.fillText(label, x, y + size + 3);
           }
         }
@@ -411,20 +419,21 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
       })
       .linkColor((link: any) => {
         const l = link as GraphLinkInternal;
+        const dark = isDarkRef.current;
         const currentHovered = hoveredNodeIdRef.current;
         if (currentHovered) {
           const sourceId = typeof l.source === 'string' ? l.source : l.source.id;
           const targetId = typeof l.target === 'string' ? l.target : l.target.id;
           const neighbors = getNeighborSet(currentHovered);
           if (neighbors.has(sourceId) && neighbors.has(targetId)) {
-            return 'rgba(150,150,150,0.6)';
+            return dark ? 'rgba(150,150,150,0.6)' : 'rgba(100,100,100,0.5)';
           }
-          return 'rgba(150,150,150,0.03)';
+          return dark ? 'rgba(150,150,150,0.03)' : 'rgba(100,100,100,0.03)';
         }
-        if (l.edgeType === 'contains') return 'rgba(100,100,255,0.35)';
-        if (l.edgeType === 'tag') return 'rgba(180,160,100,0.25)';
-        if (l.edgeType === 'attachment') return 'rgba(16,185,129,0.25)';
-        return 'rgba(150,150,150,0.3)';
+        if (l.edgeType === 'contains') return dark ? 'rgba(100,100,255,0.35)' : 'rgba(80,80,200,0.3)';
+        if (l.edgeType === 'tag') return dark ? 'rgba(180,160,100,0.25)' : 'rgba(150,130,80,0.25)';
+        if (l.edgeType === 'attachment') return dark ? 'rgba(16,185,129,0.25)' : 'rgba(12,150,100,0.25)';
+        return dark ? 'rgba(150,150,150,0.3)' : 'rgba(100,100,100,0.25)';
       })
       .linkWidth((link: any) => {
         const l = link as GraphLinkInternal;
@@ -588,7 +597,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   if (loading && !graphData) {
     return (
       <div className="graph-view-container">
-        <div className="graph-loading">그래프 데이터 로딩 중...</div>
+        <div className="graph-loading">{t('graphLoading', language)}</div>
       </div>
     );
   }
@@ -596,7 +605,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   if (!graphData || filteredData.nodes.length === 0) {
     return (
       <div className="graph-view-container">
-        <div className="graph-empty">표시할 노트가 없습니다</div>
+        <div className="graph-empty">{t('graphNoNotes', language)}</div>
       </div>
     );
   }
@@ -610,7 +619,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
         <input
           type="text"
           className="graph-search-input"
-          placeholder="노드 검색..."
+          placeholder={t('graphSearchPlaceholder', language)}
           value={searchQuery}
           onChange={e => handleSearchNode(e.target.value)}
         />
@@ -620,7 +629,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
       <button
         className="graph-settings-toggle"
         onClick={() => setShowSettings(!showSettings)}
-        title="그래프 설정"
+        title={t('graphSettings', language)}
       >
         <Settings size={16} />
       </button>
@@ -628,7 +637,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
       {/* Settings panel */}
       {showSettings && (
         <div className="graph-settings-panel">
-          <div className="graph-settings-title">그래프 설정</div>
+          <div className="graph-settings-title">{t('graphSettings', language)}</div>
 
           <div className="graph-settings-section">
             <label className="graph-settings-label">
@@ -637,7 +646,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
                 checked={graphSettings.showTags}
                 onChange={e => updateSettings({ showTags: e.target.checked })}
               />
-              태그 표시
+              {t('showTags', language)}
             </label>
             <label className="graph-settings-label">
               <input
@@ -645,14 +654,14 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
                 checked={graphSettings.showAttachments}
                 onChange={e => updateSettings({ showAttachments: e.target.checked })}
               />
-              첨부파일 표시
+              {t('showAttachments', language)}
             </label>
           </div>
 
           <div className="graph-settings-section">
-            <div className="graph-settings-subtitle">노드 색상</div>
+            <div className="graph-settings-subtitle">{t('canvasNodeColor', language)}</div>
             <div className="graph-settings-color-row">
-              <span>노트</span>
+              <span>{t('noteColor', language)}</span>
               <input
                 type="color"
                 value={graphSettings.nodeColors.note}
@@ -660,7 +669,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
               />
             </div>
             <div className="graph-settings-color-row">
-              <span>태그</span>
+              <span>{t('tagColor', language)}</span>
               <input
                 type="color"
                 value={graphSettings.nodeColors.tag}
@@ -668,7 +677,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
               />
             </div>
             <div className="graph-settings-color-row">
-              <span>첨부파일</span>
+              <span>{t('attachmentColor', language)}</span>
               <input
                 type="color"
                 value={graphSettings.nodeColors.attachment}
@@ -678,9 +687,9 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
           </div>
 
           <div className="graph-settings-section">
-            <div className="graph-settings-subtitle">물리 시뮬레이션</div>
+            <div className="graph-settings-subtitle">{t('physics', language)}</div>
             <div className="graph-settings-slider-row">
-              <span>반발력</span>
+              <span>{t('chargeStrength', language)}</span>
               <input
                 type="range"
                 min="-300"
@@ -691,7 +700,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
               <span className="graph-settings-slider-value">{graphSettings.physics.chargeStrength}</span>
             </div>
             <div className="graph-settings-slider-row">
-              <span>링크 거리</span>
+              <span>{t('linkDistance', language)}</span>
               <input
                 type="range"
                 min="10"
@@ -707,7 +716,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
             className="graph-settings-reset-btn"
             onClick={() => updateSettings(DEFAULT_GRAPH_SETTINGS)}
           >
-            기본값 복원
+            {t('resetDefaults', language)}
           </button>
         </div>
       )}
@@ -741,7 +750,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
             items.unshift(
               <span key="__folder__" className="graph-legend-item">
                 <span className="graph-legend-dot graph-legend-folder" style={{ backgroundColor: FOLDER_NOTE_COLOR }} />
-                FOLDER ({folderNoteCount})
+                {tf('folderLabel', language, { count: folderNoteCount })}
               </span>
             );
           }
@@ -757,14 +766,14 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
 
       {/* Info bar */}
       <div className="graph-info-bar">
-        <span>{filteredData.nodes.filter(n => n.nodeType === 'note').length}개 노트</span>
+        <span>{tf('notesCount', language, { count: filteredData.nodes.filter(n => n.nodeType === 'note').length })}</span>
         {graphSettings.showTags && (
-          <span>{filteredData.nodes.filter(n => n.nodeType === 'tag').length}개 태그</span>
+          <span>{tf('tagsCountGraph', language, { count: filteredData.nodes.filter(n => n.nodeType === 'tag').length })}</span>
         )}
         {graphSettings.showAttachments && (
-          <span>{filteredData.nodes.filter(n => n.nodeType === 'attachment').length}개 첨부</span>
+          <span>{tf('attachmentsCountGraph', language, { count: filteredData.nodes.filter(n => n.nodeType === 'attachment').length })}</span>
         )}
-        <span>{filteredData.links.length}개 연결</span>
+        <span>{tf('connectionsCount', language, { count: filteredData.links.length })}</span>
       </div>
     </div>
   );

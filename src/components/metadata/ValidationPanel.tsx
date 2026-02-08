@@ -1,17 +1,21 @@
 import type { ValidationError } from '../../types/frontmatter';
+import { useSettingsStore } from '../../stores/zustand/settingsStore';
+import { t, tf } from '../../utils/i18n';
 
 interface ValidationPanelProps {
   errors: ValidationError[];
 }
 
 function ValidationPanel({ errors }: ValidationPanelProps) {
+  const language = useSettingsStore(s => s.language);
+
   if (errors.length === 0) return null;
 
   return (
     <div className="validation-panel">
       <div className="validation-panel-header">
         <span className="validation-icon">⚠️</span>
-        <strong>검증 오류 ({errors.length})</strong>
+        <strong>{tf('validationErrors', language, { count: errors.length })}</strong>
       </div>
 
       <ul className="validation-errors">
@@ -24,7 +28,7 @@ function ValidationPanel({ errors }: ValidationPanelProps) {
       </ul>
 
       <div className="validation-panel-hint">
-        모든 검증 오류를 해결해야 메타데이터를 저장할 수 있습니다.
+        {t('validationMsg', language)}
       </div>
     </div>
   );
