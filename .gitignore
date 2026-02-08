@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+
+# Rust / Tauri build
+src-tauri/target/
+
+# Environment & local config
+*.local
+.env
+.env.*
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Claude Code
+.claude/
+CLAUDE.md
+
+# Development backups & reports
+.backup/
+_meta/
+test-vault/
+scripts/
+nul
+*_REPORT.md
+*_RESULTS.md
+*_RESULTS.txt
+*_TEST_PLAN.md
+*_IMPROVEMENTS.md
+*_COMPLETE.md
+
+# Cargo local config
+.cargo/

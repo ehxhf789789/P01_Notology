@@ -1,0 +1,124 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Base Note Schema",
+  "type": "object",
+  "required": ["id", "title", "type", "created", "modified", "state"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9]{14}$",
+      "description": "14-digit timestamp ID"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Note title"
+    },
+    "type": {
+      "type": "string",
+      "enum": ["NOTE", "MTG", "PAPER", "THEO", "TASK", "CONTACT", "CONTAINER"],
+      "description": "Note type"
+    },
+    "created": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Creation timestamp"
+    },
+    "modified": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last modified timestamp"
+    },
+    "state": {
+      "type": "object",
+      "required": ["workflow", "confidence", "maturity"],
+      "properties": {
+        "workflow": {
+          "type": "string",
+          "enum": ["draft", "in-progress", "review", "final", "archived"],
+          "description": "Current workflow state"
+        },
+        "confidence": {
+          "type": "string",
+          "enum": ["unverified", "verified", "outdated", "disputed"],
+          "description": "Confidence level in the content"
+        },
+        "maturity": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 5,
+          "description": "Maturity level (1=nascent, 5=evergreen)"
+        }
+      }
+    },
+    "tags": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Domain/subject tags"
+        },
+        "who": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "People tags"
+        },
+        "org": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Organization tags"
+        },
+        "ctx": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Context tags"
+        },
+        "source": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Source/reference tags"
+        },
+        "method": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Method/technique tags"
+        },
+        "status": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Status tags"
+        }
+      }
+    },
+    "relations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["relation_type", "target"],
+        "properties": {
+          "relation_type": {
+            "type": "string",
+            "enum": ["supports", "refutes", "extends", "implements", "derives-from", "part-of", "is-example-of", "causes"],
+            "description": "Type of relation"
+          },
+          "target": {
+            "type": "string",
+            "description": "Target note title or ID"
+          },
+          "strength": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.0,
+            "description": "Relation strength (0.0-1.0)"
+          }
+        }
+      }
+    },
+    "cssclasses": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "CSS classes for custom styling"
+    }
+  }
+}
