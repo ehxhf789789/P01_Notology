@@ -1,6 +1,8 @@
+import { t, type LanguageSetting } from './i18n';
+
 export interface ShortcutBinding {
   id: string;
-  label: string;
+  labelKey: string;
   category: 'text' | 'heading' | 'list' | 'block' | 'system' | 'navigation';
   defaultKeys: string;
   customKeys?: string;
@@ -8,47 +10,47 @@ export interface ShortcutBinding {
 
 export const DEFAULT_SHORTCUTS: ShortcutBinding[] = [
   // Text
-  { id: 'bold', label: '굵게', category: 'text', defaultKeys: 'Ctrl+B' },
-  { id: 'italic', label: '기울임', category: 'text', defaultKeys: 'Ctrl+I' },
-  { id: 'underline', label: '밑줄', category: 'text', defaultKeys: 'Ctrl+U' },
-  { id: 'strikethrough', label: '취소선', category: 'text', defaultKeys: 'Ctrl+Shift+X' },
-  { id: 'code', label: '코드', category: 'text', defaultKeys: 'Ctrl+E' },
-  { id: 'highlight', label: '하이라이트', category: 'text', defaultKeys: 'Ctrl+Shift+H' },
+  { id: 'bold', labelKey: 'scBold', category: 'text', defaultKeys: 'Ctrl+B' },
+  { id: 'italic', labelKey: 'scItalic', category: 'text', defaultKeys: 'Ctrl+I' },
+  { id: 'underline', labelKey: 'scUnderline', category: 'text', defaultKeys: 'Ctrl+U' },
+  { id: 'strikethrough', labelKey: 'scStrikethrough', category: 'text', defaultKeys: 'Ctrl+Shift+X' },
+  { id: 'code', labelKey: 'scCode', category: 'text', defaultKeys: 'Ctrl+E' },
+  { id: 'highlight', labelKey: 'scHighlight', category: 'text', defaultKeys: 'Ctrl+Shift+H' },
 
   // Heading
-  { id: 'heading1', label: '제목 1 (H1)', category: 'heading', defaultKeys: 'Ctrl+1' },
-  { id: 'heading2', label: '제목 2 (H2)', category: 'heading', defaultKeys: 'Ctrl+2' },
-  { id: 'heading3', label: '제목 3 (H3)', category: 'heading', defaultKeys: 'Ctrl+3' },
-  { id: 'heading4', label: '제목 4 (H4)', category: 'heading', defaultKeys: 'Ctrl+4' },
-  { id: 'heading5', label: '제목 5 (H5)', category: 'heading', defaultKeys: 'Ctrl+5' },
-  { id: 'heading6', label: '제목 6 (H6)', category: 'heading', defaultKeys: 'Ctrl+6' },
+  { id: 'heading1', labelKey: 'scHeading1', category: 'heading', defaultKeys: 'Ctrl+1' },
+  { id: 'heading2', labelKey: 'scHeading2', category: 'heading', defaultKeys: 'Ctrl+2' },
+  { id: 'heading3', labelKey: 'scHeading3', category: 'heading', defaultKeys: 'Ctrl+3' },
+  { id: 'heading4', labelKey: 'scHeading4', category: 'heading', defaultKeys: 'Ctrl+4' },
+  { id: 'heading5', labelKey: 'scHeading5', category: 'heading', defaultKeys: 'Ctrl+5' },
+  { id: 'heading6', labelKey: 'scHeading6', category: 'heading', defaultKeys: 'Ctrl+6' },
 
   // List
-  { id: 'bulletList', label: '글머리 목록', category: 'list', defaultKeys: 'Ctrl+Shift+8' },
-  { id: 'orderedList', label: '번호 목록', category: 'list', defaultKeys: 'Ctrl+Shift+7' },
-  { id: 'taskList', label: '체크리스트', category: 'list', defaultKeys: 'Ctrl+Shift+9' },
-  { id: 'indent', label: '들여쓰기', category: 'list', defaultKeys: 'Tab' },
-  { id: 'outdent', label: '내어쓰기', category: 'list', defaultKeys: 'Shift+Tab' },
+  { id: 'bulletList', labelKey: 'scBulletList', category: 'list', defaultKeys: 'Ctrl+Shift+8' },
+  { id: 'orderedList', labelKey: 'scOrderedList', category: 'list', defaultKeys: 'Ctrl+Shift+7' },
+  { id: 'taskList', labelKey: 'scTaskList', category: 'list', defaultKeys: 'Ctrl+Shift+9' },
+  { id: 'indent', labelKey: 'scIndent', category: 'list', defaultKeys: 'Tab' },
+  { id: 'outdent', labelKey: 'scOutdent', category: 'list', defaultKeys: 'Shift+Tab' },
 
   // Block
-  { id: 'blockquote', label: '인용', category: 'block', defaultKeys: 'Ctrl+Shift+B' },
-  { id: 'codeBlock', label: '코드 블록', category: 'block', defaultKeys: 'Ctrl+Shift+E' },
-  { id: 'horizontalRule', label: '구분선', category: 'block', defaultKeys: 'Ctrl+Shift+-' },
+  { id: 'blockquote', labelKey: 'scBlockquote', category: 'block', defaultKeys: 'Ctrl+Shift+B' },
+  { id: 'codeBlock', labelKey: 'scCodeBlock', category: 'block', defaultKeys: 'Ctrl+Shift+E' },
+  { id: 'horizontalRule', labelKey: 'scHorizontalRule', category: 'block', defaultKeys: 'Ctrl+Shift+-' },
 
   // System
-  { id: 'save', label: '저장', category: 'system', defaultKeys: 'Ctrl+S' },
-  { id: 'undo', label: '실행 취소', category: 'system', defaultKeys: 'Ctrl+Z' },
-  { id: 'redo', label: '다시 실행', category: 'system', defaultKeys: 'Ctrl+Shift+Z' },
-  { id: 'deleteNote', label: '노트/폴더 삭제', category: 'system', defaultKeys: 'Ctrl+D' },
-  { id: 'toggleMemo', label: 'Hover 창 메모', category: 'system', defaultKeys: 'Ctrl+M' },
-  { id: 'toggleMetadata', label: 'Hover 창 메타데이터', category: 'system', defaultKeys: 'Ctrl+Shift+M' },
+  { id: 'save', labelKey: 'scSave', category: 'system', defaultKeys: 'Ctrl+S' },
+  { id: 'undo', labelKey: 'scUndo', category: 'system', defaultKeys: 'Ctrl+Z' },
+  { id: 'redo', labelKey: 'scRedo', category: 'system', defaultKeys: 'Ctrl+Shift+Z' },
+  { id: 'deleteNote', labelKey: 'scDeleteNote', category: 'system', defaultKeys: 'Ctrl+D' },
+  { id: 'toggleMemo', labelKey: 'scToggleMemo', category: 'system', defaultKeys: 'Ctrl+M' },
+  { id: 'toggleMetadata', labelKey: 'scToggleMetadata', category: 'system', defaultKeys: 'Ctrl+Shift+M' },
 
   // Navigation
-  { id: 'newNote', label: '새 노트', category: 'navigation', defaultKeys: 'Ctrl+N' },
-  { id: 'search', label: '검색', category: 'navigation', defaultKeys: 'Ctrl+Shift+F' },
-  { id: 'calendar', label: '캘린더', category: 'navigation', defaultKeys: 'Ctrl+Shift+C' },
-  { id: 'toggleSidebar', label: '사이드바 토글', category: 'navigation', defaultKeys: 'Ctrl+ArrowLeft' },
-  { id: 'toggleRightPanel', label: '오른쪽 패널 토글', category: 'navigation', defaultKeys: 'Ctrl+ArrowRight' },
+  { id: 'newNote', labelKey: 'scNewNote', category: 'navigation', defaultKeys: 'Ctrl+N' },
+  { id: 'search', labelKey: 'scSearch', category: 'navigation', defaultKeys: 'Ctrl+Shift+F' },
+  { id: 'calendar', labelKey: 'scCalendar', category: 'navigation', defaultKeys: 'Ctrl+Shift+C' },
+  { id: 'toggleSidebar', labelKey: 'scToggleSidebar', category: 'navigation', defaultKeys: 'Ctrl+ArrowLeft' },
+  { id: 'toggleRightPanel', labelKey: 'scToggleRightPanel', category: 'navigation', defaultKeys: 'Ctrl+ArrowRight' },
 ];
 
 export function getActiveKeys(binding: ShortcutBinding): string {
@@ -68,14 +70,23 @@ export function parseShortcut(keys: string): { ctrl: boolean; shift: boolean; al
   return result;
 }
 
-export const CATEGORY_LABELS: Record<string, string> = {
-  text: '텍스트',
-  heading: '제목',
-  list: '목록',
-  block: '블록',
-  system: '시스템',
-  navigation: '탐색',
+const CATEGORY_KEYS: Record<string, string> = {
+  text: 'scCatText',
+  heading: 'scCatHeading',
+  list: 'scCatList',
+  block: 'scCatBlock',
+  system: 'scCatSystem',
+  navigation: 'scCatNavigation',
 };
+
+export function getCategoryLabel(category: string, lang: LanguageSetting): string {
+  const key = CATEGORY_KEYS[category];
+  return key ? t(key, lang) : category;
+}
+
+export function getShortcutLabel(binding: ShortcutBinding, lang: LanguageSetting): string {
+  return t(binding.labelKey, lang);
+}
 
 // QWERTY keyboard layout
 export const KEYBOARD_ROWS = [

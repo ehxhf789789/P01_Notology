@@ -96,7 +96,7 @@ export function SearchFilters(props: SearchFiltersProps) {
               onChange={e => setFrontmatterTypeFilter(e.target.value)}
             >
               {NOTE_TYPES.map(nt => (
-                <option key={nt.value} value={nt.value}>{nt.label}</option>
+                <option key={nt.value} value={nt.value}>{nt.value === '' ? t('allTypes', language) : nt.label}</option>
               ))}
             </select>
             {frontmatterTypeFilter && (
@@ -240,7 +240,7 @@ export function SearchFilters(props: SearchFiltersProps) {
               onChange={e => setContentsTypeFilter(e.target.value)}
             >
               {NOTE_TYPES.map(nt => (
-                <option key={nt.value} value={nt.value}>{nt.label}</option>
+                <option key={nt.value} value={nt.value}>{nt.value === '' ? t('allTypes', language) : nt.label}</option>
               ))}
             </select>
             {contentsTypeFilter && (

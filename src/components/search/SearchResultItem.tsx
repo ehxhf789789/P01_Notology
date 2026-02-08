@@ -1,5 +1,7 @@
 import React from 'react';
 import type { NoteMetadata, SearchResult, AttachmentInfo } from '../../types';
+import type { LanguageSetting } from '../../utils/i18n';
+import { t, tf } from '../../utils/i18n';
 import {
   highlightText,
   formatDate,
@@ -137,6 +139,7 @@ interface AttachmentResultRowProps {
   isSelected: boolean;
   onAttachmentClick: (e: React.MouseEvent, att: AttachmentInfo) => void;
   onAttachmentContextMenu: (e: React.MouseEvent, att: AttachmentInfo) => void;
+  language: LanguageSetting;
 }
 
 export function AttachmentResultRow({
@@ -145,6 +148,7 @@ export function AttachmentResultRow({
   isSelected,
   onAttachmentClick,
   onAttachmentContextMenu,
+  language,
 }: AttachmentResultRowProps) {
   return (
     <tr
@@ -152,10 +156,10 @@ export function AttachmentResultRow({
       className={`search-row${isSelected ? ' selected' : ''}${att.is_conflict ? ' conflict-file' : ''}`}
       onClick={(e) => onAttachmentClick(e, att)}
       onContextMenu={(e) => onAttachmentContextMenu(e, att)}
-      title={att.is_conflict ? `동기화 충돌 파일\n원본: ${att.conflict_original}` : undefined}
+      title={att.is_conflict ? tf('syncConflictFileTitle', language, { original: att.conflict_original || '' }) : undefined}
     >
       <td className="search-td search-title">
-        {att.is_conflict && <span className="conflict-badge">충돌</span>}
+        {att.is_conflict && <span className="conflict-badge">{t('conflictBadge', language)}</span>}
         {highlightText(att.file_name, attachmentsQuery)}
       </td>
       <td className="search-td search-note-path">{highlightText(att.note_relative_path, attachmentsQuery)}</td>
@@ -176,6 +180,7 @@ interface DetailsResultCardProps {
   onNoteHover: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, note: NoteMetadata) => void;
   onTagClick: (tag: string) => void;
+  language: LanguageSetting;
 }
 
 export function DetailsResultCard({
@@ -185,6 +190,7 @@ export function DetailsResultCard({
   onNoteHover,
   onContextMenu,
   onTagClick,
+  language,
 }: DetailsResultCardProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
@@ -209,7 +215,7 @@ export function DetailsResultCard({
       <div className="search-details-meta">
         <span className="search-details-container">{containerPath}</span>
         <span className="search-details-dates">
-          생성: {formatDate(note.created)} | 수정: {formatDate(note.modified)}
+          {t('createdDate', language)}: {formatDate(note.created)} | {t('modifiedDate', language)}: {formatDate(note.modified)}
         </span>
       </div>
       {note.tags.length > 0 && (
@@ -239,7 +245,7 @@ export function DetailsResultCard({
       )}
       {note.comment_count > 0 && (
         <div className="search-details-comments">
-          메모 {note.comment_count}개
+          {tf('commentCountLabel', language, { count: note.comment_count })}
         </div>
       )}
     </div>

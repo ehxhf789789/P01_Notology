@@ -113,6 +113,7 @@ function MeetingInputModal() {
               <input
                 className="meeting-input-input"
                 type="time"
+                lang={language === 'en' ? 'en-US' : 'ko-KR'}
                 value={formData.time}
                 onChange={e => setFormData({ ...formData, time: e.target.value })}
               />

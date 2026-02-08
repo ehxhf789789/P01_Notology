@@ -721,8 +721,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
               value={detailsTypeFilter}
               onChange={e => setDetailsTypeFilter(e.target.value)}
             >
-              {NOTE_TYPES.map(t => (
-                <option key={t.value} value={t.value}>{t.label}</option>
+              {NOTE_TYPES.map(nt => (
+                <option key={nt.value} value={nt.value}>{nt.value === '' ? t('allTypes', language) : nt.label}</option>
               ))}
             </select>
             <input
@@ -916,6 +916,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                     isSelected={selectedAttachments.has(att.path)}
                     onAttachmentClick={handleAttachmentClick}
                     onAttachmentContextMenu={handleAttachmentContextMenu}
+                    language={language}
                   />
                 ))}
                 {filteredAttachments.length === 0 && (
@@ -945,6 +946,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                 onNoteHover={handleNoteHover}
                 onContextMenu={handleDetailsContextMenu}
                 onTagClick={setDetailsTagFilter}
+                language={language}
               />
             ))
           )}

@@ -97,7 +97,9 @@ The frontmatter is what makes Notology's search, graph, and filtering features p
 
 ### Wiki-Links
 
-Type `[[` followed by a note name to create a **wiki-link**. Notology shows an auto-complete dropdown with all notes in your vault. Wiki-links are bidirectional: if Note A links to Note B, Note B's backlinks will list Note A. Use `![[image.png]]` to embed images inline.
+Type `[[` followed by a note name to create a **wiki-link**. Notology shows an auto-complete dropdown with all notes in your vault. Wiki-links are bidirectional: if Note A links to Note B, Note B's backlinks will list Note A.
+
+To embed images inline, type `@@` in the editor to open the image embed suggestion dropdown. Select an image from your note's attachment folder, and it will be rendered as an inline image directly in the editor. Only image files (PNG, JPG, GIF, WebP, BMP, SVG) can be embedded this way.
 
 When you rename a note, all wiki-links pointing to it update automatically across the entire vault.
 
@@ -312,7 +314,8 @@ The backbone of your knowledge graph. Link any note to any other note with `[[do
 <!-- ![Wiki-links](docs/gifs/02-wikilinks.gif) -->
 
 - **Auto-complete** &mdash; type `[[` and get real-time suggestions from all notes in your vault. Folder notes are filtered out to keep suggestions focused on content notes
-- **Image embedding** &mdash; `![[photo.png]]` renders the image inline in the editor
+- **Image embedding** &mdash; type `@@` to open the image embed dropdown, which lists all images in the current note's `_att` folder. Select an image to embed it inline as a rendered `<img>` element. Supported formats: PNG, JPG, GIF, WebP, BMP, SVG. Each embedded image includes an inline delete button (×) for quick removal
+- **Contact mentions** &mdash; type `@` (single) to search and link CONTACT-type notes with `@DisplayName` styling
 - **Auto-update on rename** &mdash; rename a note and all `[[links]]` pointing to it update automatically across every file in the vault
 - **Backlink tracking** &mdash; see every note that links to the current note in the search detail view
 - **Cross-container linking** &mdash; link between different folders freely; the graph will show connections across your entire vault
@@ -731,16 +734,18 @@ Each note can have an associated attachments folder:
 
 ```
 MyNote.md
-MyNote.md_att/          (or MyNote_att/)
+MyNote_att/
   diagram.png
   reference.pdf
   data.csv
 ```
 
-- Files dropped into the editor are automatically saved to the note's `_att` folder
-- Attachments are referenced via wiki-links and can be opened in hover windows
-- `.md` files inside `_att` folders are treated strictly as attachments, not as vault notes &mdash; they will not appear in search results, wiki-link suggestions, or the graph view
-- Deleting an attachment also removes its wiki-link from the parent note automatically
+- **Drag-and-drop**: files dropped into the editor are automatically saved to the note's `_att` folder
+- **Image embedding**: type `@@` in the editor to embed images inline (PNG, JPG, GIF, WebP, BMP, SVG). The `@@` trigger opens a dropdown listing all images in the note's `_att` folder. Internally, embedded images use `![[filename]]` syntax, which the editor renders as actual `<img>` elements
+- **Hover window preview**: non-image attachments (PDFs, code files, etc.) are opened in hover windows when clicked
+- **Isolation**: `.md` files inside `_att` folders are treated strictly as attachments, not as vault notes &mdash; they will not appear in search results, wiki-link suggestions, or the graph view
+- **Auto-cleanup**: deleting an attachment also removes its wiki-link from the parent note automatically
+- **Search**: the Attachments search tab lets you find attachments by file name, extension, container, or associated note path, with batch delete for dummy files
 
 ### Internationalization (i18n)
 
@@ -780,6 +785,9 @@ A: Notology keeps up to 5 backup versions of each note in `.notology/backups/`, 
 **Q: Can I migrate from Obsidian?**
 A: If your Obsidian vault uses standard Markdown with YAML frontmatter and `[[wiki-links]]`, you can open the same folder in Notology. Notology will read the existing files and build its search index. You may need to adjust frontmatter fields to match Notology's schema for full template integration, but your content and links will work immediately.
 
+**Q: How do I embed images in a note?**
+A: Type `@@` in the editor to open the image embed dropdown. It shows all image files (PNG, JPG, GIF, WebP, BMP, SVG) in the current note's attachment folder (`_att`). Select an image to embed it inline. You can also drag and drop image files directly into the editor &mdash; they are automatically copied to the note's `_att` folder and embedded. Only image files can be embedded inline; other attachment types (PDF, code files, etc.) are opened in hover windows when clicked.
+
 **Q: How do I create a new template type?**
 A: Notology ships with 12 built-in templates. You can customize their colors, icons, tag categories, and enable/disable them in Settings > Templates. Fully custom template types (beyond the 12 built-in types) are planned for a future release.
 
@@ -816,7 +824,7 @@ cd src-tauri && cargo check   # Rust
 | **Framework** | [Tauri v2](https://v2.tauri.app/) (Rust + WebView2) |
 | **Frontend** | React 19, TypeScript, Vite 7 |
 | **Editor** | [TipTap](https://tiptap.dev/) + 11 custom extensions (ProseMirror-based) |
-| **State** | React Context (`appStore.tsx`) + [Tauri Plugin Store](https://v2.tauri.app/plugin/store/) for persistence |
+| **State** | [Zustand](https://github.com/pmndrs/zustand) (10+ stores: fileTree, hover, settings, templates, UI, etc.) + [Tauri Plugin Store](https://v2.tauri.app/plugin/store/) for persistence |
 | **Search** | [Tantivy](https://github.com/quickwit-oss/tantivy) (Rust full-text engine with CJK tokenizer) |
 | **Graph** | [force-graph](https://github.com/vasturiano/force-graph) (d3-force) |
 | **File watch** | [notify](https://github.com/notify-rs/notify) (cross-platform file system watcher) |

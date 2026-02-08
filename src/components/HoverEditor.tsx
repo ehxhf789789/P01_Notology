@@ -1877,32 +1877,32 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       {!frontmatter?.canvas && <EditorToolbar editor={editor} defaultCollapsed={toolbarDefaultCollapsed} />}
       {conflictState && (
         <div className="hover-editor-conflict-bar">
-          <span className="conflict-bar-message">이 노트가 다른 기기에서 수정되었습니다</span>
+          <span className="conflict-bar-message">{t('conflictDetected', language)}</span>
           <div className="conflict-bar-actions">
             <button className="conflict-btn accept-external" onClick={handleConflictAcceptExternal}>
-              외부 변경 적용
+              {t('acceptExternal', language)}
             </button>
             <button className="conflict-btn keep-mine" onClick={handleConflictKeepMine}>
-              내 변경 유지
+              {t('keepMine', language)}
             </button>
             <button className="conflict-btn save-both" onClick={handleConflictSaveBoth}>
-              둘 다 보관
+              {t('keepBoth', language)}
             </button>
           </div>
         </div>
       )}
       {conflictCopyInfo && !conflictState && !conflictCopyBarDismissed && (
         <div className="hover-editor-conflict-copy-bar">
-          <span className="conflict-copy-bar-message">충돌 복사본 — 원본: {conflictCopyInfo.originalName}</span>
+          <span className="conflict-copy-bar-message">{t('conflictCopy', language)} {conflictCopyInfo.originalName}</span>
           <div className="conflict-copy-bar-actions">
             <button className="conflict-copy-btn replace-original" onClick={handleConflictCopyReplace}>
-              이 버전으로 원본 대체
+              {t('replaceOriginal', language)}
             </button>
             <button className="conflict-copy-btn keep-original" onClick={handleConflictCopyDiscard}>
-              원본 유지 (이 파일 삭제)
+              {t('keepOriginal', language)}
             </button>
             <button className="conflict-copy-btn keep-both" onClick={() => setConflictCopyBarDismissed(true)}>
-              둘 다 보존
+              {t('preserveBoth', language)}
             </button>
           </div>
         </div>
@@ -1910,7 +1910,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       {isNasSynced && isBulkSyncing && (
         <div className="hover-editor-sync-bar">
           <span className="sync-bar-spinner">↻</span>
-          Synology Drive 동기화 중...
+          {t('syncInProgressHover', language)}
         </div>
       )}
       <div className={`hover-editor-content-row${folderPath ? ' is-folder-note' : ''}`}>

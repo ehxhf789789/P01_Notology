@@ -2,9 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import {
   DEFAULT_SHORTCUTS,
   KEYBOARD_ROWS,
-  CATEGORY_LABELS,
   getActiveKeys,
   getKeyBindings,
+  getShortcutLabel,
+  getCategoryLabel,
   parseShortcut,
   type ShortcutBinding,
 } from '../utils/shortcuts';
@@ -129,7 +130,7 @@ function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShort
                 <div
                   key={key}
                   className={`keyboard-key ${hasBinding ? 'has-binding' : ''}`}
-                  title={hasBinding ? bindings.map(b => `${b.label}: ${getActiveKeys(b)}`).join('\n') : undefined}
+                  title={hasBinding ? bindings.map(b => `${getShortcutLabel(b, language)}: ${getActiveKeys(b)}`).join('\n') : undefined}
                 >
                   <span className="keyboard-key-label">{getKeyLabel(key)}</span>
                   {hasBinding && <span className="keyboard-key-dot" />}
@@ -148,13 +149,13 @@ function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShort
         >
           {t('shortcutsAll', language)}
         </button>
-        {Object.entries(CATEGORY_LABELS).map(([key, label]) => (
+        {['text', 'heading', 'list', 'block', 'system', 'navigation'].map(key => (
           <button
             key={key}
             className={`shortcuts-filter-btn ${selectedCategory === key ? 'active' : ''}`}
             onClick={() => setSelectedCategory(key)}
           >
-            {label}
+            {getCategoryLabel(key, language)}
           </button>
         ))}
       </div>
@@ -167,7 +168,7 @@ function KeyboardShortcuts({ customShortcuts, onUpdateShortcuts }: KeyboardShort
           const parsed = parseShortcut(getActiveKeys(binding));
           return (
             <div key={binding.id} className={`shortcuts-row ${isCustomized ? 'customized' : ''}`}>
-              <span className="shortcuts-label">{binding.label}</span>
+              <span className="shortcuts-label">{getShortcutLabel(binding, language)}</span>
               <div className="shortcuts-keys">
                 {isEditing ? (
                   <input

@@ -358,7 +358,7 @@ export async function createNoteWithTemplate(title: string, templateId: string, 
     return new Promise((resolve, reject) => {
       modalActions.showTitleInputModal((result) => {
         createNoteHelper({ title: result.title }, result.tags).then(resolve).catch(reject);
-      }, '\uB178\uD2B8 \uC81C\uBAA9\uC744 \uC785\uB825\uD558\uC138\uC694');
+      });
     });
   }
 

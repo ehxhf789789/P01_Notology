@@ -2003,10 +2003,12 @@ html[data-theme="light"] {
 }
 
 .search-date-filter-label {
-  width: 40px;
+  min-width: 70px;
+  width: auto;
   font-size: 11px;
   color: var(--text-muted);
   flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .search-date-input {
@@ -2366,18 +2368,18 @@ html[data-theme="light"] {
 .search-content-item.contact-type { border-left: 3px solid var(--contact-color); background: linear-gradient(to right, var(--contact-bg) 0%, transparent 30%); }
 .search-content-item.setup-type { border-left: 3px solid var(--setup-color); background: linear-gradient(to right, var(--setup-bg) 0%, transparent 30%); }
 
-.search-content-item.note-type:hover { background: linear-gradient(to right, var(--note-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.sketch-type:hover { background: linear-gradient(to right, var(--sketch-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.mtg-type:hover { background: linear-gradient(to right, var(--mtg-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.sem-type:hover { background: linear-gradient(to right, var(--sem-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.event-type:hover { background: linear-gradient(to right, var(--event-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.ofa-type:hover { background: linear-gradient(to right, var(--ofa-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.paper-type:hover { background: linear-gradient(to right, var(--paper-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.lit-type:hover { background: linear-gradient(to right, var(--lit-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.data-type:hover { background: linear-gradient(to right, var(--data-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.theo-type:hover { background: linear-gradient(to right, var(--theo-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.contact-type:hover { background: linear-gradient(to right, var(--contact-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-content-item.setup-type:hover { background: linear-gradient(to right, var(--setup-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
+.search-content-item.note-type:hover { background: linear-gradient(to right, var(--note-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.sketch-type:hover { background: linear-gradient(to right, var(--sketch-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.mtg-type:hover { background: linear-gradient(to right, var(--mtg-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.sem-type:hover { background: linear-gradient(to right, var(--sem-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.event-type:hover { background: linear-gradient(to right, var(--event-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.ofa-type:hover { background: linear-gradient(to right, var(--ofa-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.paper-type:hover { background: linear-gradient(to right, var(--paper-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.lit-type:hover { background: linear-gradient(to right, var(--lit-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.data-type:hover { background: linear-gradient(to right, var(--data-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.theo-type:hover { background: linear-gradient(to right, var(--theo-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.contact-type:hover { background: linear-gradient(to right, var(--contact-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-content-item.setup-type:hover { background: linear-gradient(to right, var(--setup-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
 
 /* Custom color override for search content items */
 .search-content-item.has-custom-color {
@@ -2385,7 +2387,7 @@ html[data-theme="light"] {
   background: linear-gradient(to right, color-mix(in srgb, var(--template-color) 12%, transparent) 0%, transparent 30%) !important;
 }
 .search-content-item.has-custom-color:hover {
-  background: linear-gradient(to right, color-mix(in srgb, var(--template-color) 20%, transparent) 0%, rgba(42, 42, 42, 1) 40%) !important;
+  background: linear-gradient(to right, color-mix(in srgb, var(--template-color) 20%, transparent) 0%, var(--bg-hover-rgba) 40%) !important;
 }
 
 .search-content-title {
@@ -2473,18 +2475,18 @@ html[data-theme="light"] {
 .search-details-item.setup-type { border-left: 3px solid var(--setup-color); background: linear-gradient(to right, var(--setup-bg) 0%, transparent 30%); }
 
 /* Search details item hover type colors */
-.search-details-item.note-type:hover { background: linear-gradient(to right, var(--note-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.sketch-type:hover { background: linear-gradient(to right, var(--sketch-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.mtg-type:hover { background: linear-gradient(to right, var(--mtg-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.sem-type:hover { background: linear-gradient(to right, var(--sem-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.event-type:hover { background: linear-gradient(to right, var(--event-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.ofa-type:hover { background: linear-gradient(to right, var(--ofa-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.paper-type:hover { background: linear-gradient(to right, var(--paper-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.lit-type:hover { background: linear-gradient(to right, var(--lit-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.data-type:hover { background: linear-gradient(to right, var(--data-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.theo-type:hover { background: linear-gradient(to right, var(--theo-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.contact-type:hover { background: linear-gradient(to right, var(--contact-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
-.search-details-item.setup-type:hover { background: linear-gradient(to right, var(--setup-bg-hover) 0%, rgba(42, 42, 42, 1) 40%); }
+.search-details-item.note-type:hover { background: linear-gradient(to right, var(--note-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.sketch-type:hover { background: linear-gradient(to right, var(--sketch-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.mtg-type:hover { background: linear-gradient(to right, var(--mtg-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.sem-type:hover { background: linear-gradient(to right, var(--sem-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.event-type:hover { background: linear-gradient(to right, var(--event-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.ofa-type:hover { background: linear-gradient(to right, var(--ofa-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.paper-type:hover { background: linear-gradient(to right, var(--paper-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.lit-type:hover { background: linear-gradient(to right, var(--lit-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.data-type:hover { background: linear-gradient(to right, var(--data-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.theo-type:hover { background: linear-gradient(to right, var(--theo-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.contact-type:hover { background: linear-gradient(to right, var(--contact-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
+.search-details-item.setup-type:hover { background: linear-gradient(to right, var(--setup-bg-hover) 0%, var(--bg-hover-rgba) 40%); }
 
 /* Custom color override for search details items */
 .search-details-item.has-custom-color {
@@ -2492,7 +2494,7 @@ html[data-theme="light"] {
   background: linear-gradient(to right, color-mix(in srgb, var(--template-color) 12%, transparent) 0%, transparent 30%) !important;
 }
 .search-details-item.has-custom-color:hover {
-  background: linear-gradient(to right, color-mix(in srgb, var(--template-color) 20%, transparent) 0%, rgba(42, 42, 42, 1) 40%) !important;
+  background: linear-gradient(to right, color-mix(in srgb, var(--template-color) 20%, transparent) 0%, var(--bg-hover-rgba) 40%) !important;
 }
 
 .search-details-header {
