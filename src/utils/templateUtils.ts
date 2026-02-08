@@ -176,6 +176,7 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
     case 'MTG':
       return `## ${T('tmplMtgInfo')}
 - **${T('tmplDate')}**: {{date}}
+- **${T('tmplTime')}**: {{time}}
 - **${T('tmplParticipants')}**: {{participants}}
 
 ## ${T('tmplAgenda')}

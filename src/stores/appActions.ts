@@ -295,7 +295,8 @@ export async function createNoteWithTemplate(title: string, templateId: string, 
         const vars = {
           title: formData.title,
           participants: formData.participants,
-          date: formData.date && formData.time ? `${formData.date}T${formData.time}` : formData.date || '',
+          date: formData.date || '',
+          time: formData.time || '',
         };
         createNoteHelper(vars).then(resolve).catch(reject);
       });

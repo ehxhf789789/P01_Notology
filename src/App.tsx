@@ -356,21 +356,28 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
                   key={win.id}
                   className={`hover-panel-collapsed-window-btn ${stateClass} ${typeClass}${customColor ? ' has-custom-color' : ''} ${exitingClass}`}
                   onClick={() => {
-                    const clickStart = performance.now();
                     if (animItem.isExiting) return;
-                    const currentWindow = useHoverStore.getState().hoverFiles.find(h => h.id === animItem.id);
-                    const isMinimized = currentWindow?.minimized ?? false;
-                    console.log(`%c[HoverPanel] Button click: ${animItem.id.slice(-6)}`, 'color: #00bcd4; font-weight: bold');
-                    console.log(`  Zustand state: minimized=${currentWindow?.minimized}, cached=${currentWindow?.cached}, zIndex=${currentWindow?.zIndex}`);
-                    console.log(`  Closure state: minimized=${win.minimized}, cached=${win.cached}, zIndex=${win.zIndex}`);
-                    console.log(`  Button stateClass: ${stateClass}`);
+                    const state = useHoverStore.getState();
+                    const currentWindow = state.hoverFiles.find(h => h.id === animItem.id);
+                    if (!currentWindow) return;
+
+                    // Determine if this is the focused window (highest zIndex among non-minimized)
+                    const activeWins = state.hoverFiles.filter(w => !w.minimized && !w.cached);
+                    const topWindow = activeWins.length > 0
+                      ? activeWins.reduce((max, w) => w.zIndex > max.zIndex ? w : max, activeWins[0])
+                      : null;
+                    const isTopFocused = topWindow?.id === currentWindow.id;
+
                     startTransition(() => {
-                      if (isMinimized) {
+                      if (currentWindow.minimized) {
+                        // Minimized → restore + focus
                         hoverActions.restore(animItem.id);
-                        console.log(`  -> restoreHoverFile called (${(performance.now() - clickStart).toFixed(1)}ms)`);
-                      } else {
+                      } else if (isTopFocused) {
+                        // Active AND focused → minimize
                         hoverActions.minimize(animItem.id);
-                        console.log(`  -> minimizeHoverFile called (${(performance.now() - clickStart).toFixed(1)}ms)`);
+                      } else {
+                        // Active but NOT focused → bring to front
+                        hoverActions.focus(animItem.id);
                       }
                     });
                   }}

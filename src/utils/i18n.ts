@@ -703,6 +703,7 @@ const ko: Record<string, string> = {
   // ── Template body headings ──
   tmplMtgInfo: '미팅 정보',
   tmplDate: '날짜',
+  tmplTime: '시간',
   tmplParticipants: '참석자',
   tmplAgenda: '안건',
   tmplDiscussion: '논의 내용',
@@ -1519,6 +1520,7 @@ const en: Record<string, string> = {
   // ── Template body headings ──
   tmplMtgInfo: 'Meeting Info',
   tmplDate: 'Date',
+  tmplTime: 'Time',
   tmplParticipants: 'Participants',
   tmplAgenda: 'Agenda',
   tmplDiscussion: 'Discussion',

@@ -56,18 +56,26 @@ const HoverWindowsPanel = memo(function HoverWindowsPanel({ width }: HoverWindow
     ? activeWindows.reduce((max, win) => win.zIndex > max.zIndex ? win : max, activeWindows[0])
     : null;
 
-  // Handle window click - simple toggle: active→minimize, minimized→restore+focus
+  // Handle window click - Windows taskbar behavior:
+  // minimized → restore+focus, active but not focused → focus, active and focused → minimize
   const handleWindowClick = useCallback((windowId: string) => {
     const state = useHoverStore.getState();
     const win = state.hoverFiles.find(h => h.id === windowId);
     if (!win) return;
 
+    // Determine if this is the focused window (highest zIndex among non-minimized)
+    const activeWins = state.hoverFiles.filter(w => !w.minimized && !w.cached);
+    const topWindow = activeWins.length > 0
+      ? activeWins.reduce((max, w) => w.zIndex > max.zIndex ? w : max, activeWins[0])
+      : null;
+    const isTopFocused = topWindow?.id === win.id;
+
     if (win.minimized) {
-      // Minimized → restore + focus (restoreHoverFile already brings to front)
       restoreHoverFile(windowId);
-    } else {
-      // Active → minimize
+    } else if (isTopFocused) {
       minimizeHoverFile(windowId);
+    } else {
+      hoverActions.focus(windowId);
     }
   }, [minimizeHoverFile, restoreHoverFile]);
 
