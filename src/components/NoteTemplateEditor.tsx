@@ -53,9 +53,10 @@ function parseHeaders(body: string): string[] {
 }
 
 // Generate markdown body from headers
+// Format: # Header\n\n---\n for each section (separator after content area)
 function generateBody(headers: string[]): string {
-  if (headers.length === 0) return '---\n# Overview\n\n---\n# Content\n\n';
-  return headers.map((h, i) => `${i > 0 ? '---\n' : ''}# ${h}\n\n`).join('');
+  if (headers.length === 0) return '# Overview\n\n---\n# Content\n\n---\n';
+  return headers.map(h => `# ${h}\n\n---\n`).join('');
 }
 
 function NoteTemplateEditor({ template, onSave, onCancel }: NoteTemplateEditorProps) {

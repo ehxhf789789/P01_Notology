@@ -81,6 +81,7 @@ const ko: Record<string, string> = {
   save: '저장',
   close: '닫기',
   confirm: '확인',
+  warning: '알림',
   change: '변경',
   add: '추가',
   create: '생성',
@@ -570,6 +571,14 @@ const ko: Record<string, string> = {
   shortcutsInputPlaceholder: '키 입력... (Esc: 취소, Enter: 저장)',
   shortcutsReset: '기본값 복원',
 
+  // ── Suggestion triggers ──
+  suggestionTriggers: '자동완성 트리거',
+  suggestionTriggersDesc: '에디터에서 다음 기호를 입력하면 자동완성 목록이 표시됩니다.',
+  triggerWikiLink: '노트/파일 링크 생성 (모든 파일)',
+  triggerMention: '연락처 멘션 (@이름 형식)',
+  triggerImageEmbed: '이미지 임베드 (att 폴더의 이미지)',
+  triggerAttachment: '첨부파일 링크 (현재 노트의 att 폴더)',
+
   // ── Graph view ──
   graphLoading: '그래프 데이터 로딩 중...',
   graphNoNotes: '표시할 노트가 없습니다',
@@ -945,6 +954,7 @@ const en: Record<string, string> = {
   save: 'Save',
   close: 'Close',
   confirm: 'OK',
+  warning: 'Notice',
   change: 'Change',
   add: 'Add',
   create: 'Create',
@@ -1433,6 +1443,14 @@ const en: Record<string, string> = {
   shortcutsAll: 'All',
   shortcutsInputPlaceholder: 'Press key... (Esc: cancel, Enter: save)',
   shortcutsReset: 'Reset to Default',
+
+  // ── Suggestion triggers ──
+  suggestionTriggers: 'Suggestion Triggers',
+  suggestionTriggersDesc: 'Type these symbols in the editor to open autocomplete suggestions.',
+  triggerWikiLink: 'Create note/file link (all files)',
+  triggerMention: 'Contact mention (@name format)',
+  triggerImageEmbed: 'Image embed (images in att folder)',
+  triggerAttachment: 'Attachment link (current note\'s att folder)',
 
   // ── Graph view ──
   graphLoading: 'Loading graph data...',

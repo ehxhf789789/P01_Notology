@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import type { Editor } from '@tiptap/react';
 import type { CalloutType } from '../extensions/Callout';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
@@ -32,9 +33,55 @@ const CELL_COLOR_KEYS: { color: string; key: string }[] = [
   { color: '#4a2d2d', key: 'cellRed' },
 ];
 
+// Submenu component rendered as portal
+interface SubmenuPortalProps {
+  show: boolean;
+  triggerRef: React.RefObject<HTMLDivElement | null>;
+  children: React.ReactNode;
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}
+
+function SubmenuPortal({ show, triggerRef, children, onMouseEnter, onMouseLeave }: SubmenuPortalProps) {
+  const [pos, setPos] = useState({ x: 0, y: 0, openLeft: false });
+
+  useLayoutEffect(() => {
+    if (!show || !triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    const submenuWidth = 150;
+    const padding = 16;
+
+    // Check if submenu should open to the left
+    const openLeft = rect.right + submenuWidth > window.innerWidth - padding;
+
+    setPos({
+      x: openLeft ? rect.left - submenuWidth + 4 : rect.right - 4,
+      y: rect.top - 4,
+      openLeft,
+    });
+  }, [show, triggerRef]);
+
+  if (!show) return null;
+
+  return createPortal(
+    <div
+      className="editor-context-submenu-portal"
+      style={{ left: pos.x, top: pos.y }}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      {children}
+    </div>,
+    document.body
+  );
+}
+
 function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: EditorContextMenuProps) {
   const language = useSettingsStore(s => s.language);
   const menuRef = useRef<HTMLDivElement>(null);
+  const headingTriggerRef = useRef<HTMLDivElement>(null);
+  const calloutTriggerRef = useRef<HTMLDivElement>(null);
+  const cellColorTriggerRef = useRef<HTMLDivElement>(null);
   const [adjustedPos, setAdjustedPos] = useState(position);
   const [showHeadingSubmenu, setShowHeadingSubmenu] = useState(false);
   const [showCalloutSubmenu, setShowCalloutSubmenu] = useState(false);
@@ -47,7 +94,11 @@ function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: 
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+      // Check if click is inside main menu or any submenu portal
+      const target = e.target as Node;
+      const isInsideMenu = menuRef.current?.contains(target);
+      const isInsideSubmenu = (target as Element).closest?.('.editor-context-submenu-portal');
+      if (!isInsideMenu && !isInsideSubmenu) {
         onClose();
       }
     };
@@ -106,7 +157,8 @@ function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: 
     onClose();
   };
 
-  return (
+  // Use portal to render to document.body, escaping any transformed parent's stacking context
+  return createPortal(
     <div
       ref={menuRef}
       className="editor-context-menu"
@@ -174,35 +226,39 @@ function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: 
 
       {/* Heading submenu */}
       <div
+        ref={headingTriggerRef}
         className="editor-context-menu-item has-submenu"
-        onMouseEnter={() => { setShowHeadingSubmenu(true); setShowCalloutSubmenu(false); }}
+        onMouseEnter={() => { setShowHeadingSubmenu(true); setShowCalloutSubmenu(false); setShowCellColorSubmenu(false); }}
         onMouseLeave={() => setShowHeadingSubmenu(false)}
       >
         <span className="ecm-label">{t('heading', language)}</span>
         <span className="ecm-arrow">▸</span>
-        {showHeadingSubmenu && (
-          <div className="editor-context-submenu">
-            <button
-              className={`editor-context-menu-item ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
-              onClick={() => runCommand(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
-            >
-              <span className="ecm-label">{t('heading1', language)}</span>
-            </button>
-            <button
-              className={`editor-context-menu-item ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
-              onClick={() => runCommand(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
-            >
-              <span className="ecm-label">{t('heading2', language)}</span>
-            </button>
-            <button
-              className={`editor-context-menu-item ${editor.isActive('heading', { level: 3 }) ? 'active' : ''}`}
-              onClick={() => runCommand(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
-            >
-              <span className="ecm-label">{t('heading3', language)}</span>
-            </button>
-          </div>
-        )}
       </div>
+      <SubmenuPortal
+        show={showHeadingSubmenu}
+        triggerRef={headingTriggerRef}
+        onMouseEnter={() => setShowHeadingSubmenu(true)}
+        onMouseLeave={() => setShowHeadingSubmenu(false)}
+      >
+        <button
+          className={`editor-context-menu-item ${editor.isActive('heading', { level: 1 }) ? 'active' : ''}`}
+          onClick={() => runCommand(() => editor.chain().focus().toggleHeading({ level: 1 }).run())}
+        >
+          <span className="ecm-label">{t('heading1', language)}</span>
+        </button>
+        <button
+          className={`editor-context-menu-item ${editor.isActive('heading', { level: 2 }) ? 'active' : ''}`}
+          onClick={() => runCommand(() => editor.chain().focus().toggleHeading({ level: 2 }).run())}
+        >
+          <span className="ecm-label">{t('heading2', language)}</span>
+        </button>
+        <button
+          className={`editor-context-menu-item ${editor.isActive('heading', { level: 3 }) ? 'active' : ''}`}
+          onClick={() => runCommand(() => editor.chain().focus().toggleHeading({ level: 3 }).run())}
+        >
+          <span className="ecm-label">{t('heading3', language)}</span>
+        </button>
+      </SubmenuPortal>
 
       <div className="editor-context-menu-separator" />
 
@@ -242,26 +298,30 @@ function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: 
 
       {/* Callout submenu */}
       <div
+        ref={calloutTriggerRef}
         className="editor-context-menu-item has-submenu"
-        onMouseEnter={() => { setShowCalloutSubmenu(true); setShowHeadingSubmenu(false); }}
+        onMouseEnter={() => { setShowCalloutSubmenu(true); setShowHeadingSubmenu(false); setShowCellColorSubmenu(false); }}
         onMouseLeave={() => setShowCalloutSubmenu(false)}
       >
         <span className="ecm-label">{t('callout', language)}</span>
         <span className="ecm-arrow">▸</span>
-        {showCalloutSubmenu && (
-          <div className="editor-context-submenu">
-            {CALLOUT_TYPES.map(ct => (
-              <button
-                key={ct.type}
-                className="editor-context-menu-item"
-                onClick={() => runCommand(() => editor.chain().focus().toggleCallout(ct.type).run())}
-              >
-                <span className="ecm-label">{ct.label}</span>
-              </button>
-            ))}
-          </div>
-        )}
       </div>
+      <SubmenuPortal
+        show={showCalloutSubmenu}
+        triggerRef={calloutTriggerRef}
+        onMouseEnter={() => setShowCalloutSubmenu(true)}
+        onMouseLeave={() => setShowCalloutSubmenu(false)}
+      >
+        {CALLOUT_TYPES.map(ct => (
+          <button
+            key={ct.type}
+            className="editor-context-menu-item"
+            onClick={() => runCommand(() => editor.chain().focus().toggleCallout(ct.type).run())}
+          >
+            <span className="ecm-label">{ct.label}</span>
+          </button>
+        ))}
+      </SubmenuPortal>
 
       <button
         className={`editor-context-menu-item ${editor.isActive('code') ? 'active' : ''}`}
@@ -344,29 +404,33 @@ function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: 
           </button>
           <div className="editor-context-menu-separator" />
           <div
+            ref={cellColorTriggerRef}
             className="editor-context-menu-item has-submenu"
             onMouseEnter={() => { setShowCellColorSubmenu(true); setShowHeadingSubmenu(false); setShowCalloutSubmenu(false); }}
             onMouseLeave={() => setShowCellColorSubmenu(false)}
           >
             <span className="ecm-label">{t('cellBgColor', language)}</span>
             <span className="ecm-arrow">▸</span>
-            {showCellColorSubmenu && (
-              <div className="editor-context-submenu">
-                {cellColors.map(c => (
-                  <button
-                    key={c.color}
-                    className="editor-context-menu-item"
-                    onClick={() => runCommand(() => {
-                      editor.chain().focus().updateAttributes('tableCell', { backgroundColor: c.color }).run();
-                    })}
-                  >
-                    <div className="cell-color-preview" style={{ backgroundColor: c.color }} />
-                    <span className="ecm-label">{c.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
+          <SubmenuPortal
+            show={showCellColorSubmenu}
+            triggerRef={cellColorTriggerRef}
+            onMouseEnter={() => setShowCellColorSubmenu(true)}
+            onMouseLeave={() => setShowCellColorSubmenu(false)}
+          >
+            {cellColors.map(c => (
+              <button
+                key={c.color}
+                className="editor-context-menu-item"
+                onClick={() => runCommand(() => {
+                  editor.chain().focus().updateAttributes('tableCell', { backgroundColor: c.color }).run();
+                })}
+              >
+                <div className="cell-color-preview" style={{ backgroundColor: c.color }} />
+                <span className="ecm-label">{c.label}</span>
+              </button>
+            ))}
+          </SubmenuPortal>
           <div className="editor-context-menu-separator" />
           <button
             className="editor-context-menu-item"
@@ -388,7 +452,8 @@ function EditorContextMenu({ editor, position, onClose, onAddMemo, onAddTask }: 
           </button>
         </>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 

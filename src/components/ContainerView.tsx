@@ -26,6 +26,7 @@ import EditorContextMenu from './EditorContextMenu';
 import Search from './Search';
 import type { FileContent, NoteFrontmatter, NoteMetadata, FileNode } from '../types';
 import { parseFrontmatter, serializeFrontmatter, getCurrentTimestamp } from '../utils/frontmatter';
+import { markAsSelfSaved } from '../utils/selfSaveTracker';
 
 // Check if a folder has a folder note (FolderName/FolderName.md)
 function hasFolderNote(node: FileNode): boolean {
@@ -377,6 +378,8 @@ function ContainerView() {
       await fileCommands.writeFile(folderNotePath, fmString, bodyToSave);
       setFrontmatter(updatedFm);
       setIsDirty(false);
+      // Mark as self-saved to prevent false "external change" warnings
+      markAsSelfSaved(folderNotePath);
       // Index the note immediately for instant search updates
       await searchCommands.indexNote(folderNotePath).catch(() => {});
       // Trigger search refresh after successful save

@@ -22,6 +22,7 @@ import { useDropTarget } from '../hooks/useDragDrop';
 import type { NoteFrontmatter, NoteComment, CanvasData, CanvasSelection } from '../types';
 import { serializeFrontmatter, getCurrentTimestamp } from '../utils/frontmatter';
 import { loadComments, saveComments } from '../utils/comments';
+import { markAsSelfSaved } from '../utils/selfSaveTracker';
 import EditorToolbar from './EditorToolbar';
 import EditorContextMenu from './EditorContextMenu';
 import CommentPanel from './CommentPanel';
@@ -397,14 +398,8 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const hoverEditorRef = useRef<HTMLDivElement>(null);
 
   const handleEditorContextMenu = useCallback((pos: { x: number; y: number }) => {
-    // Adjust coordinates to be relative to the hover editor window
-    // because position:fixed inside a transformed element is relative to that element
-    if (hoverEditorRef.current) {
-      const rect = hoverEditorRef.current.getBoundingClientRect();
-      setEditorMenuPos({ x: pos.x - rect.left, y: pos.y - rect.top });
-    } else {
-      setEditorMenuPos(pos);
-    }
+    // EditorContextMenu uses portal to document.body, so pass viewport coordinates directly
+    setEditorMenuPos(pos);
   }, []);
 
   const handleCommentClick = useCallback((commentId: string) => {
@@ -437,6 +432,10 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const fileTreeRef = useRef(fileTree);
   fileTreeRef.current = fileTree;
 
+  // Keep vaultPath ref for AttachmentSuggestion
+  const vaultPathRef = useRef(vaultPath || '');
+  vaultPathRef.current = vaultPath || '';
+
   // ========== POOLED EDITOR ==========
   const [editor, setEditor] = useState<Editor | null>(null);
   const editorRef = useRef<Editor | null>(null);
@@ -463,6 +462,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         onCommentClick: (id: string) => handleCommentClickRef.current(id),
         getFileTree: () => fileTreeRef.current,
         notePath: win.filePath,
+        vaultPath: vaultPathRef.current,
         resolveFilePath: (name: string) => resolveFilePathRef.current(name),
       });
 
@@ -547,15 +547,16 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     };
   }, []); // Only run once on mount
 
-  // Update pool callbacks when fileTree or filePath changes
+  // Update pool callbacks when fileTree, filePath, or vaultPath changes
   useEffect(() => {
     if (editor) {
       editorPool.updateCallbacks(editor, {
         getFileTree: () => fileTreeRef.current,
         notePath: win.filePath,
+        vaultPath: vaultPathRef.current,
       });
     }
-  }, [editor, win.filePath]);
+  }, [editor, win.filePath, vaultPath]);
 
   // Log when editor reference becomes available
   useEffect(() => {
@@ -592,6 +593,9 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       await fileCommands.writeFile(win.filePath, fmString, bodyToSave);
       setFrontmatter(updatedFm);
       setIsDirty(false);
+
+      // Mark as self-saved to prevent false "external change" warnings
+      markAsSelfSaved(win.filePath);
 
       // Update mtime after successful save
       const savedMtime = await fileCommands.getFileMtime(win.filePath);

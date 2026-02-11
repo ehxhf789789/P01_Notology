@@ -20,7 +20,7 @@ lazy_static! {
             },
             "type": {
                 "type": "string",
-                "enum": ["NOTE", "MTG", "PAPER", "THEO", "TASK", "CONTACT", "CONTAINER", "ADM", "SEM", "DATA", "SETUP", "SKETCH"],
+                "enum": ["NOTE", "MTG", "PAPER", "THEO", "TASK", "LIT", "EVENT", "CONTACT", "CONTAINER", "ADM", "OFA", "SEM", "DATA", "SETUP", "SKETCH"],
                 "description": "Note type"
             },
             "created": {

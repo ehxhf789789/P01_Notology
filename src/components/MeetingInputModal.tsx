@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useModalStore } from '../stores/zustand/modalStore';
+import { useModalStore, modalActions } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { t } from '../utils/i18n';
 import ParticipantInput from './ParticipantInput';
@@ -51,7 +51,7 @@ function MeetingInputModal() {
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      alert(t('meetingTitleRequired', language));
+      modalActions.showAlertModal(t('warning', language), t('meetingTitleRequired', language));
       return;
     }
     callback(formData);

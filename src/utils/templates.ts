@@ -104,7 +104,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'NOTE',
     namePattern: '{{title}}',
     frontmatter: { type: 'NOTE', cssclasses: ['note-type'] },
-    body: '---\n# Overview\n\n---\n# Content\n',
+    body: '# Overview\n\n---\n# Content\n\n---\n',
   },
   {
     id: 'note-sketch',
@@ -120,7 +120,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'MTG',
     namePattern: '{{title}}',
     frontmatter: { type: 'MTG', cssclasses: ['mtg-type'] },
-    body: '---\n# Overview\n\n---\n# Agenda\n\n---\n# Minutes\n\n---\n# Decisions\n',
+    body: '# Overview\n\n---\n# Agenda\n\n---\n# Minutes\n\n---\n# Decisions\n\n---\n',
   },
   {
     id: 'note-sem',
@@ -128,7 +128,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'SEM',
     namePattern: '{{title}}',
     frontmatter: { type: 'SEM', cssclasses: ['sem-type'] },
-    body: '---\n# Overview\n\n---\n# Content\n\n---\n# Key Points\n',
+    body: '# Overview\n\n---\n# Content\n\n---\n# Key Points\n\n---\n',
   },
   {
     id: 'note-event',
@@ -136,7 +136,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'EVENT',
     namePattern: '{{title}}',
     frontmatter: { type: 'EVENT', cssclasses: ['event-type'] },
-    body: '---\n# Overview\n\n---\n# Details\n\n---\n# Schedule\n',
+    body: '# Overview\n\n---\n# Details\n\n---\n# Schedule\n\n---\n',
   },
   {
     id: 'note-ofa',
@@ -144,7 +144,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'OFA',
     namePattern: '{{title}}',
     frontmatter: { type: 'OFA', cssclasses: ['ofa-type'] },
-    body: '---\n# Overview\n\n---\n# Content\n\n---\n# Decisions\n',
+    body: '# Overview\n\n---\n# Content\n\n---\n# Decisions\n\n---\n',
   },
   {
     id: 'note-paper',
@@ -152,7 +152,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'PAPER',
     namePattern: '{{title}}',
     frontmatter: { type: 'PAPER', cssclasses: ['paper-type'] },
-    body: '---\n# Overview\n\n---\n# Abstract\n\n---\n# Notes\n',
+    body: '# Overview\n\n---\n# Abstract\n\n---\n# Notes\n\n---\n',
   },
   {
     id: 'note-lit',
@@ -160,7 +160,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'LIT',
     namePattern: '{{title}}',
     frontmatter: { type: 'LIT', cssclasses: ['lit-type'] },
-    body: '---\n# Overview\n\n---\n# Summary\n\n---\n# Notes\n',
+    body: '# Overview\n\n---\n# Summary\n\n---\n# Notes\n\n---\n',
   },
   {
     id: 'note-data',
@@ -168,7 +168,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'DATA',
     namePattern: '{{title}}',
     frontmatter: { type: 'DATA', cssclasses: ['data-type'] },
-    body: '---\n# Overview\n\n---\n# Data Description\n',
+    body: '# Overview\n\n---\n# Data Description\n\n---\n',
   },
   {
     id: 'note-theo',
@@ -176,7 +176,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'THEO',
     namePattern: '{{title}}',
     frontmatter: { type: 'THEO', cssclasses: ['theo-type'] },
-    body: '---\n# Overview\n\n---\n# Theory\n\n---\n# Applications\n',
+    body: '# Overview\n\n---\n# Theory\n\n---\n# Applications\n\n---\n',
   },
   {
     id: 'note-contact',
@@ -184,7 +184,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'CONTACT',
     namePattern: '{{title}}',
     frontmatter: { type: 'CONTACT', cssclasses: ['contact-type'] },
-    body: '---\n# Overview\n- **name:** {{name}}\n- **email:** {{email}}\n- **organization:** {{organization}}\n- **role:** {{role}}\n- **phone:** {{phone}}\n- **location:** {{location}}\n',
+    body: '# Overview\n- **name:** {{name}}\n- **email:** {{email}}\n- **organization:** {{organization}}\n- **role:** {{role}}\n- **phone:** {{phone}}\n- **location:** {{location}}\n\n---\n',
   },
   {
     id: 'note-settings',
@@ -192,7 +192,7 @@ export const DEFAULT_NOTE_TEMPLATES: NoteTemplate[] = [
     prefix: 'SETUP',
     namePattern: '{{title}}',
     frontmatter: { type: 'SETUP', cssclasses: ['setup-type'] },
-    body: '---\n# Overview\n\n---\n# Context\n',
+    body: '# Overview\n\n---\n# Context\n\n---\n',
   },
 ];
 

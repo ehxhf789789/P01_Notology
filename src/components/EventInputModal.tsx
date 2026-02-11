@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { useModalStore } from '../stores/zustand/modalStore';
+import { useModalStore, modalActions } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { t } from '../utils/i18n';
+import ParticipantInput from './ParticipantInput';
 
 export interface EventFormData {
   title: string;
@@ -51,7 +52,7 @@ function EventInputModal() {
 
   const handleSubmit = () => {
     if (!formData.title.trim()) {
-      alert(t('eventTitleRequired', language));
+      modalActions.showAlertModal(t('warning', language), t('eventTitleRequired', language));
       return;
     }
     callback(formData);
@@ -122,11 +123,9 @@ function EventInputModal() {
 
           <div className="event-input-field">
             <label className="event-input-label">{t('eventParticipants', language)}</label>
-            <input
-              className="event-input-input"
-              type="text"
+            <ParticipantInput
               value={formData.participants}
-              onChange={e => setFormData({ ...formData, participants: e.target.value })}
+              onChange={(participants) => setFormData({ ...formData, participants })}
               placeholder={t('eventParticipantsPlaceholder', language)}
             />
           </div>

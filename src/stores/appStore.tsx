@@ -23,6 +23,7 @@ import { modalActions } from './zustand/modalStore';
 import { templateActions } from './zustand/templateStore';
 import { vaultConfigActions } from './zustand/vaultConfigStore';
 import { loadVaultConfig, clearVaultConfigCache, wasSelfSave } from '../utils/vaultConfigUtils';
+import { filterExternalChanges } from '../utils/selfSaveTracker';
 import { initializeApp } from './appActions';
 
 // Re-export types for backward compatibility
@@ -49,7 +50,11 @@ export function AppInitializer({ children }: { children: ReactNode }) {
       // File changed externally (Synology sync or other editor)
       unlisteners.push(await listen<{ paths: string[] }>('vault-files-changed', (e) => {
         fileTreeActions.refreshFileTree();
-        hoverActions.refreshForFiles(e.payload.paths);
+        // Filter out files that were just saved by this app to prevent false "external change" warnings
+        const externallyChanged = filterExternalChanges(e.payload.paths);
+        if (externallyChanged.length > 0) {
+          hoverActions.refreshForFiles(externallyChanged);
+        }
         refreshActions.incrementSearchRefresh();
         // If vault-config.yaml changed externally, reload configs
         if (e.payload.paths.some(p => p.endsWith('vault-config.yaml')) && !wasSelfSave()) {

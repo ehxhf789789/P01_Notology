@@ -436,6 +436,30 @@ function Settings({ onClose }: SettingsProps) {
                   customShortcuts={customShortcuts}
                   onUpdateShortcuts={(shortcuts) => setCustomShortcuts(shortcuts, vaultPath)}
                 />
+
+                {/* Suggestion Triggers Section */}
+                <section className="settings-section suggestion-triggers-section">
+                  <h3 className="settings-section-title">{t('suggestionTriggers', language)}</h3>
+                  <p className="settings-section-desc">{t('suggestionTriggersDesc', language)}</p>
+                  <div className="suggestion-triggers-list">
+                    <div className="suggestion-trigger-item">
+                      <code className="trigger-code">[[</code>
+                      <span className="trigger-desc">{t('triggerWikiLink', language)}</span>
+                    </div>
+                    <div className="suggestion-trigger-item">
+                      <code className="trigger-code">@</code>
+                      <span className="trigger-desc">{t('triggerMention', language)}</span>
+                    </div>
+                    <div className="suggestion-trigger-item">
+                      <code className="trigger-code">@@</code>
+                      <span className="trigger-desc">{t('triggerImageEmbed', language)}</span>
+                    </div>
+                    <div className="suggestion-trigger-item">
+                      <code className="trigger-code">//</code>
+                      <span className="trigger-desc">{t('triggerAttachment', language)}</span>
+                    </div>
+                  </div>
+                </section>
               </div>
             )}
 

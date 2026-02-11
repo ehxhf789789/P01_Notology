@@ -8036,6 +8036,11 @@ html[data-theme="light"] .window-size-option.active .window-size-preview {
 
 .editor-context-menu-item.has-submenu {
   cursor: default;
+  position: relative;
+}
+
+.editor-context-menu-item.has-submenu:hover {
+  background: var(--bg-hover);
 }
 
 .editor-context-menu-item.ecm-memo-item {
@@ -8077,17 +8082,36 @@ html[data-theme="light"] .window-size-option.active .window-size-preview {
   flex-shrink: 0;
 }
 
-.editor-context-submenu {
-  position: absolute;
-  left: 100%;
-  top: 0;
+/* Portal-based submenu (rendered to document.body) */
+.editor-context-submenu-portal {
+  position: fixed;
   background: var(--bg-tertiary);
   border: 1px solid var(--border-light);
   border-radius: 6px;
   box-shadow: 0 6px 20px var(--shadow-color);
   padding: 4px 0;
-  min-width: 120px;
+  min-width: 140px;
+  z-index: 1000001;
+}
+
+/* Legacy submenu styles (for backward compatibility) */
+.editor-context-submenu {
+  position: absolute;
+  left: calc(100% - 4px);
+  top: -4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px var(--shadow-color);
+  padding: 4px 0;
+  min-width: 140px;
   z-index: 1000001 !important;
+}
+
+/* 왼쪽으로 열리는 서브메뉴 */
+.editor-context-submenu.submenu-left {
+  left: auto;
+  right: calc(100% - 4px);
 }
 
 /* ===== Comment System ===== */
@@ -9016,6 +9040,65 @@ html[data-theme="light"] .window-size-option.active .window-size-preview {
   color: var(--accent, #00ffd5);
   border-color: var(--accent, #00ffd5);
   background: rgba(0, 255, 213, 0.08);
+}
+
+/* ===== Suggestion Triggers ===== */
+
+.suggestion-triggers-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border-color, #3c3c3c);
+}
+
+.suggestion-triggers-section .settings-section-desc {
+  font-size: 13px;
+  color: var(--text-muted, #888);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.suggestion-triggers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.suggestion-trigger-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px;
+  background: var(--bg-primary, #1a1a2e);
+  border: 1px solid var(--border-color, #3c3c3c);
+  border-radius: 8px;
+}
+
+.trigger-code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent, #00ffd5);
+  background: rgba(0, 255, 213, 0.1);
+  padding: 4px 12px;
+  border-radius: 4px;
+  min-width: 50px;
+  text-align: center;
+}
+
+.trigger-desc {
+  font-size: 13px;
+  color: var(--text-secondary, #aaa);
+  flex: 1;
+}
+
+html[data-theme="light"] .trigger-code {
+  color: #0969da;
+  background: rgba(9, 105, 218, 0.1);
+}
+
+html[data-theme="light"] .suggestion-trigger-item {
+  background: #f6f8fa;
+  border-color: #d0d7de;
 }
 
 /* ===== Vault Selector ===== */
@@ -10738,6 +10821,153 @@ html[data-theme="light"] .mention-suggestion-item-org {
 }
 
 html[data-theme="light"] .mention-suggestion-empty {
+  color: #666;
+}
+
+/* Attachment (//) Suggestion Tippy Theme */
+.tippy-box[data-theme~='attachment-suggestion'] {
+  background-color: transparent !important;
+  padding: 0 !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+.tippy-box[data-theme~='attachment-suggestion'] .tippy-content {
+  padding: 0 !important;
+}
+
+.tippy-box[data-theme~='attachment-suggestion'] .tippy-arrow {
+  display: none !important;
+}
+
+/* Attachment (//) Suggestion List */
+.attachment-suggestion-list {
+  background-color: #1e1e2e;
+  border: 1px solid #3a3a4a;
+  border-radius: 10px;
+  padding: 6px;
+  max-height: 320px;
+  overflow-y: auto;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  color: #e0e0e0;
+  min-width: 200px;
+}
+
+html[data-theme="light"] .attachment-suggestion-list {
+  background-color: #ffffff;
+  border: 1px solid #ddd;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  color: #1a1a1a;
+}
+
+.attachment-suggestion-header {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid #3a3a4a;
+  margin-bottom: 4px;
+}
+
+html[data-theme="light"] .attachment-suggestion-header {
+  color: #555;
+  border-bottom-color: #ddd;
+}
+
+.attachment-suggestion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: none;
+  border: none;
+  color: #e0e0e0;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background-color 0.15s;
+  font-family: inherit;
+  font-size: 14px;
+}
+
+html[data-theme="light"] .attachment-suggestion-item {
+  color: #1a1a1a;
+}
+
+.attachment-suggestion-item:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="light"] .attachment-suggestion-item:hover {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.attachment-suggestion-item.selected {
+  background-color: #7aa2f7 !important;
+  color: #fff;
+}
+
+.attachment-suggestion-item-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #7aa2f7;
+}
+
+html[data-theme="light"] .attachment-suggestion-item-icon {
+  background-color: rgba(0, 0, 0, 0.05);
+  color: #2563eb;
+}
+
+.attachment-suggestion-item.selected .attachment-suggestion-item-icon {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+.attachment-suggestion-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+  color: inherit;
+}
+
+.attachment-suggestion-item-name {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #e0e0e0;
+}
+
+html[data-theme="light"] .attachment-suggestion-item-name {
+  color: #1a1a1a;
+}
+
+.attachment-suggestion-item.selected .attachment-suggestion-item-name {
+  color: #fff !important;
+}
+
+.attachment-suggestion-empty {
+  padding: 16px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+}
+
+html[data-theme="light"] .attachment-suggestion-empty {
   color: #666;
 }
 
@@ -12962,6 +13192,7 @@ html[data-theme="light"] .image-embed-suggestion-empty {
   gap: 14px;
   max-height: 60vh;
   overflow-y: auto;
+  overflow: visible;  /* ParticipantInput suggestions가 모달 밖으로 나갈 수 있도록 */
 }
 
 .meeting-input-field {
@@ -13052,7 +13283,7 @@ html[data-theme="light"] .image-embed-suggestion-empty {
   box-shadow: 0 4px 16px var(--shadow-color);
   max-height: 240px;
   overflow-y: auto;
-  z-index: 1000;
+  z-index: 1000002 !important;  /* 모달 위에 표시 */
 }
 
 .participant-suggestion-item {
@@ -13884,6 +14115,7 @@ html[data-theme="light"] .image-embed-suggestion-empty {
   gap: 14px;
   max-height: 60vh;
   overflow-y: auto;
+  overflow: visible;  /* ParticipantInput suggestions가 모달 밖으로 나갈 수 있도록 */
 }
 
 .event-input-field {

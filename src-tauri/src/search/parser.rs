@@ -2,8 +2,11 @@ use regex::Regex;
 use std::collections::HashMap;
 
 /// Extract wiki-links ([[...]]) from content
+/// Handles filenames containing ] by using non-greedy matching until ]]
 pub fn extract_wiki_links(content: &str) -> Vec<String> {
-    let re = Regex::new(r"\[\[([^\]]+)\]\]").unwrap();
+    // .+? = non-greedy, ]] 가 먼저 나오면 중단
+    // 예: [[[디자인여백플러스] 파일.pdf]] -> [디자인여백플러스] 파일.pdf
+    let re = Regex::new(r"\[\[(.+?)\]\]").unwrap();
     re.captures_iter(content)
         .map(|cap| cap[1].to_string())
         .collect()

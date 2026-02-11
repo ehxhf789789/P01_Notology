@@ -13,6 +13,8 @@ interface UsePooledEditorOptions {
   onCommentClick: (commentId: string) => void;
   getFileTree: () => FileNode[];
   notePath: string;
+  vaultPath: string;
+  resolveFilePath: (name: string) => string | null;
   onUpdate?: (editor: Editor) => void;
   onCreate?: () => void;
 }
@@ -55,6 +57,8 @@ export function usePooledEditor(options: UsePooledEditorOptions): UsePooledEdito
         onCommentClick: (id) => optionsRef.current.onCommentClick(id),
         getFileTree: () => optionsRef.current.getFileTree(),
         notePath: optionsRef.current.notePath,
+        vaultPath: optionsRef.current.vaultPath,
+        resolveFilePath: (name) => optionsRef.current.resolveFilePath(name),
       });
 
       if (acquiredEditor && isMountedRef.current) {
@@ -77,6 +81,8 @@ export function usePooledEditor(options: UsePooledEditorOptions): UsePooledEdito
           onCommentClick: (id) => optionsRef.current.onCommentClick(id),
           getFileTree: () => optionsRef.current.getFileTree(),
           notePath: optionsRef.current.notePath,
+          vaultPath: optionsRef.current.vaultPath,
+          resolveFilePath: (name) => optionsRef.current.resolveFilePath(name),
         });
 
         if (acquiredEditor && isMountedRef.current) {
@@ -130,9 +136,11 @@ export function usePooledEditor(options: UsePooledEditorOptions): UsePooledEdito
         onCommentClick: (id) => optionsRef.current.onCommentClick(id),
         getFileTree: () => optionsRef.current.getFileTree(),
         notePath: optionsRef.current.notePath,
+        vaultPath: optionsRef.current.vaultPath,
+        resolveFilePath: (name) => optionsRef.current.resolveFilePath(name),
       });
     }
-  }, [options.notePath]); // Update when notePath changes
+  }, [options.notePath, options.vaultPath]); // Update when notePath or vaultPath changes
 
   return { editor, isPooled };
 }

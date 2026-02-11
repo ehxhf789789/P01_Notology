@@ -83,7 +83,14 @@ export function createFromTemplate(
   // Apply type-specific defaults (only metadata, NO hardcoded tags)
   switch (noteType) {
     case 'MTG':
-      frontmatter.date = customVariables?.date || now;
+      // date와 time을 쉼표로 구분하여 저장 (예: "2026-02-11, 09:55")
+      if (customVariables?.date && customVariables?.time) {
+        frontmatter.date = `${customVariables.date}, ${customVariables.time}`;
+      } else if (customVariables?.date) {
+        frontmatter.date = customVariables.date;
+      } else {
+        frontmatter.date = now;
+      }
       if (customVariables?.participants) {
         frontmatter.participants = customVariables.participants.split(',').map(p => p.trim()).filter(Boolean);
       } else {
@@ -168,163 +175,183 @@ export function createFromTemplate(
 
 /**
  * Get body template for note type (language-aware)
+ * Format: # Heading sections separated by --- horizontal rules
  */
 export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 'ko'): string {
   const T = (key: string) => t(key, language);
 
   switch (noteType) {
     case 'MTG':
-      return `## ${T('tmplMtgInfo')}
+      return `# ${T('tmplMtgInfo')}
 - **${T('tmplDate')}**: {{date}}
 - **${T('tmplTime')}**: {{time}}
 - **${T('tmplParticipants')}**: {{participants}}
 
-## ${T('tmplAgenda')}
+---
+# ${T('tmplAgenda')}
 
+---
+# ${T('tmplDiscussion')}
 
-## ${T('tmplDiscussion')}
+---
+# ${T('tmplDecisions')}
 
-
-## ${T('tmplDecisions')}
-
+---
 `;
 
     case 'PAPER':
-      return `## ${T('tmplPaperInfo')}
+      return `# ${T('tmplPaperInfo')}
 - **${T('tmplAuthors')}**: {{authors}}
 - **${T('tmplYear')}**: {{year}}
 - **${T('tmplVenue')}**: {{venue}}
 - **${T('tmplDoi')}**: {{doi}}
 
-## ${T('tmplSummary')}
+---
+# ${T('tmplSummary')}
 
+---
+# ${T('tmplContributions')}
 
-## ${T('tmplContributions')}
+---
+# ${T('tmplMethodology')}
 
+---
+# ${T('tmplResults')}
 
-## ${T('tmplMethodology')}
-
-
-## ${T('tmplResults')}
-
+---
 `;
 
     case 'THEO':
-      return `## ${T('tmplDefinition')}
+      return `# ${T('tmplDefinition')}
 
+---
+# ${T('tmplBackground')}
 
-## ${T('tmplBackground')}
+---
+# ${T('tmplKeyConcepts')}
 
+---
+# ${T('tmplApplications')}
 
-## ${T('tmplKeyConcepts')}
+---
+# ${T('tmplRelatedTheories')}
 
-
-## ${T('tmplApplications')}
-
-
-## ${T('tmplRelatedTheories')}
-
+---
 `;
 
     case 'LIT':
-      return `## ${T('tmplLitInfo')}
+      return `# ${T('tmplLitInfo')}
 - **${T('tmplAuthors')}**: {{authors}}
 - **${T('tmplYear')}**: {{year}}
 - **${T('tmplPublisher')}**: {{publisher}}
 - **${T('tmplSource')}**: {{source}}
 - **${T('tmplUrl')}**: {{url}}
 
-## ${T('tmplSummary')}
+---
+# ${T('tmplSummary')}
 
+---
+# ${T('tmplKeyContent')}
 
-## ${T('tmplKeyContent')}
-
+---
 `;
 
     case 'EVENT':
-      return `## ${T('tmplEventInfo')}
+      return `# ${T('tmplEventInfo')}
 - **${T('tmplDate')}**: {{date}}
 - **${T('tmplLocation')}**: {{location}}
 - **${T('tmplOrganizer')}**: {{organizer}}
 - **${T('tmplEventParticipants')}**: {{participants}}
 
-## ${T('tmplOverview')}
+---
+# ${T('tmplOverview')}
 
+---
+# ${T('tmplSchedule')}
 
-## ${T('tmplSchedule')}
-
+---
 `;
 
     case 'CONTACT':
-      return `## ${T('tmplContactInfo')}
+      return `# ${T('tmplContactInfo')}
 - **${T('tmplEmail')}**: {{email}}
 - **${T('tmplPhone')}**: {{phone}}
 - **${T('tmplOrganization')}**: {{organization}}
 - **${T('tmplRole')}**: {{role}}
 
-## ${T('tmplHistory')}
+---
+# ${T('tmplHistory')}
 -
 
-## ${T('tmplRelatedNotes')}
+---
+# ${T('tmplRelatedNotes')}
 -
+
+---
 `;
 
     case 'CONTAINER':
-      return `## ${T('tmplOverview')}
+      return `# ${T('tmplOverview')}
 
+---
+# ${T('tmplSubItems')}
 
-## ${T('tmplSubItems')}
-
+---
 `;
 
     case 'SKETCH':
       return ''; // Canvas notes don't need a markdown body template
 
     case 'SEM':
-      return `## ${T('tmplOverview')}
+      return `# ${T('tmplOverview')}
 
+---
+# ${T('tmplContent')}
 
-## ${T('tmplContent')}
+---
+# ${T('tmplKeyPoints')}
 
-
-## ${T('tmplKeyPoints')}
-
+---
 `;
 
     case 'OFA':
-      return `## ${T('tmplOverview')}
+      return `# ${T('tmplOverview')}
 
+---
+# ${T('tmplContent')}
 
-## ${T('tmplContent')}
+---
+# ${T('tmplDecisions')}
 
-
-## ${T('tmplDecisions')}
-
+---
 `;
 
     case 'DATA':
-      return `## ${T('tmplOverview')}
+      return `# ${T('tmplOverview')}
 
+---
+# ${T('tmplDataDescription')}
 
-## ${T('tmplDataDescription')}
-
+---
 `;
 
     case 'SETUP':
-      return `## ${T('tmplOverview')}
+      return `# ${T('tmplOverview')}
 
+---
+# ${T('tmplContext')}
 
-## ${T('tmplContext')}
-
+---
 `;
 
     case 'NOTE':
     default:
-      return `## ${T('tmplOverview')}
+      return `# ${T('tmplOverview')}
 
+---
+# ${T('tmplContent')}
 
-## ${T('tmplContent')}
-
+---
 `;
   }
 }

@@ -29,8 +29,9 @@ declare module '@tiptap/core' {
   }
 }
 
-const WIKI_LINK_REGEX = /\[\[([^\]]+)\]\]/g;
-const IMAGE_EMBED_REGEX = /!\[\[([^\]]+)\]\]/g;
+// Non-greedy matching to support ] in filenames (e.g., [[디자인여백플러스] 파일.pdf]])
+const WIKI_LINK_REGEX = /\[\[(.+?)\]\]/g;
+const IMAGE_EMBED_REGEX = /!\[\[(.+?)\]\]/g;
 
 // Helper to parse wiki link content: "fileName" or "fileName|displayText"
 function parseWikiLinkContent(content: string): { fileName: string; displayText: string } {
@@ -188,7 +189,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
     const isAttachmentCallback = this.options.isAttachment;
     return [
       new InputRule({
-        find: /\[\[([^\]]+)\]\]$/,
+        find: /\[\[(.+?)\]\]$/,
         handler: ({ state, range, match }) => {
           const { fileName, displayText } = parseWikiLinkContent(match[1]);
           const { tr } = state;
@@ -228,7 +229,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
             const text = node.text;
             // Match [[...]] but not ![[...]]
-            const regex = /(?<!!)\[\[([^\]]+)\]\]/g;
+            const regex = /(?<!!)\[\[(.+?)\]\]/g;
             let match;
 
             while ((match = regex.exec(text)) !== null) {
@@ -481,7 +482,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
                       // Check for text node with wiki link decoration
                       if (node.isText && node.text) {
-                        const regex = /\[\[([^\]]+)\]\]/g;
+                        const regex = /\[\[(.+?)\]\]/g;
                         let match;
                         while ((match = regex.exec(node.text)) !== null) {
                           const parsedMatch = parseWikiLinkContent(match[1]);

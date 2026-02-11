@@ -1,5 +1,6 @@
 import { Editor } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
+import Heading from '@tiptap/extension-heading';
 import Placeholder from '@tiptap/extension-placeholder';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { t } from './i18n';
@@ -21,9 +22,11 @@ import LinkCard from '../extensions/LinkCard';
 import WikiLinkSuggestion from '../extensions/WikiLinkSuggestion';
 import MentionSuggestion from '../extensions/MentionSuggestion';
 import ImageEmbedSuggestion from '../extensions/ImageEmbedSuggestion';
+import AttachmentSuggestion from '../extensions/AttachmentSuggestion';
 import { createWikiLinkSuggestion } from './wikiLinkSuggestion';
 import { createMentionSuggestion } from './mentionSuggestion';
 import { createImageEmbedSuggestion } from './imageEmbedSuggestion';
+import { createAttachmentSuggestion } from './attachmentSuggestion';
 import type { FileNode } from '../types';
 
 const DEV = import.meta.env.DEV;
@@ -40,6 +43,7 @@ interface EditorCallbacks {
   onCommentClick: (commentId: string) => void;
   getFileTree: () => FileNode[];
   notePath: string;
+  vaultPath: string;
   resolveFilePath: (name: string) => string | null;
 }
 
@@ -61,6 +65,7 @@ function createDefaultCallbacks(): EditorCallbacks {
     onCommentClick: () => {},
     getFileTree: () => [],
     notePath: '',
+    vaultPath: '',
     resolveFilePath: () => null,
   };
 }
@@ -137,6 +142,22 @@ class EditorPool {
         link: false,
         italic: false,
         paragraph: false,
+        heading: false,  // 커스텀 Heading 사용
+      }),
+      // 커스텀 Heading with Ctrl+1~6 단축키
+      Heading.configure({
+        levels: [1, 2, 3, 4, 5, 6],
+      }).extend({
+        addKeyboardShortcuts() {
+          return {
+            'Mod-1': () => this.editor.commands.toggleHeading({ level: 1 }),
+            'Mod-2': () => this.editor.commands.toggleHeading({ level: 2 }),
+            'Mod-3': () => this.editor.commands.toggleHeading({ level: 3 }),
+            'Mod-4': () => this.editor.commands.toggleHeading({ level: 4 }),
+            'Mod-5': () => this.editor.commands.toggleHeading({ level: 5 }),
+            'Mod-6': () => this.editor.commands.toggleHeading({ level: 6 }),
+          };
+        },
       }),
       ParagraphWithIndent,
       ItalicCJK,
@@ -175,6 +196,9 @@ class EditorPool {
       }),
       ImageEmbedSuggestion.configure({
         suggestion: createImageEmbedSuggestion(() => callbacks.notePath),
+      }),
+      AttachmentSuggestion.configure({
+        suggestion: createAttachmentSuggestion(() => callbacks.notePath, () => callbacks.getFileTree(), () => callbacks.vaultPath),
       }),
       LinkCard,
       Markdown.configure({
