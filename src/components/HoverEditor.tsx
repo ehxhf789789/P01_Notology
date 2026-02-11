@@ -16,6 +16,7 @@ import { modalActions } from '../stores/zustand/modalStore';
 import { noteTypeCacheActions } from '../stores/zustand/noteTypeCacheStore';
 import { refreshActions, useSearchRefreshTrigger } from '../stores/zustand/refreshStore';
 import { contentCacheActions } from '../stores/zustand/contentCacheStore';
+import { fileLookupActions } from '../stores/zustand/fileLookupStore';
 import { createNote, createNoteWithTemplate, createFolder, deleteNote, deleteFolder } from '../stores/appActions';
 import { settingsActions } from '../stores/zustand/settingsStore';
 import { useDropTarget } from '../hooks/useDragDrop';
@@ -115,6 +116,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const [remoteLock, setRemoteLock] = useState<NoteLockInfo | null>(null);
 
   // Detect conflict copy: file name matches "{original} (내 변경 YYYY-MM-DD).md"
+  // OPTIMIZED: Uses O(1) lookup instead of O(n) tree traversal
   const conflictCopyInfo = useMemo(() => {
     if (!win.filePath) return null;
     const fileName = win.filePath.split(/[/\\]/).pop() || '';
@@ -123,17 +125,10 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const originalName = match[1];
     const dir = win.filePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/');
     const originalPath = `${dir}/${originalName}.md`;
-    // Check if original exists in fileTree
-    const findFile = (nodes: typeof fileTree): boolean => {
-      for (const node of nodes) {
-        if (!node.is_dir && node.path.replace(/\\/g, '/') === originalPath) return true;
-        if (node.children && findFile(node.children)) return true;
-      }
-      return false;
-    };
-    const originalExists = findFile(fileTree);
+    // O(1) check if original exists using the file lookup index
+    const originalExists = fileLookupActions.isNote(originalPath);
     return originalExists ? { originalPath, originalName: `${originalName}.md` } : null;
-  }, [win.filePath, fileTree]);
+  }, [win.filePath]);
 
   // Track previous states to detect restoration
   const prevCachedRef = useRef(win.cached);
@@ -228,153 +223,55 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     return win.filePath.replace(/\.md$/i, '');
   }, [win.filePath, conflictCopyInfo]);
 
+  // OPTIMIZED: O(1) hash lookup instead of O(n) tree traversal
+  // Uses fileLookupStore index built when fileTree changes
   const resolveLink = useCallback((fileName: string): boolean => {
-    // FIRST: Check the _att folder for ALL files (regardless of extension)
-    // This ensures .md attachments are found before searching globally
+    // First, try to resolve as attachment in current note's _att folder
     if (effectiveAttStem) {
-      const attFolderPath = effectiveAttStem + '_att';
-      const normalizedAttFolder = attFolderPath.replace(/\\/g, '/').toLowerCase();
-
-      const searchAttFolder = (nodes: typeof fileTree): boolean | null => {
-        for (const node of nodes) {
-          if (node.is_dir) {
-            const normalizedNodePath = node.path.replace(/\\/g, '/').toLowerCase();
-            if (normalizedNodePath === normalizedAttFolder) {
-              if (node.children) {
-                for (const child of node.children) {
-                  if (!child.is_dir) {
-                    // Match exact name OR name with .md extension added
-                    if (child.name === fileName || child.name === fileName + '.md') {
-                      return true;
-                    }
-                  }
-                }
-              }
-              return null; // Found att folder but file not in it
-            }
-            if (node.children) {
-              const result = searchAttFolder(node.children);
-              if (result !== false) return result;
-            }
-          }
-        }
-        return false; // Haven't found att folder yet
-      };
-
-      const attResult = searchAttFolder(fileTree);
-      if (attResult === true) return true;
-      // If attResult is null, we found the att folder but file wasn't in it
-      // If attResult is false, att folder doesn't exist
+      const attPath = fileLookupActions.resolveAttachmentPath(fileName, win.filePath);
+      if (attPath) return true;
     }
 
-    // For non-attachment links (notes), search globally
-    const searchTree = (nodes: typeof fileTree): boolean => {
-      for (const node of nodes) {
-        if (!node.is_dir && (node.name === fileName || node.name.replace(/\.md$/, '') === fileName)) return true;
-        if (node.children && searchTree(node.children)) return true;
-      }
-      return false;
-    };
-    return searchTree(fileTree);
-  }, [fileTree, effectiveAttStem]);
+    // Then try to resolve as note globally (O(1) lookup)
+    const notePath = fileLookupActions.resolveNotePath(fileName);
+    if (notePath) return true;
+
+    // Also check if it's a direct attachment by name
+    const directAttPath = fileLookupActions.resolveAttachmentPath(fileName);
+    return directAttPath !== null;
+  }, [effectiveAttStem, win.filePath]);
 
   // Use global noteTypeCache store (shared across all windows, no per-window query)
   const getNoteType = useCallback((fileName: string): string | null => {
     return noteTypeCacheActions.getNoteType(fileName);
   }, []);
 
-  // Check if a file is an attachment (exists in current note's _att folder)
-  // This distinguishes .md attachments from vault notes
+  // OPTIMIZED: O(1) check if file is an attachment in current note's _att folder
+  // Uses fileLookupStore index instead of O(n) tree traversal
   // For conflict copies, uses the original note's _att folder (shared attachments)
   const isAttachment = useCallback((fileName: string): boolean => {
     if (!effectiveAttStem) return false;
+    return fileLookupActions.isInAttFolder(fileName, effectiveAttStem);
+  }, [effectiveAttStem]);
 
-    const attFolderPath = effectiveAttStem + '_att';
-    const normalizedAttFolder = attFolderPath.replace(/\\/g, '/').toLowerCase();
-
-    const searchAttFolder = (nodes: typeof fileTree): boolean => {
-      for (const node of nodes) {
-        if (node.is_dir) {
-          const normalizedNodePath = node.path.replace(/\\/g, '/').toLowerCase();
-          if (normalizedNodePath === normalizedAttFolder) {
-            if (node.children) {
-              for (const child of node.children) {
-                if (!child.is_dir) {
-                  if (child.name === fileName || child.name === fileName + '.md') {
-                    return true;
-                  }
-                }
-              }
-            }
-            return false;
-          }
-          if (node.children && searchAttFolder(node.children)) return true;
-        }
-      }
-      return false;
-    };
-    return searchAttFolder(fileTree);
-  }, [fileTree, effectiveAttStem]);
-
-  // Helper to resolve fileName to full path (shared by handleLinkClick and resolveFilePath)
+  // OPTIMIZED: O(1) resolve fileName to full path
+  // Uses fileLookupStore index instead of O(n) tree traversal
   // For conflict copies, uses the original note's _att folder (shared attachments)
   const resolveFilePathImpl = useCallback((fileName: string): string | null => {
-    // Helper to find file in the note's _att folder
-    const findInAttFolder = (nodes: typeof fileTree): string | null => {
-      if (!effectiveAttStem) return null;
-      const attFolderPath = effectiveAttStem + '_att';
-      const normalizedAttFolder = attFolderPath.replace(/\\/g, '/').toLowerCase();
-
-      const search = (nodes: typeof fileTree): string | null => {
-        for (const node of nodes) {
-          if (node.is_dir) {
-            const normalizedNodePath = node.path.replace(/\\/g, '/').toLowerCase();
-            if (normalizedNodePath === normalizedAttFolder) {
-              if (node.children) {
-                for (const child of node.children) {
-                  if (!child.is_dir) {
-                    // Match exact name OR name with .md extension added
-                    if (child.name === fileName || child.name === fileName + '.md') {
-                      return child.path;
-                    }
-                  }
-                }
-              }
-              return null;
-            }
-            if (node.children) {
-              const found = search(node.children);
-              if (found) return found;
-            }
-          }
-        }
-        return null;
-      };
-      return search(nodes);
-    };
-
-    // Helper to find file globally (for notes)
-    const findFileGlobally = (nodes: typeof fileTree): string | null => {
-      for (const node of nodes) {
-        if (!node.is_dir && (node.name === fileName || node.name.replace(/\.md$/, '') === fileName)) return node.path;
-        if (node.children) {
-          const found = findFileGlobally(node.children);
-          if (found) return found;
-        }
-      }
-      return null;
-    };
-
     // First, check if the file is an attachment (exists in current note's _att folder)
-    let path = findInAttFolder(fileTree);
-
-    // If not found in _att folder, search globally (for notes)
-    if (!path) {
-      path = findFileGlobally(fileTree);
+    if (effectiveAttStem) {
+      const attPath = fileLookupActions.resolveInAttFolder(fileName, effectiveAttStem);
+      if (attPath) return attPath;
     }
 
-    return path;
-  }, [fileTree, effectiveAttStem]);
+    // If not found in _att folder, search globally (for notes)
+    const notePath = fileLookupActions.resolveNotePath(fileName);
+    if (notePath) return notePath;
+
+    // Also try as general attachment
+    const globalAttPath = fileLookupActions.resolveAttachmentPath(fileName);
+    return globalAttPath;
+  }, [effectiveAttStem]);
 
   const handleLinkClick = useCallback((fileName: string) => {
     const path = resolveFilePathImpl(fileName);
@@ -1636,8 +1533,8 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     let inAttachmentSection = false;
 
     doc.descendants((node, pos) => {
-      // Check for heading level 2
-      if (node.type.name === 'heading' && node.attrs.level === 2) {
+      // Check for heading level 1
+      if (node.type.name === 'heading' && node.attrs.level === 1) {
         const headingText = node.textContent.trim();
 
         // Found attachment section
@@ -1740,7 +1637,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       editor.chain()
         .focus()
         .insertContentAt(endPos, [
-          { type: 'heading', attrs: { level: 2 }, content: [{ type: 'text', text: t('attachmentHeading', language) }] },
+          { type: 'heading', attrs: { level: 1 }, content: [{ type: 'text', text: t('attachmentHeading', language) }] },
           { type: 'bulletList', content: listItems },
         ])
         .run();

@@ -74,6 +74,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const [attachmentsShowDummyOnly, setAttachmentsShowDummyOnly] = useState(false);
   const [attachmentsNotePathFilter, setAttachmentsNotePathFilter] = useState('');
   const [selectedAttachments, setSelectedAttachments] = useState<Set<string>>(new Set());
+  // Selected folder note path (for single-click highlight, double-click to navigate)
+  const [selectedFolderNotePath, setSelectedFolderNotePath] = useState<string | null>(null);
 
   // Frontmatter mode search
   const fetchNotes = useCallback(async () => {
@@ -247,173 +249,165 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     return result;
   }, [notes, containerPath, frontmatterQuery, mode, frontmatterTypeFilter, frontmatterTagFilter, frontmatterMemoFilter, showFolderNotes]);
 
-  // Details mode filtering - by type, tags, and containerPath
+  // Details mode filtering — single-pass loop (avoids intermediate arrays)
   const filteredDetailsNotes = useMemo(() => {
-    let filtered = notes;
+    const result: NoteMetadata[] = [];
+    const seen = new Set<string>();
 
-    // Container path filtering (same logic as filteredNotes)
+    // Pre-compute container filter values
+    let prefix: string | undefined;
+    let folderNotePath: string | undefined;
     if (containerPath) {
-      const prefix = containerPath.replace(/\\/g, '/');
+      prefix = containerPath.replace(/\\/g, '/');
       const containerName = prefix.split('/').pop() || '';
-      const folderNotePath = (prefix + '/' + containerName + '.md').toLowerCase();
-      filtered = filtered.filter(n => {
+      folderNotePath = (prefix + '/' + containerName + '.md').toLowerCase();
+    }
+
+    // Pre-compute tag query
+    const tagQuery = detailsTagFilter.trim() ? detailsTagFilter.toLowerCase() : null;
+
+    for (const n of notes) {
+      // Container path filter
+      if (prefix) {
         const normPath = n.path.replace(/\\/g, '/');
-        // Must be inside the container
-        if (!normPath.startsWith(prefix + '/')) return false;
-        // Exclude the folder note itself
-        if (normPath.toLowerCase() === folderNotePath) return false;
+        if (!normPath.startsWith(prefix + '/')) continue;
+        if (normPath.toLowerCase() === folderNotePath) continue;
 
         const relativePath = normPath.slice(prefix.length + 1);
-
-        // Direct children: always show
-        if (!relativePath.includes('/')) return true;
-
-        // Nested items: only show if it's a folder note
-        const parts = relativePath.split('/');
-        if (parts.length === 2) {
-          const subFolderName = parts[0];
-          const fileName = parts[1];
-          if (fileName.toLowerCase() === (subFolderName + '.md').toLowerCase()) {
-            return true;
-          }
+        if (relativePath.includes('/')) {
+          const parts = relativePath.split('/');
+          if (parts.length !== 2) continue;
+          if (parts[1].toLowerCase() !== `${parts[0].toLowerCase()}.md`) continue;
         }
-        return false;
-      });
+      }
+
+      // Type filter
+      if (detailsTypeFilter && n.note_type !== detailsTypeFilter) continue;
+
+      // Tag filter
+      if (tagQuery && !n.tags.some(t => t.toLowerCase().includes(tagQuery))) continue;
+
+      // Dedup
+      const dedupKey = n.path.replace(/\\/g, '/').toLowerCase();
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
+      result.push(n);
     }
 
-    // Apply type filter
-    if (detailsTypeFilter) {
-      filtered = filtered.filter(n => n.note_type === detailsTypeFilter);
-    }
-    // Apply tag filter (case-insensitive partial match)
-    if (detailsTagFilter.trim()) {
-      const tagQuery = detailsTagFilter.toLowerCase();
-      filtered = filtered.filter(n =>
-        n.tags.some(t => t.toLowerCase().includes(tagQuery))
-      );
-    }
-    // Deduplicate by path
-    const seen = new Set<string>();
-    filtered = filtered.filter(n => {
-      const dedupKey = n.path.replace(/\\/g, '/').toLowerCase();
-      if (seen.has(dedupKey)) return false;
-      seen.add(dedupKey);
-      return true;
-    });
     // Sort folder notes first
-    filtered.sort((a, b) => {
+    result.sort((a, b) => {
       const aIsContainer = a.note_type === 'CONTAINER' ? 0 : 1;
       const bIsContainer = b.note_type === 'CONTAINER' ? 0 : 1;
       return aIsContainer - bIsContainer;
     });
-    return filtered;
+
+    return result;
   }, [notes, containerPath, detailsTypeFilter, detailsTagFilter]);
 
+  // Content results filtering — single-pass loop
   const filteredContentResults = useMemo(() => {
-    let filtered = contentResults;
+    const result: SearchResult[] = [];
 
-    // Container path filtering
+    // Pre-compute container filter values
+    let prefix: string | undefined;
+    let folderNotePath: string | undefined;
     if (containerPath) {
-      const prefix = containerPath.replace(/\\/g, '/');
+      prefix = containerPath.replace(/\\/g, '/');
       const containerName = prefix.split('/').pop() || '';
-      const folderNotePath = (prefix + '/' + containerName + '.md').toLowerCase();
-      filtered = filtered.filter(r => {
-        const normPath = r.path.replace(/\\/g, '/');
-        if (!normPath.startsWith(prefix + '/')) return false;
-        if (normPath.toLowerCase() === folderNotePath) return false;
+      folderNotePath = (prefix + '/' + containerName + '.md').toLowerCase();
+    }
+
+    // Pre-compute type filter prefix
+    const typePrefix = contentsTypeFilter ? contentsTypeFilter + '-' : null;
+    const typeExact = contentsTypeFilter ? contentsTypeFilter + '.MD' : null;
+
+    for (const r of contentResults) {
+      const normPath = r.path.replace(/\\/g, '/');
+
+      // Container path filter
+      if (prefix) {
+        if (!normPath.startsWith(prefix + '/')) continue;
+        if (normPath.toLowerCase() === folderNotePath) continue;
 
         const relativePath = normPath.slice(prefix.length + 1);
-
-        // Direct children: always show
-        if (!relativePath.includes('/')) return true;
-
-        // Nested items: only show if it's a folder note
-        const parts = relativePath.split('/');
-        if (parts.length === 2) {
-          const folderName = parts[0];
-          const fileName = parts[1];
-          if (fileName.toLowerCase() === `${folderName.toLowerCase()}.md`) {
-            return true;
-          }
+        if (relativePath.includes('/')) {
+          const parts = relativePath.split('/');
+          if (parts.length !== 2) continue;
+          if (parts[1].toLowerCase() !== `${parts[0].toLowerCase()}.md`) continue;
         }
+      }
 
-        return false;
-      });
-    }
-
-    // Type filter
-    if (contentsTypeFilter) {
-      filtered = filtered.filter(r => {
-        const fileName = r.path.split(/[/\\]/).pop() || '';
+      // Type filter
+      if (typePrefix) {
+        const fileName = normPath.split('/').pop() || '';
         const fileUpper = fileName.toUpperCase();
-        return fileUpper.startsWith(contentsTypeFilter + '-') || fileUpper === contentsTypeFilter + '.MD';
-      });
+        if (!fileUpper.startsWith(typePrefix) && fileUpper !== typeExact) continue;
+      }
+
+      result.push(r);
     }
 
-    return filtered;
+    return result;
   }, [contentResults, containerPath, contentsTypeFilter]);
 
+  // Attachments filtering — single-pass loop
   const filteredAttachments = useMemo(() => {
-    let filtered = attachmentResults;
+    const result: AttachmentInfo[] = [];
 
-    // Container path filtering
-    if (containerPath) {
-      const prefix = containerPath.replace(/\\/g, '/');
-      filtered = filtered.filter(a => {
-        const normPath = a.path.replace(/\\/g, '/');
-        if (!normPath.startsWith(prefix + '/')) return false;
+    // Pre-compute container prefix
+    const prefix = containerPath ? containerPath.replace(/\\/g, '/') : null;
+
+    // Pre-compute filter values
+    const containerQuery = attachmentsContainerFilter.trim() ? attachmentsContainerFilter.toLowerCase() : null;
+    const ext = attachmentsExtensionFilter.trim() ? attachmentsExtensionFilter.toLowerCase().replace('.', '') : null;
+    const pathQuery = attachmentsNotePathFilter.trim() ? attachmentsNotePathFilter.toLowerCase() : null;
+
+    for (const a of attachmentResults) {
+      const normPath = a.path.replace(/\\/g, '/');
+
+      // Container path filter
+      if (prefix) {
+        if (!normPath.startsWith(prefix + '/')) continue;
 
         const relativePath = normPath.slice(prefix.length + 1);
         const parts = relativePath.split('/');
 
         // Direct child attachment: note.md_att/file.png (2 parts)
-        if (parts.length === 2) return true;
-
-        // Nested attachment: subfolder/note.md_att/file.png (3 parts)
-        // Only show if it belongs to a folder note
-        if (parts.length === 3) {
+        // Nested attachment: subfolder/note.md_att/file.png (3 parts, folder note only)
+        if (parts.length === 2) {
+          // OK
+        } else if (parts.length === 3) {
           const folderName = parts[0];
           const attFolder = parts[1];
-          // Check if it's a folder note's attachment folder
-          if (attFolder.toLowerCase() === `${folderName.toLowerCase()}.md_att`) {
-            return true;
-          }
+          if (attFolder.toLowerCase() !== `${folderName.toLowerCase()}.md_att`) continue;
+        } else {
+          continue;
         }
+      }
 
-        return false;
-      });
-    }
+      // Container filter
+      if (containerQuery && !a.container.toLowerCase().includes(containerQuery)) continue;
 
-    // Container filter
-    if (attachmentsContainerFilter.trim()) {
-      const query = attachmentsContainerFilter.toLowerCase();
-      filtered = filtered.filter(a => a.container.toLowerCase().includes(query));
-    }
-
-    // Extension filter
-    if (attachmentsExtensionFilter.trim()) {
-      const ext = attachmentsExtensionFilter.toLowerCase().replace('.', '');
-      filtered = filtered.filter(a => {
+      // Extension filter
+      if (ext) {
         const fileExt = a.file_name.split('.').pop()?.toLowerCase() || '';
-        return fileExt === ext;
-      });
+        if (fileExt !== ext) continue;
+      }
+
+      // Dummy file filter
+      if (attachmentsShowDummyOnly && a.note_relative_path !== '-') continue;
+
+      // Note path filter
+      if (pathQuery) {
+        if (!a.inferred_note_path.toLowerCase().includes(pathQuery) &&
+            !a.note_relative_path.toLowerCase().includes(pathQuery)) continue;
+      }
+
+      result.push(a);
     }
 
-    // Dummy file filter - only show files with no links (note_relative_path is "-")
-    if (attachmentsShowDummyOnly) {
-      filtered = filtered.filter(a => a.note_relative_path === '-');
-    }
-
-    // Note path filter - filter by specific note path
-    if (attachmentsNotePathFilter.trim()) {
-      const pathQuery = attachmentsNotePathFilter.toLowerCase();
-      filtered = filtered.filter(a =>
-        a.inferred_note_path.toLowerCase().includes(pathQuery) ||
-        a.note_relative_path.toLowerCase().includes(pathQuery)
-      );
-    }
-
-    return filtered;
+    return result;
   }, [attachmentResults, containerPath, attachmentsContainerFilter, attachmentsExtensionFilter, attachmentsShowDummyOnly, attachmentsNotePathFilter]);
 
   const handleNoteClick = (path: string, noteType?: string) => {
@@ -860,6 +854,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                   onNoteClick={handleNoteClick}
                   onNoteHover={handleNoteHover}
                   onContextMenu={handleFrontmatterContextMenu}
+                  selectedPath={selectedFolderNotePath}
+                  onSelect={setSelectedFolderNotePath}
                 />
               ))}
               {filteredNotes.length === 0 && (
@@ -947,6 +943,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                 onContextMenu={handleDetailsContextMenu}
                 onTagClick={setDetailsTagFilter}
                 language={language}
+                selectedPath={selectedFolderNotePath}
+                onSelect={setSelectedFolderNotePath}
               />
             ))
           )}

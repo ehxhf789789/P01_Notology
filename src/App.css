@@ -3306,8 +3306,6 @@ html[data-theme="light"] .wiki-image-embed-delete {
   transform: translate3d(0, 0, 0);
   /* Layout isolation for faster paint */
   contain: layout style;
-  /* Content visibility for offscreen optimization */
-  content-visibility: auto;
 }
 
 /* Flash animation for focus feedback (no state update needed) */

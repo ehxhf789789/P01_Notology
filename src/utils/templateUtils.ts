@@ -175,7 +175,7 @@ export function createFromTemplate(
 
 /**
  * Get body template for note type (language-aware)
- * Format: # Heading sections separated by --- horizontal rules
+ * Format: # Heading sections separated by *** horizontal rules
  */
 export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 'ko'): string {
   const T = (key: string) => t(key, language);
@@ -187,16 +187,16 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
 - **${T('tmplTime')}**: {{time}}
 - **${T('tmplParticipants')}**: {{participants}}
 
----
+***
 # ${T('tmplAgenda')}
 
----
+***
 # ${T('tmplDiscussion')}
 
----
+***
 # ${T('tmplDecisions')}
 
----
+***
 `;
 
     case 'PAPER':
@@ -206,37 +206,37 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
 - **${T('tmplVenue')}**: {{venue}}
 - **${T('tmplDoi')}**: {{doi}}
 
----
+***
 # ${T('tmplSummary')}
 
----
+***
 # ${T('tmplContributions')}
 
----
+***
 # ${T('tmplMethodology')}
 
----
+***
 # ${T('tmplResults')}
 
----
+***
 `;
 
     case 'THEO':
       return `# ${T('tmplDefinition')}
 
----
+***
 # ${T('tmplBackground')}
 
----
+***
 # ${T('tmplKeyConcepts')}
 
----
+***
 # ${T('tmplApplications')}
 
----
+***
 # ${T('tmplRelatedTheories')}
 
----
+***
 `;
 
     case 'LIT':
@@ -247,13 +247,13 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
 - **${T('tmplSource')}**: {{source}}
 - **${T('tmplUrl')}**: {{url}}
 
----
+***
 # ${T('tmplSummary')}
 
----
+***
 # ${T('tmplKeyContent')}
 
----
+***
 `;
 
     case 'EVENT':
@@ -263,13 +263,13 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
 - **${T('tmplOrganizer')}**: {{organizer}}
 - **${T('tmplEventParticipants')}**: {{participants}}
 
----
+***
 # ${T('tmplOverview')}
 
----
+***
 # ${T('tmplSchedule')}
 
----
+***
 `;
 
     case 'CONTACT':
@@ -279,24 +279,24 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
 - **${T('tmplOrganization')}**: {{organization}}
 - **${T('tmplRole')}**: {{role}}
 
----
+***
 # ${T('tmplHistory')}
 -
 
----
+***
 # ${T('tmplRelatedNotes')}
 -
 
----
+***
 `;
 
     case 'CONTAINER':
       return `# ${T('tmplOverview')}
 
----
+***
 # ${T('tmplSubItems')}
 
----
+***
 `;
 
     case 'SKETCH':
@@ -305,53 +305,53 @@ export function getBodyTemplate(noteType: NoteType, language: LanguageSetting = 
     case 'SEM':
       return `# ${T('tmplOverview')}
 
----
+***
 # ${T('tmplContent')}
 
----
+***
 # ${T('tmplKeyPoints')}
 
----
+***
 `;
 
     case 'OFA':
       return `# ${T('tmplOverview')}
 
----
+***
 # ${T('tmplContent')}
 
----
+***
 # ${T('tmplDecisions')}
 
----
+***
 `;
 
     case 'DATA':
       return `# ${T('tmplOverview')}
 
----
+***
 # ${T('tmplDataDescription')}
 
----
+***
 `;
 
     case 'SETUP':
       return `# ${T('tmplOverview')}
 
----
+***
 # ${T('tmplContext')}
 
----
+***
 `;
 
     case 'NOTE':
     default:
       return `# ${T('tmplOverview')}
 
----
+***
 # ${T('tmplContent')}
 
----
+***
 `;
   }
 }

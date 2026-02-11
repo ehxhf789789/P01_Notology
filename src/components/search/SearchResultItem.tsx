@@ -22,6 +22,8 @@ interface FrontmatterResultRowProps {
   onNoteClick: (path: string, noteType?: string) => void;
   onNoteHover: (path: string) => void;
   onContextMenu: (e: React.MouseEvent, note: NoteMetadata) => void;
+  selectedPath?: string | null;
+  onSelect?: (path: string) => void;
 }
 
 export function FrontmatterResultRow({
@@ -31,18 +33,40 @@ export function FrontmatterResultRow({
   onNoteClick,
   onNoteHover,
   onContextMenu,
+  selectedPath,
+  onSelect,
 }: FrontmatterResultRowProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
   // Display underscores as spaces for better readability
   const displayName = fileName.replace(/_/g, ' ');
   const customColor = getTemplateCustomColor(note.note_type);
+  const isContainer = note.note_type?.toUpperCase() === 'CONTAINER';
+  const isSelected = selectedPath === note.path;
+
+  const handleClick = () => {
+    if (isContainer && onSelect) {
+      // Folder notes: single click only selects/highlights
+      onSelect(note.path);
+    } else {
+      // Regular notes: single click opens
+      onNoteClick(note.path, note.note_type);
+    }
+  };
+
+  const handleDoubleClick = () => {
+    if (isContainer) {
+      // Folder notes: double click navigates
+      onNoteClick(note.path, note.note_type);
+    }
+  };
 
   return (
     <tr
       key={note.path}
-      className={`search-row${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}`}
-      onClick={() => onNoteClick(note.path, note.note_type)}
+      className={`search-row${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}`}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseEnter={() => onNoteHover(note.path)}
       onContextMenu={(e) => onContextMenu(e, note)}
       style={customColor ? { '--template-color': customColor } as React.CSSProperties : undefined}
@@ -181,6 +205,8 @@ interface DetailsResultCardProps {
   onContextMenu: (e: React.MouseEvent, note: NoteMetadata) => void;
   onTagClick: (tag: string) => void;
   language: LanguageSetting;
+  selectedPath?: string | null;
+  onSelect?: (path: string) => void;
 }
 
 export function DetailsResultCard({
@@ -191,6 +217,8 @@ export function DetailsResultCard({
   onContextMenu,
   onTagClick,
   language,
+  selectedPath,
+  onSelect,
 }: DetailsResultCardProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
@@ -198,12 +226,29 @@ export function DetailsResultCard({
   const displayName = fileName.replace(/_/g, ' ');
   const containerPath = note.path.split(/[/\\]/).slice(0, -1).pop() || '';
   const customColor = getTemplateCustomColor(note.note_type);
+  const isContainer = note.note_type?.toUpperCase() === 'CONTAINER';
+  const isSelected = selectedPath === note.path;
+
+  const handleClick = () => {
+    if (isContainer && onSelect) {
+      onSelect(note.path);
+    } else {
+      onNoteClick(note.path, note.note_type);
+    }
+  };
+
+  const handleDoubleClick = () => {
+    if (isContainer) {
+      onNoteClick(note.path, note.note_type);
+    }
+  };
 
   return (
     <div
       key={note.path}
-      className={`search-details-item${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}`}
-      onClick={() => onNoteClick(note.path, note.note_type)}
+      className={`search-details-item${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}`}
+      onClick={handleClick}
+      onDoubleClick={handleDoubleClick}
       onMouseEnter={() => onNoteHover(note.path)}
       onContextMenu={(e) => onContextMenu(e, note)}
       style={customColor ? { '--template-color': customColor } as React.CSSProperties : undefined}

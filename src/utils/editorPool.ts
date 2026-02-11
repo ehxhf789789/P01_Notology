@@ -18,6 +18,7 @@ import WikiLink from '../extensions/WikiLink';
 import Callout from '../extensions/Callout';
 import ParagraphWithIndent from '../extensions/ParagraphWithIndent';
 import CommentMarks from '../extensions/CommentMarks';
+import HorizontalRuleNoGap from '../extensions/HorizontalRuleNoGap';
 import LinkCard from '../extensions/LinkCard';
 import WikiLinkSuggestion from '../extensions/WikiLinkSuggestion';
 import MentionSuggestion from '../extensions/MentionSuggestion';
@@ -143,7 +144,9 @@ class EditorPool {
         italic: false,
         paragraph: false,
         heading: false,  // 커스텀 Heading 사용
+        horizontalRule: false,  // 커스텀 HorizontalRuleNoGap 사용
       }),
+      HorizontalRuleNoGap,
       // 커스텀 Heading with Ctrl+1~6 단축키
       Heading.configure({
         levels: [1, 2, 3, 4, 5, 6],

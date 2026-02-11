@@ -51,16 +51,17 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
     prevMinimizedRef.current = win.minimized;
   }, [win.cached, win.minimized, win.id]);
 
+  // Run opening animation using Web Animations API
   useEffect(() => {
-    if (isOpening) {
-      const openTimeout = HOVER_WINDOW_OPEN_DURATION + ANIMATION_BUFFER;
+    if (isOpening && hoverEditorRef.current) {
+      const el = hoverEditorRef.current;
       const startTime = performance.now();
-      log(`[HoverWindow ${win.id.slice(-6)}] OPEN - animation started (CSS: ${HOVER_WINDOW_OPEN_DURATION}ms, JS: ${openTimeout}ms)`);
-      const timer = setTimeout(() => {
-        log(`[HoverWindow ${win.id.slice(-6)}] OPEN - cleared (actual: ${(performance.now() - startTime).toFixed(1)}ms)`);
+      log(`[HoverImageViewer ${win.id.slice(-6)}] OPEN - Web Animation started`);
+      // Run animation using Web Animations API
+      runAnimation(el, 'open', HOVER_WINDOW_OPEN_DURATION).then(() => {
+        log(`[HoverImageViewer ${win.id.slice(-6)}] OPEN - completed (${(performance.now() - startTime).toFixed(1)}ms)`);
         setIsOpening(false);
-      }, openTimeout);
-      return () => clearTimeout(timer);
+      });
     }
   }, [isOpening, win.id]);
 

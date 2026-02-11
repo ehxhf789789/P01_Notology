@@ -3,6 +3,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { fileCommands } from '../../services/tauriCommands';
 import type { FileNode } from '../../types';
 import { contentCacheActions } from './contentCacheStore';
+import { fileLookupActions } from './fileLookupStore';
 
 // Extract all .md file paths from file tree
 function extractMdFilePaths(nodes: FileNode[]): string[] {
@@ -54,9 +55,13 @@ export const useFileTreeStore = create<FileTreeState>()(
     selectedContainer: null,
     vaultPath: null,
 
-    // Set file tree
+    // Set file tree (also rebuilds file lookup index for O(1) lookups)
     setFileTree: (tree: FileNode[]) => {
       set({ fileTree: tree });
+      // Rebuild file lookup index in next microtask to avoid blocking
+      queueMicrotask(() => {
+        fileLookupActions.rebuildIndex(tree);
+      });
     },
 
     // Set selected container

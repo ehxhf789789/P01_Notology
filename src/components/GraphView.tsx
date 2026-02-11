@@ -91,6 +91,10 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   const [showSettings, setShowSettings] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchHighlightId, setSearchHighlightId] = useState<string | null>(null);
+  // Selected tag node for persistent highlight (click to select, click elsewhere to deselect)
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+  // Selected folder note for highlight (single click selects, double click navigates)
+  const [selectedFolderNoteId, setSelectedFolderNoteId] = useState<string | null>(null);
 
   // Stable ref for hoveredNodeId to avoid re-binding callbacks
   const hoveredNodeIdRef = useRef<string | null>(null);
@@ -99,6 +103,14 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   // Stable ref for searchHighlightId
   const searchHighlightIdRef = useRef<string | null>(null);
   searchHighlightIdRef.current = searchHighlightId;
+
+  // Stable ref for selectedTagId
+  const selectedTagIdRef = useRef<string | null>(null);
+  selectedTagIdRef.current = selectedTagId;
+
+  // Stable ref for selectedFolderNoteId
+  const selectedFolderNoteIdRef = useRef<string | null>(null);
+  selectedFolderNoteIdRef.current = selectedFolderNoteId;
 
   // Stable ref for latest filtered data (used in callbacks without re-binding graph)
   const filteredDataRef = useRef<{ nodes: GraphNodeInternal[]; links: GraphLinkInternal[] }>({ nodes: [], links: [] });
@@ -227,14 +239,46 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
     return neighbors;
   }, []);
 
-  // --- NODE CLICK → folder notes go to editor area, others open hover ---
+  // Track last click for double-click detection (force-graph doesn't have onNodeDoubleClick)
+  const lastClickRef = useRef<{ nodeId: string; time: number } | null>(null);
+  const DOUBLE_CLICK_DELAY = 300; // ms
+
+  // --- NODE CLICK → single click selects/highlights, double click navigates (for folder notes) ---
   const handleNodeClick = useCallback((node: GraphNodeInternal) => {
-    if (!node.path && node.nodeType !== 'tag') return;
-    if (node.isFolderNote && node.path) {
-      // Folder notes: navigate to that folder in the editor area
-      const folderPath = node.path.replace(/[/\\][^/\\]+$/, ''); // parent directory
-      selectContainer(folderPath);
+    const now = Date.now();
+    const lastClick = lastClickRef.current;
+
+    // Check for double-click on the same node
+    if (lastClick && lastClick.nodeId === node.id && (now - lastClick.time) < DOUBLE_CLICK_DELAY) {
+      // Double-click detected
+      lastClickRef.current = null;
+      if (node.isFolderNote && node.path) {
+        const folderPath = node.path.replace(/[/\\][^/\\]+$/, ''); // parent directory
+        selectContainer(folderPath);
+      }
+      return;
+    }
+
+    // Record this click for potential double-click
+    lastClickRef.current = { nodeId: node.id, time: now };
+
+    // Tag node: toggle selection for persistent highlight
+    if (node.nodeType === 'tag') {
+      setSelectedTagId(prev => prev === node.id ? null : node.id);
+      setSelectedFolderNoteId(null);
+      return;
+    }
+    // Clear tag selection when clicking other nodes
+    setSelectedTagId(null);
+
+    if (!node.path) return;
+
+    if (node.isFolderNote) {
+      // Folder notes: single click only selects/highlights (toggle)
+      setSelectedFolderNoteId(prev => prev === node.id ? null : node.id);
     } else if (node.nodeType === 'note' || node.nodeType === 'attachment') {
+      // Regular notes/attachments: single click opens
+      setSelectedFolderNoteId(null);
       hoverActions.open(node.path);
     }
   }, []);
@@ -290,16 +334,27 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
         }
         const size = baseSize + Math.min(degree * 0.4, 5);
 
-        // Hover dim effect
+        // Hover dim effect OR selected tag/folder note highlight
         const currentHovered = hoveredNodeIdRef.current;
+        const currentSelectedTag = selectedTagIdRef.current;
+        const currentSelectedFolderNote = selectedFolderNoteIdRef.current;
         const isHovered = currentHovered === n.id;
+        const isSelectedTag = currentSelectedTag === n.id;
+        const isSelectedFolderNote = currentSelectedFolderNote === n.id;
         let alpha = 1;
+        // Priority: hover > selected tag > selected folder note
         if (currentHovered) {
           const neighbors = getNeighborSet(currentHovered);
           alpha = neighbors.has(n.id) ? 1 : 0.08;
+        } else if (currentSelectedTag) {
+          const neighbors = getNeighborSet(currentSelectedTag);
+          alpha = neighbors.has(n.id) ? 1 : 0.08;
+        } else if (currentSelectedFolderNote) {
+          const neighbors = getNeighborSet(currentSelectedFolderNote);
+          alpha = neighbors.has(n.id) ? 1 : 0.08;
         }
 
-        // Search highlight
+        // Search highlight or selected folder note highlight
         const isSearchHighlight = searchHighlightIdRef.current === n.id;
 
         ctx.globalAlpha = alpha;
@@ -421,11 +476,19 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
         const l = link as GraphLinkInternal;
         const dark = isDarkRef.current;
         const currentHovered = hoveredNodeIdRef.current;
-        if (currentHovered) {
+        const currentSelectedTag = selectedTagIdRef.current;
+        const currentSelectedFolderNote = selectedFolderNoteIdRef.current;
+        // Priority: hover > selected tag > selected folder note
+        const highlightId = currentHovered || currentSelectedTag || currentSelectedFolderNote;
+        if (highlightId) {
           const sourceId = typeof l.source === 'string' ? l.source : l.source.id;
           const targetId = typeof l.target === 'string' ? l.target : l.target.id;
-          const neighbors = getNeighborSet(currentHovered);
+          const neighbors = getNeighborSet(highlightId);
           if (neighbors.has(sourceId) && neighbors.has(targetId)) {
+            // Use brighter color for selected tag highlight
+            if (!currentHovered && currentSelectedTag) {
+              return dark ? 'rgba(250,204,21,0.7)' : 'rgba(200,160,0,0.6)';
+            }
             return dark ? 'rgba(150,150,150,0.6)' : 'rgba(100,100,100,0.5)';
           }
           return dark ? 'rgba(150,150,150,0.03)' : 'rgba(100,100,100,0.03)';
@@ -462,10 +525,31 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
       .onNodeClick((node: any) => {
         handleNodeClick(node as GraphNodeInternal);
       })
+      .onBackgroundClick(() => {
+        // Clear selections when clicking on empty space
+        setSelectedTagId(null);
+        setSelectedFolderNoteId(null);
+      })
       .onNodeDragEnd((node: any) => {
+        // Don't pin nodes on drag - keep them floating for physics simulation
+        // Users can double-click to toggle pinned state if needed
+      })
+      .onNodeRightClick((node: any) => {
+        // Right-click to toggle pinned state
         const n = node as GraphNodeInternal;
-        n.fx = n.x;
-        n.fy = n.y;
+        if (n.fx !== undefined && n.fy !== undefined) {
+          // Currently pinned → unpin
+          n.fx = undefined;
+          n.fy = undefined;
+        } else {
+          // Currently floating → pin
+          n.fx = n.x;
+          n.fy = n.y;
+        }
+        // Reheat simulation to update
+        if (graphRef.current) {
+          graphRef.current.d3ReheatSimulation();
+        }
       })
       .enableNodeDrag(true)
       .enableZoomInteraction(true)
@@ -555,13 +639,13 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
     graph.d3ReheatSimulation();
   }, [graphSettings.physics]);
 
-  // Force re-render on hover/search-highlight change (for dim/highlight effect)
+  // Force re-render on hover/search-highlight/selected-tag/selected-folder-note change (for dim/highlight effect)
   useEffect(() => {
     if (graphRef.current) {
       // Trigger a visual refresh without resetting physics
       graphRef.current.nodeColor(() => ''); // no-op, but forces redraw
     }
-  }, [hoveredNodeId, searchHighlightId]);
+  }, [hoveredNodeId, searchHighlightId, selectedTagId, selectedFolderNoteId]);
 
   // --- SEARCH within graph ---
   const handleSearchNode = useCallback((query: string) => {
