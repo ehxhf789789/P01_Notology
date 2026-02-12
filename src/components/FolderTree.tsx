@@ -111,8 +111,14 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     return tmpl?.prefix || '?';
   };
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [rootExpanded, setRootExpanded] = useState(false);
 
-  // Auto-expand to show selected container when it changes
+  // Reset expanded state when root container changes
+  useEffect(() => {
+    setRootExpanded(false);
+  }, [rootContainer]);
+
+  // When selected container changes, set root container but do NOT auto-expand subfolders
   useEffect(() => {
     if (!selectedContainer) return;
 
@@ -136,18 +142,6 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
       if (rootContainer !== rootPath) {
         onRootContainerChange(rootPath);
       }
-
-      // Expand all intermediate folders between root and selected
-      setExpandedFolders(prev => {
-        const next = new Set(prev);
-        for (const path of ancestorPaths) {
-          // Expand all ancestors (including root container for its children)
-          if (path !== selectedContainer) {
-            next.add(path);
-          }
-        }
-        return next;
-      });
     }
   }, [selectedContainer, containers, rootContainer, onRootContainerChange]);
 
@@ -186,12 +180,11 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
 
   const handleFolderClick = useCallback((node: FileNode) => {
     if (!node.is_dir) return;
-    // Don't respond if already selected
-    if (node.path === selectedContainer) return;
-    // Only select the folder, don't toggle expansion
-    // Toggle is handled by clicking the icon
-    selectContainer(node.path);
-  }, [selectContainer, selectedContainer]);
+    // Single click: navigate to folder
+    if (node.path !== selectedContainer) {
+      selectContainer(node.path);
+    }
+  }, [selectedContainer]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, node: FileNode) => {
     e.preventDefault();
@@ -199,25 +192,30 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
   }, []);
 
   const handleContainerClick = useCallback((node: FileNode) => {
-    // Don't respond if already selected
-    if (node.path === selectedContainer) return;
-    // Only select the container, don't toggle expansion
-    selectContainer(node.path);
-    // If not the active root, make it the active root
+    // Single click: navigate to container
+    if (node.path !== selectedContainer) {
+      selectContainer(node.path);
+    }
+    // Expand tree if not already root
     if (rootContainer !== node.path) {
       onRootContainerChange(node.path);
     }
-  }, [rootContainer, selectedContainer, onRootContainerChange, selectContainer]);
+  }, [selectedContainer, rootContainer, onRootContainerChange]);
 
   const handleContainerIconClick = useCallback((node: FileNode, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Toggle expansion: if already root, collapse it; otherwise expand it
     if (rootContainer === node.path) {
-      onRootContainerChange(null);
+      // Already root: toggle expand/collapse
+      setRootExpanded(prev => !prev);
     } else {
+      // Not root: set as root (collapsed — useEffect resets rootExpanded)
       onRootContainerChange(node.path);
+      // Also navigate
+      if (node.path !== selectedContainer) {
+        selectContainer(node.path);
+      }
     }
-  }, [rootContainer, onRootContainerChange]);
+  }, [rootContainer, onRootContainerChange, selectedContainer]);
 
   // Render a folder icon based on state
   const renderFolderIcon = (node: FileNode, isExpanded: boolean, hasChildren: boolean) => {
@@ -351,7 +349,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           const isSelected = node.path === selectedContainer;
           const config = containerConfigs[node.path];
           const isStorage = config?.type === 'storage';
-          const noteCount = countNotesInFolder(node, !isRootActive);
+          const noteCount = countNotesInFolder(node, !(isRootActive && rootExpanded));
           // Check if this container has child folders
           const hasChildFolders = node.children?.some(child =>
             child.is_dir && !child.name.endsWith('_att') && child.name !== '.notology'
@@ -369,7 +367,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
                   className="container-tree-icon"
                   onClick={(e) => handleContainerIconClick(node, e)}
                 >
-                  {isRootActive
+                  {isRootActive && rootExpanded && hasChildFolders
                     ? <FolderOpenDot size={14} className={`folder-icon container root expanded ${isStorage ? 'storage' : ''}`} />
                     : <FolderRoot size={14} className={`folder-icon container root ${isStorage ? 'storage' : ''}`} />
                   }
@@ -389,8 +387,8 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
                 )}
               </div>
 
-              {/* Sub-folders (only show for root container) */}
-              {isRootActive && sortedChildFolders.length > 0 && (
+              {/* Sub-folders (only show for root container when expanded via icon click) */}
+              {isRootActive && rootExpanded && sortedChildFolders.length > 0 && (
                 <div className="folder-tree-children">
                   {sortedChildFolders.map(child => renderNode(child, 1))}
                 </div>

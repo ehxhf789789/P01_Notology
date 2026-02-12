@@ -162,6 +162,9 @@ const ko: Record<string, string> = {
   resultsCountLabel: '{count}개 결과',
   attachmentsCountLabel: '{count}개 첨부파일',
   deleteSelectedAttachments: '선택 항목 삭제 ({count}개)',
+  moveSelectedNotes: '선택 노트 이동 ({count}개)',
+  deleteSelectedNotes: '선택 노트 삭제 ({count}개)',
+  selectedNotesCount: '선택된 노트 {count}개',
   syncConflictMsg: '동기화 충돌 파일 {count}개 감지됨 — 원본과 비교 후 수동으로 처리해 주세요. 일괄 삭제 대상에서 자동 제외됩니다.',
   enterSearchTerm: '검색어를 입력하세요',
   // Search filters
@@ -1035,6 +1038,9 @@ const en: Record<string, string> = {
   resultsCountLabel: '{count} results',
   attachmentsCountLabel: '{count} attachments',
   deleteSelectedAttachments: 'Delete selected ({count})',
+  moveSelectedNotes: 'Move selected notes ({count})',
+  deleteSelectedNotes: 'Delete selected notes ({count})',
+  selectedNotesCount: '{count} notes selected',
   syncConflictMsg: '{count} sync conflict files detected — compare with originals and resolve manually. Automatically excluded from batch deletion.',
   enterSearchTerm: 'Enter search term',
   // Search filters

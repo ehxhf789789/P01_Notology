@@ -18,8 +18,11 @@ function RenameDialog() {
       // - Notes (.md files): strip .md extension for display
       // - Attachments: show with extension
       const name = renameDialogState.currentName;
-      if (renameDialogState.isFolder || renameDialogState.isAttachment) {
+      if (renameDialogState.isFolder) {
         setNewName(name);
+      } else if (renameDialogState.isAttachment) {
+        // Strip extension for display - extension is preserved on rename
+        setNewName(name.replace(/\.[^.]+$/, ''));
       } else {
         // Note: strip .md extension for display
         setNewName(name.replace(/\.md$/, ''));

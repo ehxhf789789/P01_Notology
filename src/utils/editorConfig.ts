@@ -17,8 +17,6 @@ import CommentMarks from '../extensions/CommentMarks';
 import LinkCard from '../extensions/LinkCard';
 import WikiLinkSuggestion from '../extensions/WikiLinkSuggestion';
 import { createWikiLinkSuggestion } from './wikiLinkSuggestion';
-import MentionSuggestion from '../extensions/MentionSuggestion';
-import { createMentionSuggestion } from './mentionSuggestion';
 import ImageEmbedSuggestion from '../extensions/ImageEmbedSuggestion';
 import { createImageEmbedSuggestion } from './imageEmbedSuggestion';
 import type { FileNode } from '../types';
@@ -79,9 +77,6 @@ export function getEditorExtensions(options: EditorConfigOptions) {
         suggestion: createWikiLinkSuggestion(options.getFileTree),
       }),
     ] : []),
-    MentionSuggestion.configure({
-      suggestion: createMentionSuggestion(),
-    }),
     ImageEmbedSuggestion.configure({
       suggestion: createImageEmbedSuggestion(() => options.notePath || ''),
     }),

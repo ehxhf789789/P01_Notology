@@ -95,6 +95,7 @@ interface ModalState {
   renameDialogState: RenameDialogState | null;
   contextMenu: ContextMenuState | null;
   moveNoteModalPath: string | null;
+  bulkMoveNotePaths: string[] | null;
   showVaultSelectorModal: boolean;
   vaultLockModalState: VaultLockModalState | null;
 
@@ -123,6 +124,8 @@ interface ModalState {
   hideContextMenu: () => void;
   showMoveNoteModal: (notePath: string) => void;
   hideMoveNoteModal: () => void;
+  showBulkMoveModal: (paths: string[]) => void;
+  hideBulkMoveModal: () => void;
   setShowVaultSelectorModal: (show: boolean) => void;
   setVaultLockModalState: (state: VaultLockModalState | null) => void;
   hideVaultLockModal: () => void;
@@ -142,6 +145,7 @@ export const useModalStore = create<ModalState>()((set) => ({
   renameDialogState: null,
   contextMenu: null,
   moveNoteModalPath: null,
+  bulkMoveNotePaths: null,
   showVaultSelectorModal: false,
   vaultLockModalState: null,
 
@@ -194,6 +198,11 @@ export const useModalStore = create<ModalState>()((set) => ({
     set({ moveNoteModalPath: notePath, contextMenu: null });
   },
   hideMoveNoteModal: () => set({ moveNoteModalPath: null }),
+
+  showBulkMoveModal: (paths) => {
+    set({ bulkMoveNotePaths: paths });
+  },
+  hideBulkMoveModal: () => set({ bulkMoveNotePaths: null }),
 
   setShowVaultSelectorModal: (show) => set({ showVaultSelectorModal: show }),
 
@@ -268,6 +277,8 @@ export const modalActions = {
   hideContextMenu: () => useModalStore.getState().hideContextMenu(),
   showMoveNoteModal: (notePath: string) => useModalStore.getState().showMoveNoteModal(notePath),
   hideMoveNoteModal: () => useModalStore.getState().hideMoveNoteModal(),
+  showBulkMoveModal: (paths: string[]) => useModalStore.getState().showBulkMoveModal(paths),
+  hideBulkMoveModal: () => useModalStore.getState().hideBulkMoveModal(),
   setShowVaultSelectorModal: (show: boolean) => useModalStore.getState().setShowVaultSelectorModal(show),
   setVaultLockModalState: (state: VaultLockModalState | null) => useModalStore.getState().setVaultLockModalState(state),
   hideVaultLockModal: () => useModalStore.getState().hideVaultLockModal(),

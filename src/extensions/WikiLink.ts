@@ -5,6 +5,7 @@ import { InputRule } from '@tiptap/core';
 import { preloadHoverContent } from '../stores/zustand/hoverStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { t } from '../utils/i18n';
+import { getAttachmentCategory } from '../utils/attachmentCategory';
 
 export interface WikiLinkOptions {
   onClickLink: (fileName: string) => void;
@@ -147,7 +148,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
       mergeAttributes(HTMLAttributes, {
         'data-wiki-link': fileName,
         'data-display-text': displayText !== fileName ? displayText : null,
-        class: `wiki-link-inline wiki-link-node ${isAttachment ? 'attachment' : ''} ${noteType ? `note-type-${noteType}` : ''} ${isResolved ? '' : 'unresolved'}`,
+        class: `wiki-link-inline wiki-link-node ${isAttachment ? `attachment att-${getAttachmentCategory(fileName)}` : ''} ${noteType ? `note-type-${noteType}` : ''} ${isResolved ? '' : 'unresolved'}`,
       }),
       displayText,
     ];
@@ -283,7 +284,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
                 decorations.push(
                   Decoration.node(pos, pos + node.nodeSize, {
-                    class: `wiki-link-decoration ${isAttachment ? 'attachment' : ''} ${noteType ? `note-type-${noteType}` : ''} ${isResolved ? 'resolved' : 'unresolved'}`,
+                    class: `wiki-link-decoration ${isAttachment ? `attachment att-${getAttachmentCategory(fileName)}` : ''} ${noteType ? `note-type-${noteType}` : ''} ${isResolved ? 'resolved' : 'unresolved'}`,
                   })
                 );
                 return false; // Don't descend into atom node
@@ -427,7 +428,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
                 decorations.push(
                   Decoration.inline(start, end, {
-                    class: `wiki-link-inline ${isAttachment ? 'attachment' : ''} ${noteType ? `note-type-${noteType}` : ''} ${isResolved ? '' : 'unresolved'}`,
+                    class: `wiki-link-inline ${isAttachment ? `attachment att-${getAttachmentCategory(fileName)}` : ''} ${noteType ? `note-type-${noteType}` : ''} ${isResolved ? '' : 'unresolved'}`,
                     'data-wiki-link': fileName,
                   })
                 );

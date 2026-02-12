@@ -743,34 +743,6 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
           </div>
 
           <div className="graph-settings-section">
-            <div className="graph-settings-subtitle">{t('canvasNodeColor', language)}</div>
-            <div className="graph-settings-color-row">
-              <span>{t('noteColor', language)}</span>
-              <input
-                type="color"
-                value={graphSettings.nodeColors.note}
-                onChange={e => updateSettings({ nodeColors: { ...graphSettings.nodeColors, note: e.target.value } })}
-              />
-            </div>
-            <div className="graph-settings-color-row">
-              <span>{t('tagColor', language)}</span>
-              <input
-                type="color"
-                value={graphSettings.nodeColors.tag}
-                onChange={e => updateSettings({ nodeColors: { ...graphSettings.nodeColors, tag: e.target.value } })}
-              />
-            </div>
-            <div className="graph-settings-color-row">
-              <span>{t('attachmentColor', language)}</span>
-              <input
-                type="color"
-                value={graphSettings.nodeColors.attachment}
-                onChange={e => updateSettings({ nodeColors: { ...graphSettings.nodeColors, attachment: e.target.value } })}
-              />
-            </div>
-          </div>
-
-          <div className="graph-settings-section">
             <div className="graph-settings-subtitle">{t('physics', language)}</div>
             <div className="graph-settings-slider-row">
               <span>{t('chargeStrength', language)}</span>

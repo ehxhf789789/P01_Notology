@@ -226,8 +226,9 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   // OPTIMIZED: O(1) hash lookup instead of O(n) tree traversal
   // Uses fileLookupStore index built when fileTree changes
   const resolveLink = useCallback((fileName: string): boolean => {
-    // First, try to resolve as attachment in current note's _att folder
+    // First, try to resolve in current note's _att folder (O(1) lookup)
     if (effectiveAttStem) {
+      if (fileLookupActions.isInAttFolder(fileName, effectiveAttStem)) return true;
       const attPath = fileLookupActions.resolveAttachmentPath(fileName, win.filePath);
       if (attPath) return true;
     }
@@ -1571,7 +1572,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
             content: [
               {
                 type: 'wikiLink',
-                attrs: { fileName },
+                attrs: { fileName, isAttachmentAttr: true },
               },
             ],
           },

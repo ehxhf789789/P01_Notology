@@ -76,6 +76,9 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const [selectedAttachments, setSelectedAttachments] = useState<Set<string>>(new Set());
   // Selected folder note path (for single-click highlight, double-click to navigate)
   const [selectedFolderNotePath, setSelectedFolderNotePath] = useState<string | null>(null);
+  // Multi-select notes (Ctrl+click, Shift+click)
+  const [selectedNotePaths, setSelectedNotePaths] = useState<Set<string>>(new Set());
+  const lastSelectedNoteRef = useRef<string | null>(null);
 
   // Frontmatter mode search
   const fetchNotes = useCallback(async () => {
@@ -646,15 +649,137 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     return sortOrder === 'asc' ? ' ↑' : ' ↓';
   };
 
+  // Multi-select note click handler (returns true if handled as multi-select)
+  const handleNoteMultiClick = useCallback((e: React.MouseEvent, note: NoteMetadata, notesList: NoteMetadata[]) => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      setSelectedNotePaths(prev => {
+        const newSet = new Set(prev);
+        if (newSet.has(note.path)) {
+          newSet.delete(note.path);
+        } else {
+          newSet.add(note.path);
+        }
+        return newSet;
+      });
+      lastSelectedNoteRef.current = note.path;
+      return true;
+    }
+    if (e.shiftKey && lastSelectedNoteRef.current) {
+      e.preventDefault();
+      const lastIdx = notesList.findIndex(n => n.path === lastSelectedNoteRef.current);
+      const currentIdx = notesList.findIndex(n => n.path === note.path);
+      if (lastIdx >= 0 && currentIdx >= 0) {
+        const [start, end] = [Math.min(lastIdx, currentIdx), Math.max(lastIdx, currentIdx)];
+        const range = new Set(notesList.slice(start, end + 1).map(n => n.path));
+        setSelectedNotePaths(prev => new Set([...prev, ...range]));
+        return true;
+      }
+    }
+    // Normal click - clear multi-selection
+    if (selectedNotePaths.size > 0) {
+      setSelectedNotePaths(new Set());
+    }
+    lastSelectedNoteRef.current = note.path;
+    return false;
+  }, [selectedNotePaths]);
+
+  // Context menu for notes (single or multi-selected)
+  const [noteContextMenu, setNoteContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const noteContextMenuRef = useRef<HTMLDivElement>(null);
+
   const handleFrontmatterContextMenu = (e: React.MouseEvent, note: NoteMetadata) => {
     e.preventDefault();
+    if (selectedNotePaths.size > 0) {
+      if (!selectedNotePaths.has(note.path)) {
+        setSelectedNotePaths(prev => new Set(prev).add(note.path));
+      }
+      setNoteContextMenu({ x: e.clientX, y: e.clientY });
+      return;
+    }
     modalActions.showContextMenu(note.title, { x: e.clientX, y: e.clientY }, note.path, note.path, false, true);
   };
 
   const handleDetailsContextMenu = (e: React.MouseEvent, note: NoteMetadata) => {
     e.preventDefault();
+    if (selectedNotePaths.size > 0) {
+      if (!selectedNotePaths.has(note.path)) {
+        setSelectedNotePaths(prev => new Set(prev).add(note.path));
+      }
+      setNoteContextMenu({ x: e.clientX, y: e.clientY });
+      return;
+    }
     modalActions.showContextMenu(note.title, { x: e.clientX, y: e.clientY }, note.path, note.path, false, true);
   };
+
+  // Close note context menu on outside click
+  useEffect(() => {
+    if (!noteContextMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (noteContextMenuRef.current && !noteContextMenuRef.current.contains(e.target as Node)) {
+        setNoteContextMenu(null);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNoteContextMenu(null);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [noteContextMenu]);
+
+  // Clear note selection on outside click
+  useEffect(() => {
+    if (selectedNotePaths.size === 0) return;
+    const handleOutsideClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest('.context-menu') || target.closest('.note-context-menu')) return;
+      if (target.closest('.search-table')) return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+      setSelectedNotePaths(new Set());
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setSelectedNotePaths(new Set());
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [selectedNotePaths.size]);
+
+  // Bulk move selected notes
+  const handleBulkMoveNotes = useCallback(() => {
+    if (selectedNotePaths.size === 0) return;
+    const paths = Array.from(selectedNotePaths);
+    modalActions.showBulkMoveModal(paths);
+    setNoteContextMenu(null);
+  }, [selectedNotePaths]);
+
+  // Bulk delete selected notes
+  const handleBulkDeleteNotes = useCallback(() => {
+    if (selectedNotePaths.size === 0) return;
+    const count = selectedNotePaths.size;
+    const pathsToDelete = Array.from(selectedNotePaths);
+
+    modalActions.showConfirmDelete(tf('selectedNotesCount', language, { count }), 'file', async () => {
+      try {
+        const deleted = await searchCommands.deleteMultipleFiles(pathsToDelete);
+        setSelectedNotePaths(new Set());
+        await fileTreeActions.refreshFileTree();
+        refreshActions.incrementSearchRefresh();
+        modalActions.showAlertModal(t('deleteComplete', language), tf('deletedFilesMsg', language, { count: deleted }));
+      } catch (e) {
+        console.error('Failed to batch delete notes:', e);
+        modalActions.showAlertModal(t('deleteFailed', language), `${t('fileDeleteFailed', language)}\n\n${e}`);
+      }
+    }, count);
+    setNoteContextMenu(null);
+  }, [selectedNotePaths, language]);
 
   // Count conflict attachments for warning
   const conflictCount = useMemo(() =>
@@ -856,6 +981,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                   onContextMenu={handleFrontmatterContextMenu}
                   selectedPath={selectedFolderNotePath}
                   onSelect={setSelectedFolderNotePath}
+                  isMultiSelected={selectedNotePaths.has(note.path)}
+                  onMultiClick={(e, n) => handleNoteMultiClick(e, n, filteredNotes)}
                 />
               ))}
               {filteredNotes.length === 0 && (
@@ -945,6 +1072,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                 language={language}
                 selectedPath={selectedFolderNotePath}
                 onSelect={setSelectedFolderNotePath}
+                isMultiSelected={selectedNotePaths.has(note.path)}
+                onMultiClick={(e, n) => handleNoteMultiClick(e, n, filteredDetailsNotes)}
               />
             ))
           )}
@@ -967,7 +1096,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         </span>
       </div>}
 
-      {/* Custom context menu for multi-select */}
+      {/* Custom context menu for multi-select attachments */}
       {customContextMenu && (
         <div
           ref={customContextMenuRef}
@@ -988,6 +1117,35 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
             }}
           >
             {tf('deleteSelectedAttachments', language, { count: selectedAttachments.size })}
+          </button>
+        </div>
+      )}
+
+      {/* Custom context menu for multi-select notes */}
+      {noteContextMenu && (
+        <div
+          ref={noteContextMenuRef}
+          className="context-menu note-context-menu"
+          style={{
+            position: 'fixed',
+            left: noteContextMenu.x,
+            top: noteContextMenu.y,
+            zIndex: 10000,
+          }}
+        >
+          <button
+            className="context-menu-item"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleBulkMoveNotes}
+          >
+            {tf('moveSelectedNotes', language, { count: selectedNotePaths.size })}
+          </button>
+          <button
+            className="context-menu-item delete"
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={handleBulkDeleteNotes}
+          >
+            {tf('deleteSelectedNotes', language, { count: selectedNotePaths.size })}
           </button>
         </div>
       )}

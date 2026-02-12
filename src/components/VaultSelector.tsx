@@ -41,7 +41,7 @@ function VaultSelector({ onClose, showCloseButton = false }: VaultSelectorProps)
           <img src={logo} alt="Notology" className="vault-selector-logo" />
           <div className="vault-selector-title-row">
             <h1 className="vault-selector-title">Notology</h1>
-            <span className="vault-selector-version">v1.0.4</span>
+            <span className="vault-selector-version">v1.0.6</span>
           </div>
           <p className="vault-selector-subtitle">{t('selectVaultToStart', language)}</p>
         </div>

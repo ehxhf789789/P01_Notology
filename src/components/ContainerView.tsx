@@ -349,6 +349,7 @@ function ContainerView() {
     editorProps: {
       attributes: {
         class: 'tiptap-editor container-description-editor',
+        spellcheck: 'false',
       },
     },
     onUpdate: ({ editor: ed }) => {

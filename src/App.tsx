@@ -57,6 +57,7 @@ import { DEFAULT_SHORTCUTS, getActiveKeys, parseShortcut } from './utils/shortcu
 import { t } from './utils/i18n';
 import { initializeSnippets, loadSnippets, clearSnippets } from './utils/snippetLoader';
 import { getNoteTypeFromFileName, getTemplateCustomColor } from './utils/noteTypeHelpers';
+import { detectGpuPerformance } from './utils/gpuDetect';
 import './App.css';
 
 const MIN_SIDEBAR_WIDTH = 200;
@@ -604,6 +605,11 @@ function AppLayout() {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
     };
+  }, []);
+
+  // Auto-detect GPU rendering performance (runs once on first launch)
+  useEffect(() => {
+    detectGpuPerformance();
   }, []);
 
   // Close vault selector when vault changes

@@ -58,10 +58,9 @@ export const useFileTreeStore = create<FileTreeState>()(
     // Set file tree (also rebuilds file lookup index for O(1) lookups)
     setFileTree: (tree: FileNode[]) => {
       set({ fileTree: tree });
-      // Rebuild file lookup index in next microtask to avoid blocking
-      queueMicrotask(() => {
-        fileLookupActions.rebuildIndex(tree);
-      });
+      // Rebuild file lookup index synchronously so newly inserted wikilinks
+      // can resolve against the updated index immediately (e.g. after drag-drop)
+      fileLookupActions.rebuildIndex(tree);
     },
 
     // Set selected container
@@ -80,7 +79,8 @@ export const useFileTreeStore = create<FileTreeState>()(
       if (!vaultPath) return;
       try {
         const tree = await fileCommands.readDirectory(vaultPath);
-        set({ fileTree: tree });
+        // Use setFileTree to also rebuild the file lookup index synchronously
+        get().setFileTree(tree);
       } catch (e) {
         console.error('Failed to refresh file tree:', e);
       }

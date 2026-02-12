@@ -2749,8 +2749,57 @@ fn write_index_state(vault_path: String, state_json: String) -> Result<(), Strin
     Ok(())
 }
 
+// GPU compatibility: Read gpu-config.json and set WebView2 browser args before Tauri init.
+// This must run BEFORE the WebView2 is created (which happens during .run()).
+// On Windows, if disableGpuCompositing is true, we set WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS
+// to "--disable-gpu-compositing" which moves layer compositing to CPU (minimal perf impact
+// for text editor apps) while avoiding GPU driver compatibility issues.
+#[cfg(target_os = "windows")]
+fn apply_gpu_config() {
+    if let Ok(appdata) = std::env::var("APPDATA") {
+        let config_path = PathBuf::from(&appdata)
+            .join("com.notology.app")
+            .join("gpu-config.json");
+        if let Ok(content) = fs::read_to_string(&config_path) {
+            if let Ok(config) = serde_json::from_str::<serde_json::Value>(&content) {
+                if config.get("disableGpuCompositing").and_then(|v| v.as_bool()) == Some(true) {
+                    std::env::set_var(
+                        "WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS",
+                        "--disable-gpu-compositing",
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[tauri::command]
+fn get_gpu_config(app: tauri::AppHandle) -> Result<serde_json::Value, String> {
+    let config_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    let config_path = config_dir.join("gpu-config.json");
+    if config_path.exists() {
+        let content = fs::read_to_string(&config_path).map_err(|e| e.to_string())?;
+        serde_json::from_str(&content).map_err(|e| e.to_string())
+    } else {
+        Ok(serde_json::json!({}))
+    }
+}
+
+#[tauri::command]
+fn set_gpu_config(app: tauri::AppHandle, config: serde_json::Value) -> Result<(), String> {
+    let config_dir = app.path().app_config_dir().map_err(|e| e.to_string())?;
+    fs::create_dir_all(&config_dir).map_err(|e| e.to_string())?;
+    let config_path = config_dir.join("gpu-config.json");
+    let content = serde_json::to_string_pretty(&config).map_err(|e| e.to_string())?;
+    fs::write(&config_path, content).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    #[cfg(target_os = "windows")]
+    apply_gpu_config();
+
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
             // Focus the main window when another instance tries to launch
@@ -2856,6 +2905,9 @@ pub fn run() {
             release_note_lock,
             update_note_lock_heartbeat,
             check_note_lock,
+            // GPU compatibility detection
+            get_gpu_config,
+            set_gpu_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

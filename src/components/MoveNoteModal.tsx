@@ -3,39 +3,46 @@ import { useModalStore } from '../stores/zustand/modalStore';
 import { useFileTree } from '../stores/zustand/fileTreeStore';
 import { moveNote } from '../stores/appActions';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
-import { t } from '../utils/i18n';
+import { t, tf } from '../utils/i18n';
 import type { FileNode } from '../types';
 
 function MoveNoteModal() {
   const moveNoteModalPath = useModalStore(s => s.moveNoteModalPath);
+  const bulkMoveNotePaths = useModalStore(s => s.bulkMoveNotePaths);
   const hideMoveNoteModal = useModalStore(s => s.hideMoveNoteModal);
+  const hideBulkMoveModal = useModalStore(s => s.hideBulkMoveModal);
   const fileTree = useFileTree();
   const language = useSettingsStore(s => s.language);
   const [selectedDir, setSelectedDir] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [isMoving, setIsMoving] = useState(false);
 
+  // Determine if this is a bulk move or single move
+  const isBulk = bulkMoveNotePaths && bulkMoveNotePaths.length > 0;
+  const isVisible = !!moveNoteModalPath || isBulk;
+  const hideModal = isBulk ? hideBulkMoveModal : hideMoveNoteModal;
+
   useEffect(() => {
-    if (!moveNoteModalPath) {
+    if (!isVisible) {
       setSelectedDir(null);
       setExpanded(new Set());
     }
-  }, [moveNoteModalPath]);
+  }, [isVisible]);
 
   useEffect(() => {
-    if (!moveNoteModalPath) return;
+    if (!isVisible) return;
     const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') hideMoveNoteModal();
+      if (e.key === 'Escape') hideModal();
     };
     document.addEventListener('keydown', handleEsc);
     return () => document.removeEventListener('keydown', handleEsc);
-  }, [moveNoteModalPath, hideMoveNoteModal]);
+  }, [isVisible, hideModal]);
 
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
     if ((e.target as HTMLElement).classList.contains('move-note-backdrop')) {
-      hideMoveNoteModal();
+      hideModal();
     }
-  }, [hideMoveNoteModal]);
+  }, [hideModal]);
 
   const toggleExpand = (path: string) => {
     setExpanded(prev => {
@@ -49,22 +56,39 @@ function MoveNoteModal() {
     });
   };
 
-  // Calculate the note's current directory
+  // Calculate the note's current directory (for single move only)
   const noteDir = moveNoteModalPath?.replace(/[/\\][^/\\]+$/, '') || null;
 
-  // Check if selected directory is the same as current directory
-  const isCurrentDir = selectedDir === noteDir;
+  // Check if selected directory is the same as current directory (single move only)
+  const isCurrentDir = !isBulk && selectedDir === noteDir;
 
   const handleMove = async () => {
-    if (!selectedDir || !moveNoteModalPath || isMoving || isCurrentDir) return;
-    setIsMoving(true);
-    try {
-      await moveNote(moveNoteModalPath, selectedDir);
-      hideMoveNoteModal();
-    } catch (e) {
-      console.error('Failed to move note:', e);
-    } finally {
-      setIsMoving(false);
+    if (!selectedDir || isMoving || isCurrentDir) return;
+
+    if (isBulk && bulkMoveNotePaths) {
+      // Bulk move
+      setIsMoving(true);
+      try {
+        for (const notePath of bulkMoveNotePaths) {
+          await moveNote(notePath, selectedDir);
+        }
+        hideBulkMoveModal();
+      } catch (e) {
+        console.error('Failed to bulk move notes:', e);
+      } finally {
+        setIsMoving(false);
+      }
+    } else if (moveNoteModalPath) {
+      // Single move
+      setIsMoving(true);
+      try {
+        await moveNote(moveNoteModalPath, selectedDir);
+        hideMoveNoteModal();
+      } catch (e) {
+        console.error('Failed to move note:', e);
+      } finally {
+        setIsMoving(false);
+      }
     }
   };
 
@@ -75,8 +99,8 @@ function MoveNoteModal() {
         const isExpanded = expanded.has(node.path);
         const isSelected = selectedDir === node.path;
         const hasChildren = node.children?.some(c => c.is_dir);
-        // Highlight the note's own current directory
-        const isCurrent = node.path === noteDir;
+        // Highlight the note's own current directory (single move only)
+        const isCurrent = !isBulk && node.path === noteDir;
 
         return (
           <div key={node.path} className="move-tree-item" style={{ paddingLeft: depth * 16 }}>
@@ -107,16 +131,18 @@ function MoveNoteModal() {
       });
   };
 
-  if (!moveNoteModalPath) return null;
+  if (!isVisible) return null;
 
-  const noteName = moveNoteModalPath.split(/[/\\]/).pop()?.replace(/\.md$/, '') || '';
+  const noteName = isBulk
+    ? tf('selectedNotesCount', language, { count: bulkMoveNotePaths!.length })
+    : (moveNoteModalPath!.split(/[/\\]/).pop()?.replace(/\.md$/, '') || '');
 
   return (
     <div className="move-note-backdrop" onClick={handleBackdropClick}>
       <div className="move-note-modal">
         <div className="move-note-header">
           <span className="move-note-title">{t('moveNoteTitle', language)} {noteName}</span>
-          <button className="move-note-close" onClick={hideMoveNoteModal}>x</button>
+          <button className="move-note-close" onClick={hideModal}>x</button>
         </div>
         <div className="move-note-body">
           <div className="move-note-tree">
@@ -124,7 +150,7 @@ function MoveNoteModal() {
           </div>
         </div>
         <div className="move-note-footer">
-          <button className="move-note-btn cancel" onClick={hideMoveNoteModal}>
+          <button className="move-note-btn cancel" onClick={hideModal}>
             {t('cancel', language)}
           </button>
           <button

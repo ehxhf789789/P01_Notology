@@ -80,12 +80,15 @@ function createEmptyIndex(): FileLookupIndex {
 
 // Image and common attachment extensions
 const ATTACHMENT_EXTENSIONS = new Set([
-  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico',
+  '.png', '.jpg', '.jpeg', '.gif', '.webp', '.svg', '.bmp', '.ico', '.tiff', '.tif',
   '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-  '.zip', '.rar', '.7z', '.tar', '.gz',
-  '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv',
-  '.vcf', '.ics', '.eml', '.msg',  // contact/calendar/email files
+  '.hwp', '.hwpx', '.pages', '.key', '.odt', '.odp', '.ods',  // Korean/Mac/ODF documents
+  '.zip', '.rar', '.7z', '.tar', '.gz', '.bz2', '.xz', '.zst',
+  '.mp3', '.mp4', '.wav', '.avi', '.mov', '.mkv', '.ogg', '.flac', '.webm',
+  '.vcf', '.vcard', '.ics', '.eml', '.msg',  // contact/calendar/email files
   '.txt', '.csv', '.rtf',          // text files
+  '.json', '.xml', '.yaml', '.yml', '.toml',  // data files
+  '.py', '.js', '.ts', '.jsx', '.tsx', '.rs', '.go', '.java', '.c', '.cpp', '.h',  // code files
 ]);
 
 function isAttachmentFile(name: string): boolean {
@@ -288,9 +291,19 @@ export const useFileLookupStore = create<FileLookupState>()(
       const { index } = get();
       const nameLower = name.toLowerCase();
 
-      // If basePath provided, try to find in same folder first
+      // If basePath provided, try to find in note's _att folder first
       if (basePath) {
-        const baseDir = basePath.substring(0, basePath.lastIndexOf('/'));
+        const normalizedBase = basePath.replace(/\\/g, '/');
+        const noteStem = normalizedBase.replace(/\.md$/i, '');
+        const attFolderPath = (noteStem + '_att').toLowerCase();
+        const attContents = index.attFolderContents.get(attFolderPath);
+        if (attContents) {
+          const resolved = attContents.get(nameLower);
+          if (resolved) return resolved;
+        }
+
+        // Try in same folder
+        const baseDir = normalizedBase.substring(0, normalizedBase.lastIndexOf('/'));
         const localPath = `${baseDir}/${name}`.replace(/\\/g, '/');
         if (index.attachmentPaths.has(localPath)) {
           return localPath;
@@ -323,11 +336,10 @@ export const useFileLookupStore = create<FileLookupState>()(
 
     // O(1) check if file exists in a note's _att folder
     // noteStemPath: full path to note without .md extension (e.g., /path/to/note)
-    // Attachment folder is noteStemPath + '.md_att' (e.g., /path/to/note.md_att)
+    // Attachment folder is noteStemPath + '_att' (e.g., /path/to/note_att)
     isInAttFolder: (fileName: string, noteStemPath: string): boolean => {
       const { index } = get();
-      // Folder name includes .md before _att (e.g., note.md_att)
-      const attFolderPath = (noteStemPath + '.md_att').replace(/\\/g, '/').toLowerCase();
+      const attFolderPath = (noteStemPath + '_att').replace(/\\/g, '/').toLowerCase();
       const attContents = index.attFolderContents.get(attFolderPath);
       if (!attContents) return false;
       return attContents.has(fileName.toLowerCase());
@@ -336,8 +348,7 @@ export const useFileLookupStore = create<FileLookupState>()(
     // O(1) resolve file path in a note's _att folder
     resolveInAttFolder: (fileName: string, noteStemPath: string): string | null => {
       const { index } = get();
-      // Folder name includes .md before _att (e.g., note.md_att)
-      const attFolderPath = (noteStemPath + '.md_att').replace(/\\/g, '/').toLowerCase();
+      const attFolderPath = (noteStemPath + '_att').replace(/\\/g, '/').toLowerCase();
       const attContents = index.attFolderContents.get(attFolderPath);
       if (!attContents) return null;
       return attContents.get(fileName.toLowerCase()) || null;

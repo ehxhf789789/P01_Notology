@@ -21,11 +21,9 @@ import CommentMarks from '../extensions/CommentMarks';
 import HorizontalRuleNoGap from '../extensions/HorizontalRuleNoGap';
 import LinkCard from '../extensions/LinkCard';
 import WikiLinkSuggestion from '../extensions/WikiLinkSuggestion';
-import MentionSuggestion from '../extensions/MentionSuggestion';
 import ImageEmbedSuggestion from '../extensions/ImageEmbedSuggestion';
 import AttachmentSuggestion from '../extensions/AttachmentSuggestion';
 import { createWikiLinkSuggestion } from './wikiLinkSuggestion';
-import { createMentionSuggestion } from './mentionSuggestion';
 import { createImageEmbedSuggestion } from './imageEmbedSuggestion';
 import { createAttachmentSuggestion } from './attachmentSuggestion';
 import type { FileNode } from '../types';
@@ -194,9 +192,6 @@ class EditorPool {
       WikiLinkSuggestion.configure({
         suggestion: createWikiLinkSuggestion(() => callbacks.getFileTree()),
       }),
-      MentionSuggestion.configure({
-        suggestion: createMentionSuggestion(),
-      }),
       ImageEmbedSuggestion.configure({
         suggestion: createImageEmbedSuggestion(() => callbacks.notePath),
       }),
@@ -219,6 +214,7 @@ class EditorPool {
       editorProps: {
         attributes: {
           class: 'tiptap-editor hover-tiptap-editor',
+          spellcheck: 'false',
         },
       },
     });

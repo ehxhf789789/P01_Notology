@@ -10,6 +10,7 @@ import {
   getTagCategoryClass,
   inferNoteType,
 } from './searchHelpers';
+import { getAttachmentCategory } from '../../utils/attachmentCategory';
 
 // ============================================================================
 // Frontmatter result row
@@ -24,6 +25,8 @@ interface FrontmatterResultRowProps {
   onContextMenu: (e: React.MouseEvent, note: NoteMetadata) => void;
   selectedPath?: string | null;
   onSelect?: (path: string) => void;
+  isMultiSelected?: boolean;
+  onMultiClick?: (e: React.MouseEvent, note: NoteMetadata) => boolean;
 }
 
 export function FrontmatterResultRow({
@@ -35,6 +38,8 @@ export function FrontmatterResultRow({
   onContextMenu,
   selectedPath,
   onSelect,
+  isMultiSelected,
+  onMultiClick,
 }: FrontmatterResultRowProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
@@ -44,12 +49,12 @@ export function FrontmatterResultRow({
   const isContainer = note.note_type?.toUpperCase() === 'CONTAINER';
   const isSelected = selectedPath === note.path;
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    // Check for multi-select first
+    if (onMultiClick && onMultiClick(e, note)) return;
     if (isContainer && onSelect) {
-      // Folder notes: single click only selects/highlights
       onSelect(note.path);
     } else {
-      // Regular notes: single click opens
       onNoteClick(note.path, note.note_type);
     }
   };
@@ -64,7 +69,7 @@ export function FrontmatterResultRow({
   return (
     <tr
       key={note.path}
-      className={`search-row${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}`}
+      className={`search-row${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}${isMultiSelected ? ' multi-selected' : ''}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={() => onNoteHover(note.path)}
@@ -174,10 +179,11 @@ export function AttachmentResultRow({
   onAttachmentContextMenu,
   language,
 }: AttachmentResultRowProps) {
+  const category = getAttachmentCategory(att.file_name);
   return (
     <tr
       key={att.path}
-      className={`search-row${isSelected ? ' selected' : ''}${att.is_conflict ? ' conflict-file' : ''}`}
+      className={`search-row att-row-${category}${isSelected ? ' selected' : ''}${att.is_conflict ? ' conflict-file' : ''}`}
       onClick={(e) => onAttachmentClick(e, att)}
       onContextMenu={(e) => onAttachmentContextMenu(e, att)}
       title={att.is_conflict ? tf('syncConflictFileTitle', language, { original: att.conflict_original || '' }) : undefined}
@@ -207,6 +213,8 @@ interface DetailsResultCardProps {
   language: LanguageSetting;
   selectedPath?: string | null;
   onSelect?: (path: string) => void;
+  isMultiSelected?: boolean;
+  onMultiClick?: (e: React.MouseEvent, note: NoteMetadata) => boolean;
 }
 
 export function DetailsResultCard({
@@ -219,6 +227,8 @@ export function DetailsResultCard({
   language,
   selectedPath,
   onSelect,
+  isMultiSelected,
+  onMultiClick,
 }: DetailsResultCardProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
@@ -229,7 +239,8 @@ export function DetailsResultCard({
   const isContainer = note.note_type?.toUpperCase() === 'CONTAINER';
   const isSelected = selectedPath === note.path;
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
+    if (onMultiClick && onMultiClick(e, note)) return;
     if (isContainer && onSelect) {
       onSelect(note.path);
     } else {
@@ -246,7 +257,7 @@ export function DetailsResultCard({
   return (
     <div
       key={note.path}
-      className={`search-details-item${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}`}
+      className={`search-details-item${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}${isMultiSelected ? ' multi-selected' : ''}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={() => onNoteHover(note.path)}
