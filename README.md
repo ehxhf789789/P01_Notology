@@ -12,7 +12,7 @@
   </p>
 
   <p>
-    <img src="https://img.shields.io/badge/version-1.0.5-blue" alt="Version" />
+    <img src="https://img.shields.io/badge/version-1.0.7-blue" alt="Version" />
     <img src="https://img.shields.io/badge/platform-Windows-0078D6?logo=windows" alt="Windows" />
     <img src="https://img.shields.io/badge/built_with-Tauri_v2-FFC131?logo=tauri" alt="Tauri" />
     <img src="https://img.shields.io/badge/search-Tantivy-orange" alt="Tantivy" />

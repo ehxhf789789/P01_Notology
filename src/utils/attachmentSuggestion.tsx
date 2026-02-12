@@ -3,9 +3,9 @@ import tippy from 'tippy.js';
 import { AttachmentSuggestionPluginKey } from '../extensions/AttachmentSuggestion';
 import AttachmentSuggestionList from '../components/AttachmentSuggestionList';
 import type { AttachmentSuggestionListRef } from '../components/AttachmentSuggestionList';
-import type { FileNode } from '../types';
 import type { Editor, Range } from '@tiptap/core';
 import type { EditorState } from '@tiptap/pm/state';
+import { fileCommands } from '../services/tauriCommands';
 
 type TippyInstance = ReturnType<typeof tippy>;
 
@@ -15,115 +15,54 @@ export interface AttachmentResult {
   isImage: boolean;
 }
 
-// Image extensions
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp'];
+/**
+ * Get the _att folder absolute path for a note
+ */
+function getAttFolderPath(notePath: string): string {
+  if (!notePath) return '';
 
-function isImageFile(fileName: string): boolean {
-  const ext = fileName.split('.').pop()?.toLowerCase() || '';
-  return IMAGE_EXTENSIONS.includes(ext);
+  // Note path: C:/Users/.../Vault/Folder/MyNote.md
+  // Att folder: C:/Users/.../Vault/Folder/MyNote_att/
+  const normalizedPath = notePath.replace(/\\/g, '/');
+  const noteDir = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
+  const noteFileName = normalizedPath.substring(normalizedPath.lastIndexOf('/') + 1);
+  const noteName = noteFileName.replace(/\.md$/, '');
+
+  return `${noteDir}/${noteName}_att`;
 }
 
 /**
- * Convert absolute path to relative path by removing vault prefix
+ * Async function to read attachment files from _att folder
+ * Reads directly from filesystem for fresh results, sorted by mtime (most recent first)
  */
-function toRelativePath(absolutePath: string, vaultPath: string): string {
-  if (!vaultPath || !absolutePath) return absolutePath;
-
-  const normalizedAbsolute = absolutePath.replace(/\\/g, '/');
-  const normalizedVault = vaultPath.replace(/\\/g, '/').replace(/\/$/, '');
-
-  if (normalizedAbsolute.startsWith(normalizedVault)) {
-    return normalizedAbsolute.slice(normalizedVault.length + 1); // +1 to remove leading slash
-  }
-  return absolutePath;
-}
-
-/**
- * Find files in the note's _att folder
- * @param fileTree The file tree
- * @param notePath The current note's absolute path (e.g., "C:/Users/.../Vault/Folder/MyNote.md")
- * @param vaultPath The vault root path (e.g., "C:/Users/.../Vault")
- * @param query Search query to filter files
- */
-function findAttachmentFiles(
-  fileTree: FileNode[],
+async function findAttachmentFilesAsync(
   notePath: string,
-  vaultPath: string,
   query: string
-): AttachmentResult[] {
+): Promise<AttachmentResult[]> {
   if (!notePath) return [];
 
-  // Convert absolute path to relative path
-  const relativePath = toRelativePath(notePath, vaultPath);
+  const attFolderPath = getAttFolderPath(notePath);
+  if (!attFolderPath) return [];
 
-  // Extract note name without extension
-  // e.g., "Folder/MyNote.md" -> "MyNote"
-  const pathParts = relativePath.replace(/\\/g, '/').split('/');
-  const noteFileName = pathParts.pop() || '';
-  const noteName = noteFileName.replace(/\.md$/, '');
-  const parentPath = pathParts.join('/');
-
-  // The attachment folder is named "{noteName}_att" and is a sibling of the note
-  const attFolderName = `${noteName}_att`;
-  const attFolderPath = parentPath ? `${parentPath}/${attFolderName}` : attFolderName;
-
-  const results: AttachmentResult[] = [];
-  const lowerQuery = query.toLowerCase();
-
-  // Find the att folder in the file tree
-  function findAttFolder(nodes: FileNode[], currentPath: string = ''): FileNode | null {
-    for (const node of nodes) {
-      const fullPath = currentPath ? `${currentPath}/${node.name}` : node.name;
-
-      if (node.is_dir && fullPath === attFolderPath) {
-        return node;
-      }
-
-      if (node.children) {
-        const found = findAttFolder(node.children, fullPath);
-        if (found) return found;
-      }
-    }
-    return null;
+  try {
+    const files = await fileCommands.readAttachmentFolder(attFolderPath, query);
+    return files.map(f => ({
+      fileName: f.file_name,
+      path: f.path,
+      isImage: f.is_image,
+    }));
+  } catch (error) {
+    console.error('[attachmentSuggestion] Failed to read attachment folder:', error);
+    return [];
   }
-
-  const attFolder = findAttFolder(fileTree);
-  if (!attFolder || !attFolder.children) return [];
-
-  // Collect all files from the att folder (including subdirectories)
-  function collectFiles(nodes: FileNode[], subPath: string = '') {
-    for (const node of nodes) {
-      if (!node.is_dir) {
-        const fileName = subPath ? `${subPath}/${node.name}` : node.name;
-        if (fileName.toLowerCase().includes(lowerQuery)) {
-          results.push({
-            fileName,
-            path: `${attFolderPath}/${fileName}`,
-            isImage: isImageFile(node.name),
-          });
-        }
-      } else if (node.children) {
-        const newSubPath = subPath ? `${subPath}/${node.name}` : node.name;
-        collectFiles(node.children, newSubPath);
-      }
-    }
-  }
-
-  collectFiles(attFolder.children);
-
-  return results.slice(0, 15); // Limit to 15 results
 }
 
 /**
  * Create attachment suggestion configuration
  * @param getNotePath Function to get the current note's path
- * @param getFileTree Function to get the file tree
- * @param getVaultPath Function to get the vault root path
  */
 export function createAttachmentSuggestion(
   getNotePath: () => string,
-  getFileTree: () => FileNode[],
-  getVaultPath: () => string
 ) {
   return {
     char: '//', // Trigger: double slash for "local path" (att folder)
@@ -162,11 +101,11 @@ export function createAttachmentSuggestion(
 
       return true;
     },
-    items: ({ query }: { query: string }) => {
+    // items() is async - reads directly from filesystem for fresh results
+    // Results are sorted by mtime (most recently modified first)
+    items: async ({ query }: { query: string }) => {
       const notePath = getNotePath();
-      const fileTree = getFileTree();
-      const vaultPath = getVaultPath();
-      return findAttachmentFiles(fileTree, notePath, vaultPath, query);
+      return findAttachmentFilesAsync(notePath, query);
     },
 
     render: () => {

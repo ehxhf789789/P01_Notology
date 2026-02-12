@@ -99,6 +99,7 @@ pub struct FileNode {
     path: String,
     is_dir: bool,
     is_folder_note: bool,
+    mtime: Option<u64>, // Modification time in seconds since UNIX epoch
     children: Option<Vec<FileNode>>,
 }
 
@@ -119,6 +120,15 @@ pub struct AttachmentInfo {
     container: String,
     is_conflict: bool,          // Synology Drive conflict file
     conflict_original: String,  // Original file path (empty if not a conflict)
+}
+
+/// File info for attachment suggestions (includes mtime for sorting)
+#[derive(Serialize)]
+pub struct AttachmentFileInfo {
+    file_name: String,
+    path: String,      // Relative path within _att folder
+    is_image: bool,
+    mtime: u64,        // Modification time in seconds since UNIX epoch
 }
 
 #[derive(Serialize)]
@@ -215,6 +225,13 @@ fn read_dir_recursive(path: &Path, depth: u32) -> Result<Vec<FileNode>, String> 
         let is_dir = entry_path.is_dir();
         let is_folder_note = !is_dir && name == folder_note_name;
 
+        // Get modification time (seconds since UNIX epoch)
+        let mtime = entry.metadata()
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+
         let children = if is_dir && depth < 5 {
             Some(read_dir_recursive(&entry_path, depth + 1).unwrap_or_default())
         } else if is_dir {
@@ -228,6 +245,7 @@ fn read_dir_recursive(path: &Path, depth: u32) -> Result<Vec<FileNode>, String> 
             path: entry_path.to_string_lossy().to_string(),
             is_dir,
             is_folder_note,
+            mtime,
             children,
         });
     }
@@ -446,6 +464,89 @@ fn list_files_in_directory(path: String, extension: String) -> Result<Vec<String
 
     files.sort();
     Ok(files)
+}
+
+/// Read attachment folder contents with mtime for sorting
+/// Returns files sorted by mtime (most recently modified first)
+#[tauri::command]
+fn read_attachment_folder(att_folder_path: String, query: String) -> Result<Vec<AttachmentFileInfo>, String> {
+    let dir_path = Path::new(&att_folder_path);
+    if !dir_path.exists() || !dir_path.is_dir() {
+        return Ok(Vec::new());
+    }
+
+    let lower_query = query.to_lowercase();
+    let mut results: Vec<AttachmentFileInfo> = Vec::new();
+
+    // Image extensions
+    const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "webp", "svg", "bmp"];
+
+    fn collect_files(
+        dir: &Path,
+        base_path: &Path,
+        query: &str,
+        image_exts: &[&str],
+        results: &mut Vec<AttachmentFileInfo>,
+    ) -> Result<(), String> {
+        let entries = fs::read_dir(dir).map_err(|e| e.to_string())?;
+
+        for entry in entries {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let entry_path = entry.path();
+            let file_name = entry.file_name().to_string_lossy().to_string();
+
+            // Skip hidden files
+            if file_name.starts_with('.') {
+                continue;
+            }
+
+            if entry_path.is_dir() {
+                // Recurse into subdirectories
+                collect_files(&entry_path, base_path, query, image_exts, results)?;
+            } else if entry_path.is_file() {
+                // Get relative path from base _att folder
+                let relative_path = entry_path
+                    .strip_prefix(base_path)
+                    .map(|p| p.to_string_lossy().to_string())
+                    .unwrap_or_else(|_| file_name.clone());
+
+                // Filter by query
+                if query.is_empty() || relative_path.to_lowercase().contains(query) {
+                    // Get modification time
+                    let mtime = entry.metadata()
+                        .ok()
+                        .and_then(|m| m.modified().ok())
+                        .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                        .map(|d| d.as_secs())
+                        .unwrap_or(0);
+
+                    // Check if image
+                    let ext = entry_path.extension()
+                        .map(|e| e.to_string_lossy().to_lowercase())
+                        .unwrap_or_default();
+                    let is_image = image_exts.contains(&ext.as_str());
+
+                    results.push(AttachmentFileInfo {
+                        file_name: relative_path.clone(),
+                        path: relative_path,
+                        is_image,
+                        mtime,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    collect_files(dir_path, dir_path, &lower_query, IMAGE_EXTENSIONS, &mut results)?;
+
+    // Sort by mtime descending (most recent first)
+    results.sort_by(|a, b| b.mtime.cmp(&a.mtime));
+
+    // Limit to 15 results
+    results.truncate(15);
+
+    Ok(results)
 }
 
 // UNUSED: Not invoked from frontend
@@ -2841,6 +2942,7 @@ pub fn run() {
             create_folder,
             ensure_directory,
             list_files_in_directory,
+            read_attachment_folder,
             move_file,
             move_note,
             check_file_exists,

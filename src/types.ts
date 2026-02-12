@@ -3,6 +3,7 @@ export interface FileNode {
   path: string;
   is_dir: boolean;
   is_folder_note: boolean;
+  mtime?: number; // Modification time in seconds since UNIX epoch
   children?: FileNode[];
 }
 

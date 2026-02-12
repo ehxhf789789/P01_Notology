@@ -1,8 +1,12 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import ForceGraph from 'force-graph';
 import { listen } from '@tauri-apps/api/event';
-import { searchCommands } from '../services/tauriCommands';
+import { searchCommands, utilCommands } from '../services/tauriCommands';
 import { hoverActions } from '../stores/zustand/hoverStore';
+
+// File type helpers for attachment handling
+const IMAGE_EXTENSIONS = /\.(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/i;
+const PDF_EXTENSION = /\.pdf$/i;
 import { useVaultPath } from '../stores/zustand/fileTreeStore';
 import { useGraphSettings, useSettingsStore, useLanguage, useTheme } from '../stores/zustand';
 import { useNoteTemplates } from '../stores/zustand/templateStore';
@@ -95,6 +99,8 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
   // Selected folder note for highlight (single click selects, double click navigates)
   const [selectedFolderNoteId, setSelectedFolderNoteId] = useState<string | null>(null);
+  // Selected attachment for highlight (single click selects, double click opens)
+  const [selectedAttachmentId, setSelectedAttachmentId] = useState<string | null>(null);
 
   // Stable ref for hoveredNodeId to avoid re-binding callbacks
   const hoveredNodeIdRef = useRef<string | null>(null);
@@ -111,6 +117,10 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   // Stable ref for selectedFolderNoteId
   const selectedFolderNoteIdRef = useRef<string | null>(null);
   selectedFolderNoteIdRef.current = selectedFolderNoteId;
+
+  // Stable ref for selectedAttachmentId
+  const selectedAttachmentIdRef = useRef<string | null>(null);
+  selectedAttachmentIdRef.current = selectedAttachmentId;
 
   // Stable ref for latest filtered data (used in callbacks without re-binding graph)
   const filteredDataRef = useRef<{ nodes: GraphNodeInternal[]; links: GraphLinkInternal[] }>({ nodes: [], links: [] });
@@ -243,7 +253,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   const lastClickRef = useRef<{ nodeId: string; time: number } | null>(null);
   const DOUBLE_CLICK_DELAY = 300; // ms
 
-  // --- NODE CLICK → single click selects/highlights, double click navigates (for folder notes) ---
+  // --- NODE CLICK → single click selects/highlights, double click navigates/opens ---
   const handleNodeClick = useCallback((node: GraphNodeInternal) => {
     const now = Date.now();
     const lastClick = lastClickRef.current;
@@ -252,9 +262,28 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
     if (lastClick && lastClick.nodeId === node.id && (now - lastClick.time) < DOUBLE_CLICK_DELAY) {
       // Double-click detected
       lastClickRef.current = null;
+
       if (node.isFolderNote && node.path) {
+        // Folder note: navigate to container
         const folderPath = node.path.replace(/[/\\][^/\\]+$/, ''); // parent directory
         selectContainer(folderPath);
+        return;
+      }
+
+      if (node.nodeType === 'attachment' && node.path) {
+        // Attachment: open based on file type
+        const isImage = IMAGE_EXTENSIONS.test(node.path);
+        const isPdf = PDF_EXTENSION.test(node.path);
+
+        if (isImage || isPdf) {
+          // Images and PDFs: open in Notology viewer
+          hoverActions.open(node.path);
+        } else {
+          // Other files: open with external application
+          utilCommands.openInDefaultApp(node.path);
+        }
+        setSelectedAttachmentId(null);
+        return;
       }
       return;
     }
@@ -266,6 +295,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
     if (node.nodeType === 'tag') {
       setSelectedTagId(prev => prev === node.id ? null : node.id);
       setSelectedFolderNoteId(null);
+      setSelectedAttachmentId(null);
       return;
     }
     // Clear tag selection when clicking other nodes
@@ -276,9 +306,15 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
     if (node.isFolderNote) {
       // Folder notes: single click only selects/highlights (toggle)
       setSelectedFolderNoteId(prev => prev === node.id ? null : node.id);
-    } else if (node.nodeType === 'note' || node.nodeType === 'attachment') {
-      // Regular notes/attachments: single click opens
+      setSelectedAttachmentId(null);
+    } else if (node.nodeType === 'attachment') {
+      // Attachments: single click selects/highlights (toggle), double click opens
       setSelectedFolderNoteId(null);
+      setSelectedAttachmentId(prev => prev === node.id ? null : node.id);
+    } else if (node.nodeType === 'note') {
+      // Regular notes: single click opens
+      setSelectedFolderNoteId(null);
+      setSelectedAttachmentId(null);
       hoverActions.open(node.path);
     }
   }, []);
@@ -334,15 +370,17 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
         }
         const size = baseSize + Math.min(degree * 0.4, 5);
 
-        // Hover dim effect OR selected tag/folder note highlight
+        // Hover dim effect OR selected tag/folder note/attachment highlight
         const currentHovered = hoveredNodeIdRef.current;
         const currentSelectedTag = selectedTagIdRef.current;
         const currentSelectedFolderNote = selectedFolderNoteIdRef.current;
+        const currentSelectedAttachment = selectedAttachmentIdRef.current;
         const isHovered = currentHovered === n.id;
         const isSelectedTag = currentSelectedTag === n.id;
         const isSelectedFolderNote = currentSelectedFolderNote === n.id;
+        const isSelectedAttachment = currentSelectedAttachment === n.id;
         let alpha = 1;
-        // Priority: hover > selected tag > selected folder note
+        // Priority: hover > selected tag > selected folder note > selected attachment
         if (currentHovered) {
           const neighbors = getNeighborSet(currentHovered);
           alpha = neighbors.has(n.id) ? 1 : 0.08;
@@ -351,6 +389,9 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
           alpha = neighbors.has(n.id) ? 1 : 0.08;
         } else if (currentSelectedFolderNote) {
           const neighbors = getNeighborSet(currentSelectedFolderNote);
+          alpha = neighbors.has(n.id) ? 1 : 0.08;
+        } else if (currentSelectedAttachment) {
+          const neighbors = getNeighborSet(currentSelectedAttachment);
           alpha = neighbors.has(n.id) ? 1 : 0.08;
         }
 
@@ -478,8 +519,9 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
         const currentHovered = hoveredNodeIdRef.current;
         const currentSelectedTag = selectedTagIdRef.current;
         const currentSelectedFolderNote = selectedFolderNoteIdRef.current;
-        // Priority: hover > selected tag > selected folder note
-        const highlightId = currentHovered || currentSelectedTag || currentSelectedFolderNote;
+        const currentSelectedAttachment = selectedAttachmentIdRef.current;
+        // Priority: hover > selected tag > selected folder note > selected attachment
+        const highlightId = currentHovered || currentSelectedTag || currentSelectedFolderNote || currentSelectedAttachment;
         if (highlightId) {
           const sourceId = typeof l.source === 'string' ? l.source : l.source.id;
           const targetId = typeof l.target === 'string' ? l.target : l.target.id;
@@ -529,6 +571,7 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
         // Clear selections when clicking on empty space
         setSelectedTagId(null);
         setSelectedFolderNoteId(null);
+        setSelectedAttachmentId(null);
       })
       .onNodeDragEnd((node: any) => {
         // Don't pin nodes on drag - keep them floating for physics simulation
@@ -639,13 +682,13 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
     graph.d3ReheatSimulation();
   }, [graphSettings.physics]);
 
-  // Force re-render on hover/search-highlight/selected-tag/selected-folder-note change (for dim/highlight effect)
+  // Force re-render on hover/search-highlight/selected-tag/selected-folder-note/selected-attachment change (for dim/highlight effect)
   useEffect(() => {
     if (graphRef.current) {
       // Trigger a visual refresh without resetting physics
       graphRef.current.nodeColor(() => ''); // no-op, but forces redraw
     }
-  }, [hoveredNodeId, searchHighlightId, selectedTagId, selectedFolderNoteId]);
+  }, [hoveredNodeId, searchHighlightId, selectedTagId, selectedFolderNoteId, selectedAttachmentId]);
 
   // --- SEARCH within graph ---
   const handleSearchNode = useCallback((query: string) => {

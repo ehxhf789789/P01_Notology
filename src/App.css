@@ -14733,3 +14733,48 @@ html[data-theme="light"] .image-embed-suggestion-empty {
   color: var(--text-muted, #888);
   min-height: 20px;
 }
+
+/* ============================================================ */
+/* HoverWindowApp - Separate OS Window Mode */
+/* ============================================================ */
+
+.hover-window-app {
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  overflow: hidden;
+}
+
+.hover-window-app .hover-editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.hover-window-app .hover-title-bar {
+  display: none; /* Window uses OS decorations */
+}
+
+.hover-window-loading {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+}
+
+.hover-window-error {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-primary);
+  color: var(--text-secondary);
+  font-size: 14px;
+}

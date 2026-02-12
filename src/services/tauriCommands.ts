@@ -23,6 +23,13 @@ export interface UrlMetadata {
   favicon: string;
 }
 
+export interface AttachmentFileInfo {
+  file_name: string;
+  path: string;
+  is_image: boolean;
+  mtime: number;
+}
+
 // ============================================================================
 // File Commands
 // ============================================================================
@@ -60,6 +67,10 @@ export const fileCommands = {
 
   getFileMtime: (path: string) =>
     invoke<number>('get_file_mtime', { path }),
+
+  /** Read attachment folder contents with mtime, sorted by most recent first */
+  readAttachmentFolder: (attFolderPath: string, query: string) =>
+    invoke<AttachmentFileInfo[]>('read_attachment_folder', { attFolderPath, query }),
 };
 
 // ============================================================================

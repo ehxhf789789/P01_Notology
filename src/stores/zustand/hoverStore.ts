@@ -543,9 +543,14 @@ export const preloadHoverContent = (path: string) => {
   }
 };
 
+// Import multi-window utility for separate window mode
+import { openHoverWindow } from '../../utils/multiWindow';
+
 // Actions (stable references - can be called outside React)
 export const hoverActions = {
   open: (path: string) => useHoverStore.getState().openHoverFile(path),
+  // Open file in a separate OS window (multi-window mode)
+  openInWindow: (path: string) => openHoverWindow(path),
   preload: preloadHoverContent,
   close: (id: string) => useHoverStore.getState().closeHoverFile(id),
   focus: (id: string) => useHoverStore.getState().focusHoverFile(id),

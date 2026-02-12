@@ -196,7 +196,7 @@ class EditorPool {
         suggestion: createImageEmbedSuggestion(() => callbacks.notePath),
       }),
       AttachmentSuggestion.configure({
-        suggestion: createAttachmentSuggestion(() => callbacks.notePath, () => callbacks.getFileTree(), () => callbacks.vaultPath),
+        suggestion: createAttachmentSuggestion(() => callbacks.notePath),
       }),
       LinkCard,
       Markdown.configure({
