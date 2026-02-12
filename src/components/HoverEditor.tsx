@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback, useMemo, memo } from 'react';
 import { EditorContent } from '@tiptap/react';
 import type { Editor } from '@tiptap/core';
-import { fileCommands, searchCommands, utilCommands, noteLockCommands } from '../services/tauriCommands';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { fileCommands, searchCommands, utilCommands, noteLockCommands, memoCommands } from '../services/tauriCommands';
 import type { NoteLockInfo } from '../services/tauriCommands';
 import { editorPool } from '../utils/editorPool';
+import { isHoverWindow } from '../utils/multiWindow';
 import { LayoutList, MessageSquare, Minus, X } from 'lucide-react';
 import { SyncStatusIndicator, type SyncStatus } from './SyncStatusIndicator';
 import { useHoverStore, hoverActions, useIsClosing, useIsMinimizing, HOVER_ANIMATION } from '../stores/zustand/hoverStore';
@@ -24,6 +26,7 @@ import type { NoteFrontmatter, NoteComment, CanvasData, CanvasSelection } from '
 import { serializeFrontmatter, getCurrentTimestamp } from '../utils/frontmatter';
 import { loadComments, saveComments } from '../utils/comments';
 import { markAsSelfSaved } from '../utils/selfSaveTracker';
+import { notifyFileSaved, notifyMemoChanged, notifySearchIndexUpdated } from '../utils/windowSync';
 import EditorToolbar from './EditorToolbar';
 import EditorContextMenu from './EditorContextMenu';
 import CommentPanel from './CommentPanel';
@@ -407,7 +410,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
           saveTimeoutRef.current = setTimeout(() => {
             const markdown = (ed.storage as any).markdown.getMarkdown();
             saveFile(markdown);
-          }, 1000);
+          }, 500); // Reduced from 1000ms for faster search index updates
         });
 
         editorRef.current = pooledEditor;
@@ -502,10 +505,22 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       // Update content cache with saved content (pass real mtime for cache alignment)
       contentCacheActions.updateContent(win.filePath, bodyToSave, updatedFm, savedMtime);
 
-      // Index the note immediately for instant search updates
-      await searchCommands.indexNote(win.filePath).catch(() => {});
-      // Trigger search refresh after successful save
-      refreshActions.incrementSearchRefresh();
+      // Notify other windows about save (for cache invalidation)
+      notifyFileSaved(win.filePath).catch(() => {});
+
+      // Index note in background, then refresh search (local + remote)
+      // NOTE: Refresh AFTER indexing completes so search sees updated data
+      searchCommands.indexNote(win.filePath).then(() => {
+        refreshActions.incrementSearchRefresh();
+        notifySearchIndexUpdated(win.filePath).catch(() => {});
+      }).catch(() => {});
+      memoCommands.indexNoteMemos(win.filePath).catch(() => {});
+
+      // Notify other windows about memo/todo changes (cross-window calendar sync)
+      notifyMemoChanged(win.filePath).catch(() => {});
+
+      // Refresh calendar to reflect memo/todo changes
+      appStoreActionsRef.current.refreshCalendar();
     } catch (e) {
       console.error('HoverEditor: Failed to save:', e);
     }
@@ -542,8 +557,13 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       setIsDirty(false);
       fileCommands.getFileMtime(win.filePath).then(m => { mtimeOnLoadRef.current = m; });
       contentCacheActions.updateContent(win.filePath, conflictState.myContent, updatedFm);
-      await searchCommands.indexNote(win.filePath).catch(() => {});
-      refreshActions.incrementSearchRefresh();
+      notifyFileSaved(win.filePath).catch(() => {});
+      searchCommands.indexNote(win.filePath).then(() => {
+        refreshActions.incrementSearchRefresh();
+        notifySearchIndexUpdated(win.filePath).catch(() => {});
+      }).catch(() => {});
+      memoCommands.indexNoteMemos(win.filePath).catch(() => {});
+      appStoreActionsRef.current.refreshCalendar();
     } catch (e) {
       console.error('HoverEditor: Conflict force save failed:', e);
     }
@@ -569,8 +589,13 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     try {
       await fileCommands.writeFile(copyPath, fmString, conflictState.myContent);
       appStoreActionsRef.current.refreshFileTree();
-      await searchCommands.indexNote(copyPath).catch(() => {});
-      refreshActions.incrementSearchRefresh();
+      notifyFileSaved(copyPath).catch(() => {});
+      searchCommands.indexNote(copyPath).then(() => {
+        refreshActions.incrementSearchRefresh();
+        notifySearchIndexUpdated(copyPath).catch(() => {});
+      }).catch(() => {});
+      memoCommands.indexNoteMemos(copyPath).catch(() => {});
+      appStoreActionsRef.current.refreshCalendar();
     } catch (e) {
       console.error('HoverEditor: Save copy failed:', e);
     }
@@ -600,13 +625,17 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       await searchCommands.removeFromIndex(win.filePath).catch(() => {});
       // Delete this copy file (delete_file, not delete_note — protect _att)
       await fileCommands.deleteFile(win.filePath).catch(() => {});
-      // Re-index original
-      await searchCommands.indexNote(conflictCopyInfo.originalPath).catch(() => {});
       // Refresh any open editors showing the original
       contentCacheActions.invalidateContent(conflictCopyInfo.originalPath);
       refreshHoverWindowsForFile(conflictCopyInfo.originalPath);
-      refreshActions.incrementSearchRefresh();
+      // Re-index original in background, then refresh search
+      searchCommands.indexNote(conflictCopyInfo.originalPath).then(() => {
+        refreshActions.incrementSearchRefresh();
+        notifySearchIndexUpdated(conflictCopyInfo.originalPath).catch(() => {});
+      }).catch(() => {});
+      memoCommands.indexNoteMemos(conflictCopyInfo.originalPath).catch(() => {});
       appStoreActionsRef.current.refreshFileTree();
+      appStoreActionsRef.current.refreshCalendar();
       // Close this copy window
       hoverActions.startClosing(win.id);
       setTimeout(() => hoverActions.finishClosing(win.id), HOVER_ANIMATION.CLOSE_DURATION);
@@ -624,6 +653,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     await fileCommands.deleteFile(win.filePath).catch(() => {});
     refreshActions.incrementSearchRefresh();
     appStoreActionsRef.current.refreshFileTree();
+    appStoreActionsRef.current.refreshCalendar();
     // Close this copy window
     hoverActions.startClosing(win.id);
     setTimeout(() => hoverActions.finishClosing(win.id), HOVER_ANIMATION.CLOSE_DURATION);
@@ -669,7 +699,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     saveTimeoutRef.current = setTimeout(() => {
       const jsonBody = JSON.stringify(data, null, 2);
       saveFile(jsonBody);
-    }, 1000);
+    }, 500); // Reduced from 1000ms for faster search index updates
   }, [saveFile, win.filePath]);
 
   // Process loaded content (used by both sync and async paths)
@@ -948,6 +978,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     if (result.comments !== updated) setComments(result.comments);
     refreshActions.incrementSearchRefresh();
     appStoreActionsRef.current.refreshCalendar();
+    notifyMemoChanged(win.filePath).catch(() => {});
     // Clear preserved selection and task mode after adding comment
     setPreservedSelection(null);
     setPendingTaskMode(false);
@@ -961,6 +992,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     if (result.comments !== updated) setComments(result.comments);
     refreshActions.incrementSearchRefresh();
     appStoreActionsRef.current.refreshCalendar();
+    notifyMemoChanged(win.filePath).catch(() => {});
     if (activeCommentId === commentId) setActiveCommentId(null);
   }, [comments, win.filePath, activeCommentId]);
 
@@ -972,6 +1004,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     if (result.comments !== updated) setComments(result.comments);
     refreshActions.incrementSearchRefresh();
     appStoreActionsRef.current.refreshCalendar();
+    notifyMemoChanged(win.filePath).catch(() => {});
   }, [comments, win.filePath]);
 
   const handleUpdateComment = useCallback(async (commentId: string, updatedComment: NoteComment) => {
@@ -982,6 +1015,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     if (result.comments !== updated) setComments(result.comments);
     refreshActions.incrementSearchRefresh();
     appStoreActionsRef.current.refreshCalendar();
+    notifyMemoChanged(win.filePath).catch(() => {});
   }, [comments, win.filePath]);
 
   // Toggle comment panel (view only — memo/task adding is via context menu)
@@ -1035,21 +1069,56 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   }, [editor]);
 
   // Clean broken wiki-links before closing
-  const handleClose = useCallback(() => {
+  const handleClose = useCallback(async () => {
     const closeStartTime = performance.now();
-    log(`%c[HoverWindow ${win.id.slice(-6)}] handleClose() called`, 'color: #e91e63; font-weight: bold');
+
+    // Get window reference once
+    const currentWin = getCurrentWindow();
+    const windowLabel = currentWin.label;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isHoverFromUrl = urlParams.get('hover') === 'true';
+    const isMultiWindow = windowLabel.startsWith('hover-') || isHoverFromUrl;
+
+    console.log(`%c[HoverWindow] handleClose() - label: ${windowLabel}, isMultiWindow: ${isMultiWindow}`, 'color: #e91e63; font-weight: bold; font-size: 14px');
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
 
+    // Multi-window mode: save, index, then close
+    if (isMultiWindow) {
+      console.log('[HoverWindow] Multi-window mode detected, closing...');
+      // Save before closing if dirty
+      if (isDirty && frontmatter && editor) {
+        try {
+          const currentBody = (editor.storage as any).markdown.getMarkdown();
+          await saveFile(currentBody);
+          // Explicitly wait for indexing to complete BEFORE closing
+          // This ensures search index is updated before the window is destroyed
+          await searchCommands.indexNote(win.filePath);
+          refreshActions.incrementSearchRefresh();
+          notifySearchIndexUpdated(win.filePath).catch(() => {});
+          console.log('[HoverWindow] Saved and indexed before close');
+        } catch (err) {
+          console.error('Save/index before close failed:', err);
+        }
+      }
+      // Close the OS window using destroy() for immediate closing
+      console.log('[HoverWindow] Calling currentWin.destroy()...');
+      try {
+        await currentWin.destroy();
+        console.log('[HoverWindow] destroy() completed');
+      } catch (err) {
+        console.error('[HoverWindow] Window destroy failed:', err);
+      }
+      return;
+    }
+
+    // DOM overlay mode: use animations
     const el = hoverEditorRef.current;
     if (el) {
-      // Start synchronized state update FIRST (CollapsedBtn needs this)
       hoverActions.startClosing(win.id);
-
-      // Run Web Animations API - Promise resolves when animation completes
       runAnimation(el, 'close', HOVER_ANIMATION.CLOSE_DURATION).then(() => {
         hoverActions.finishClosing(win.id);
         log(`  [HoverWindow ${win.id.slice(-6)}] close animation finished (${(performance.now() - closeStartTime).toFixed(1)}ms total)`);
@@ -1071,35 +1140,46 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         ...conflictState.myFrontmatter,
         modified: getCurrentTimestamp(),
       });
-      fileCommands.writeFile(copyPath, fmString, conflictState.myContent).then(() => {
-        appStoreActionsRef.current.refreshFileTree();
-        searchCommands.indexNote(copyPath).catch(() => {});
+      await fileCommands.writeFile(copyPath, fmString, conflictState.myContent);
+      appStoreActionsRef.current.refreshFileTree();
+      searchCommands.indexNote(copyPath).then(() => {
         refreshActions.incrementSearchRefresh();
-        log(`[HoverEditor] Conflict auto-saved as copy: ${copyPath}`);
-      }).catch(err => console.error('Conflict auto-save failed:', err));
+        notifySearchIndexUpdated(copyPath).catch(() => {});
+      }).catch(() => {});
+      log(`[HoverEditor] Conflict auto-saved as copy: ${copyPath}`);
       return;
     }
 
-    // Save in background (fire and forget - don't block UI)
-    // If another device was editing (remoteLock), wait briefly for Synology sync
-    // so the mtime check in saveFile can detect external changes
+    // Save before closing
     if (isDirty && frontmatter) {
       const currentBody = editor ? (editor.storage as any).markdown.getMarkdown() : body;
       const syncGrace = remoteLock ? new Promise(r => setTimeout(r, 2000)) : Promise.resolve();
-      syncGrace.then(() => saveFile(currentBody)).catch(err => console.error('Background save failed:', err));
+      await syncGrace;
+      await saveFile(currentBody).catch(err => console.error('Background save failed:', err));
     }
   }, [isDirty, frontmatter, body, editor, saveFile, win.id, remoteLock, conflictState, vaultPath, win.filePath]);
 
-  const handleMinimize = useCallback(() => {
+  const handleMinimize = useCallback(async () => {
     const minimizeStartTime = performance.now();
     console.log(`%c[HoverWindow ${win.id.slice(-6)}] ▼ MINIMIZE BUTTON CLICKED`, 'color: #9c27b0; font-weight: bold; font-size: 14px');
 
+    // Multi-window mode: minimize the OS window directly
+    const isMultiWindow = isHoverWindow();
+
+    if (isMultiWindow) {
+      // Save before minimizing
+      if (isDirty && frontmatter) {
+        await saveFile().catch(err => console.error('Background save failed:', err));
+      }
+      getCurrentWindow().minimize();
+      console.log(`  [HoverWindow] handleMinimize() OS window minimized (${(performance.now() - minimizeStartTime).toFixed(2)}ms)`);
+      return;
+    }
+
+    // DOM overlay mode: use animations
     const el = hoverEditorRef.current;
     if (el) {
-      // Start synchronized state update FIRST
       hoverActions.startMinimizing(win.id);
-
-      // Run Web Animations API - Promise resolves when animation completes
       runAnimation(el, 'minimize', HOVER_ANIMATION.MINIMIZE_DURATION).then(() => {
         hoverActions.finishMinimizing(win.id);
         console.log(`  [HoverWindow ${win.id.slice(-6)}] minimize animation finished (${(performance.now() - minimizeStartTime).toFixed(1)}ms total)`);
@@ -1123,8 +1203,10 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       });
       fileCommands.writeFile(copyPath, fmString, conflictState.myContent).then(() => {
         appStoreActionsRef.current.refreshFileTree();
-        searchCommands.indexNote(copyPath).catch(() => {});
-        refreshActions.incrementSearchRefresh();
+        searchCommands.indexNote(copyPath).then(() => {
+          refreshActions.incrementSearchRefresh();
+          notifySearchIndexUpdated(copyPath).catch(() => {});
+        }).catch(() => {});
         console.log(`[HoverEditor] Conflict auto-saved as copy on minimize: ${copyPath}`);
       }).catch(err => console.error('Conflict auto-save on minimize failed:', err));
     } else if (isDirty && frontmatter) {
@@ -1246,6 +1328,13 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
 
   // Double-click to toggle maximize
   const handleDoubleClick = useCallback(() => {
+    // Multi-window mode: use Tauri's native maximize toggle
+    if (isHoverWindow()) {
+      getCurrentWindow().toggleMaximize();
+      return;
+    }
+
+    // DOM overlay mode: manual maximize/restore
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
 
@@ -1287,6 +1376,14 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         (e.target as HTMLElement).closest('.hover-editor-minimize') ||
         (e.target as HTMLElement).closest('.hover-editor-fm-toggle')) return;
     e.preventDefault();
+
+    // Multi-window mode: use Tauri's native window dragging
+    if (isHoverWindow()) {
+      getCurrentWindow().startDragging();
+      return;
+    }
+
+    // DOM overlay mode: track mouse positions manually
     setIsDragging(true);
     dragStartRef.current = {
       x: e.clientX,
@@ -1708,6 +1805,9 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   // Get note type CSS class and custom color
   const noteTypeClass = frontmatter?.type ? `${frontmatter.type.toLowerCase()}-type` : '';
 
+  // Detect multi-window mode (separate OS window vs DOM overlay)
+  const inMultiWindowMode = isHoverWindow();
+
   // Look up template custom color by note type
   const templateCustomColor = useMemo(() => {
     if (!frontmatter?.type) return undefined;
@@ -1736,10 +1836,22 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       }}
       className={`hover-editor${noteTypeClass ? ' ' + noteTypeClass : ''}${frontmatter?.cssclasses ? ' ' + frontmatter.cssclasses.join(' ') : ''}${isDragging ? ' is-dragging' : ''}${isResizing ? ' is-resizing' : ''}${isSnapping ? ' is-snapping' : ''}${templateCustomColor ? ' has-custom-color' : ''}`}
       style={{
-        transform: `translate3d(${win.position.x}px, ${win.position.y}px, 0)`,
-        width: win.size.width,
-        height: win.size.height,
-        zIndex: win.zIndex,
+        // Multi-window mode: fill the entire viewport
+        // DOM overlay mode: use fixed positioning with transform
+        ...(inMultiWindowMode ? {
+          position: 'relative' as const,
+          width: '100%',
+          height: '100%',
+          transform: 'none',
+          border: 'none',
+          borderRadius: 0,
+          boxShadow: 'none',
+        } : {
+          transform: `translate3d(${win.position.x}px, ${win.position.y}px, 0)`,
+          width: win.size.width,
+          height: win.size.height,
+          zIndex: win.zIndex,
+        }),
         ...(templateCustomColor ? { '--template-color': templateCustomColor } as React.CSSProperties : {}),
       }}
       onMouseDown={handleMouseDown}
@@ -1755,6 +1867,8 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
               <button
                 className={`hover-editor-fm-toggle ${showMetadata ? 'active' : ''}`}
                 onClick={() => setShowMetadata(!showMetadata)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
                 title={t('metadata', language)}
               >
                 <LayoutList size={14} />
@@ -1762,16 +1876,29 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
               <button
                 className={`hover-editor-fm-toggle ${showComments ? 'active' : ''}`}
                 onClick={handleToggleComments}
+                onMouseDown={(e) => e.stopPropagation()}
+                onDoubleClick={(e) => e.stopPropagation()}
                 title={t('memo', language)}
               >
                 <MessageSquare size={14} />
               </button>
             </>
           )}
-          <button className="hover-editor-minimize" onClick={handleMinimize} title={t('minimize', language)}>
+          <button
+            className="hover-editor-minimize"
+            onClick={handleMinimize}
+            onMouseDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+            title={t('minimize', language)}
+          >
             <Minus size={14} />
           </button>
-          <button className="hover-editor-close" onClick={handleClose}>
+          <button
+            className="hover-editor-close"
+            onClick={handleClose}
+            onMouseDown={(e) => e.stopPropagation()}
+            onDoubleClick={(e) => e.stopPropagation()}
+          >
             <X size={14} />
           </button>
         </div>
@@ -1906,7 +2033,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
           />
         </div>
       )}
-      <div className="hover-editor-resize" onMouseDown={handleResizeStart} />
+      {!inMultiWindowMode && <div className="hover-editor-resize" onMouseDown={handleResizeStart} />}
       {editorMenuPos && editor && (
         <EditorContextMenu
           editor={editor}

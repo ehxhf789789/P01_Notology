@@ -2062,6 +2062,91 @@ fn toggle_devtools() {
     // DevTools disabled in production build
 }
 
+/// Set window icon based on note type
+/// Maps note types to template-specific icons for taskbar display
+#[tauri::command]
+fn set_window_icon(app: tauri::AppHandle, window_label: String, note_type: String) -> Result<(), String> {
+    use tauri::Manager;
+    use tauri::image::Image;
+    use image::GenericImageView;
+
+    // Get the window by label
+    let window = app.get_webview_window(&window_label)
+        .ok_or_else(|| format!("Window '{}' not found", window_label))?;
+
+    // Map note type to icon file
+    // For now, using the same icon for all types until template-specific icons are created
+    // Future: match note_type.as_str() { "MTG" => "mtg.png", "EVENT" => "event.png", ... }
+    let icon_name = match note_type.to_uppercase().as_str() {
+        "MTG" => "icon.png",      // Future: "mtg.png"
+        "EVENT" => "icon.png",    // Future: "event.png"
+        "SEM" => "icon.png",      // Future: "sem.png"
+        "NOTE" => "icon.png",     // Future: "note.png"
+        "SKETCH" => "icon.png",   // Future: "sketch.png"
+        "OFA" => "icon.png",      // Future: "ofa.png"
+        "PAPER" => "icon.png",    // Future: "paper.png"
+        "CONTAINER" => "icon.png", // Future: "container.png"
+        _ => "icon.png",          // Default icon
+    };
+
+    // Get the icon path from resources
+    let icon_path = app.path().resource_dir()
+        .map_err(|e| format!("Failed to get resource dir: {}", e))?
+        .join("icons")
+        .join(icon_name);
+
+    // Load and set the icon
+    if icon_path.exists() {
+        // Load PNG and convert to RGBA
+        let img = image::open(&icon_path)
+            .map_err(|e| format!("Failed to load icon image: {}", e))?;
+        let (width, height) = img.dimensions();
+        let rgba = img.into_rgba8().into_raw();
+
+        // Create Tauri Image from RGBA data
+        let icon = Image::new_owned(rgba, width, height);
+        window.set_icon(icon)
+            .map_err(|e| format!("Failed to set window icon: {}", e))?;
+        log::info!("[set_window_icon] Set icon for window '{}' (type: {})", window_label, note_type);
+    } else {
+        log::warn!("[set_window_icon] Icon not found at {:?}, using default", icon_path);
+    }
+
+    Ok(())
+}
+
+/// Create a hover window with dark background color to prevent white flash
+/// Window starts hidden - frontend calls show() after content is ready
+#[tauri::command]
+async fn create_hover_window(
+    app: tauri::AppHandle,
+    label: String,
+    url: String,
+    title: String,
+    x: i32,
+    y: i32,
+    width: u32,
+    height: u32,
+) -> Result<(), String> {
+    use tauri::webview::{WebviewWindowBuilder, Color};
+    use tauri::WebviewUrl;
+
+    WebviewWindowBuilder::new(&app, &label, WebviewUrl::App(url.into()))
+        .title(&title)
+        .inner_size(width as f64, height as f64)
+        .position(x as f64, y as f64)
+        .decorations(false)
+        .resizable(true)
+        .focused(true)
+        .visible(false)  // Hidden until content ready
+        .min_inner_size(400.0, 300.0)
+        .background_color(Color(30, 30, 30, 255))
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
 #[derive(Serialize)]
 struct CommentsWithMtime {
     comments: String,
@@ -2959,6 +3044,8 @@ pub fn run() {
             delete_note,
             update_note_frontmatter,
             toggle_devtools,
+            set_window_icon,
+            create_hover_window,
             init_search_index,
             clear_search_index,
             check_vault_integrity,

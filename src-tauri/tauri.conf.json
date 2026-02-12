@@ -29,7 +29,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": false,
-        "titleBarStyle": "Overlay"
+        "titleBarStyle": "Overlay",
+        "backgroundColor": [30, 30, 30, 255]
       }
     ],
     "withGlobalTauri": true,

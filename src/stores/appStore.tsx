@@ -25,6 +25,7 @@ import { vaultConfigActions } from './zustand/vaultConfigStore';
 import { loadVaultConfig, clearVaultConfigCache, wasSelfSave } from '../utils/vaultConfigUtils';
 import { filterExternalChanges } from '../utils/selfSaveTracker';
 import { initializeApp } from './appActions';
+import { initContentCacheSync, cleanupContentCacheSync } from './zustand/contentCacheStore';
 
 // Re-export types for backward compatibility
 export type { TitleInputResult } from './zustand/modalStore';
@@ -39,6 +40,11 @@ export function AppInitializer({ children }: { children: ReactNode }) {
   // Initialize app on mount
   useEffect(() => {
     initializeApp();
+    // Initialize cross-window cache sync for multi-window mode
+    initContentCacheSync();
+    return () => {
+      cleanupContentCacheSync();
+    };
   }, []);
 
   // Listen for Synology Drive sync events from Rust file watcher

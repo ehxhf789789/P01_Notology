@@ -45,6 +45,7 @@ jsonschema = "0.22"
 lazy_static = "1.4"
 walkdir = "2.4"
 rayon = "1.10"
+image = { version = "0.25", default-features = false, features = ["png"] }
 
 [features]
 default = ["devtools"]

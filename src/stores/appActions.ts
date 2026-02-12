@@ -183,6 +183,7 @@ export async function deleteFile(path: string) {
   hoverActions.closeByFilePath(path);
   await fileTreeActions.refreshFileTree();
   refreshActions.incrementSearchRefresh();
+  refreshActions.refreshCalendar(); // Sync memos/todos
 }
 
 export async function deleteFolder(path: string) {
@@ -192,6 +193,7 @@ export async function deleteFolder(path: string) {
   await fileTreeActions.refreshFileTree();
   await searchCommands.reindexVault().catch(() => {});
   refreshActions.incrementSearchRefresh();
+  refreshActions.refreshCalendar(); // Sync memos/todos
 }
 
 export async function moveFile(oldPath: string, newPath: string) {
@@ -201,6 +203,7 @@ export async function moveFile(oldPath: string, newPath: string) {
   await fileTreeActions.refreshFileTree();
   await searchCommands.indexNote(newPath).catch(() => {});
   refreshActions.incrementSearchRefresh();
+  refreshActions.refreshCalendar(); // Sync memos/todos
 }
 
 export async function moveNote(notePath: string, newDir: string): Promise<string> {
@@ -210,6 +213,7 @@ export async function moveNote(notePath: string, newDir: string): Promise<string
   await fileTreeActions.refreshFileTree();
   await searchCommands.indexNote(newPath).catch(() => {});
   refreshActions.incrementSearchRefresh();
+  refreshActions.refreshCalendar(); // Sync memos/todos
   return newPath;
 }
 
@@ -226,6 +230,7 @@ export async function deleteNote(notePath: string) {
   hoverActions.closeByFilePath(notePath);
   await fileTreeActions.refreshFileTree();
   refreshActions.incrementSearchRefresh();
+  refreshActions.refreshCalendar(); // Sync memos/todos
 }
 
 export async function renameFile(filePath: string, newName: string): Promise<string> {
@@ -237,6 +242,7 @@ export async function renameFile(filePath: string, newName: string): Promise<str
   await fileTreeActions.refreshFileTree();
   await searchCommands.indexNote(newPath).catch(() => {});
   refreshActions.incrementSearchRefresh();
+  refreshActions.refreshCalendar(); // Sync memos/todos
   return newPath;
 }
 

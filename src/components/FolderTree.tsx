@@ -5,6 +5,7 @@ import { useContainerConfigs, useFolderStatuses } from '../stores/zustand/vaultC
 import { modalActions } from '../stores/zustand/modalStore';
 import { useTemplateStore } from '../stores/zustand/templateStore';
 import { selectContainer } from '../stores/appActions';
+import { uiActions } from '../stores/zustand/uiStore';
 import type { FileNode, FolderStatus } from '../types';
 import { FOLDER_STATUS_INFO } from '../types';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
@@ -180,9 +181,13 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
 
   const handleFolderClick = useCallback((node: FileNode) => {
     if (!node.is_dir) return;
-    // Single click: navigate to folder
+    // Single click: navigate to folder (or close calendar/search if already selected)
     if (node.path !== selectedContainer) {
       selectContainer(node.path);
+    } else {
+      // Already selected - still close calendar/search views
+      uiActions.setShowCalendar(false);
+      uiActions.setShowSearch(false);
     }
   }, [selectedContainer]);
 
@@ -192,9 +197,13 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
   }, []);
 
   const handleContainerClick = useCallback((node: FileNode) => {
-    // Single click: navigate to container
+    // Single click: navigate to container (or close calendar/search if already selected)
     if (node.path !== selectedContainer) {
       selectContainer(node.path);
+    } else {
+      // Already selected - still close calendar/search views
+      uiActions.setShowCalendar(false);
+      uiActions.setShowSearch(false);
     }
     // Expand tree if not already root
     if (rootContainer !== node.path) {

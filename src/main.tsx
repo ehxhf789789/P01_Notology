@@ -7,10 +7,13 @@ import './utils/editorPool'
 import App from './App.tsx'
 import HoverWindowApp from './HoverWindowApp.tsx'
 
-// Detect if we're in a hover window based on window label
+// Detect if we're in a hover window based on URL parameter or window label
 async function initializeApp() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const isHoverFromUrl = urlParams.get('hover') === 'true';
   const windowLabel = getCurrentWindow().label;
-  const isHoverWindow = windowLabel.startsWith('hover-');
+  const isHoverFromLabel = windowLabel.startsWith('hover-');
+  const isHoverWindow = isHoverFromUrl || isHoverFromLabel;
 
   const root = createRoot(document.getElementById('root')!);
 

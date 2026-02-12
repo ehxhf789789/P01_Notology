@@ -393,8 +393,10 @@ export const useHoverStore = create<HoverState>()(
       set({ snapPreview: preview });
     },
 
-    // Refresh content for a specific file
+    // Refresh content for a specific file (invalidates cache first for fresh load)
     refreshHoverWindowsForFile: (filePath: string) => {
+      // Invalidate cache to ensure fresh content on reload
+      contentCacheActions.invalidateContent(filePath);
       set((state) => ({
         hoverFiles: state.hoverFiles.map(h =>
           h.filePath === filePath
@@ -406,6 +408,8 @@ export const useHoverStore = create<HoverState>()(
 
     // Batch refresh for multiple files (single set() call — efficient for bulk sync)
     refreshHoverWindowsForFiles: (filePaths: string[]) => {
+      // Invalidate cache for all files
+      filePaths.forEach(p => contentCacheActions.invalidateContent(p));
       const pathSet = new Set(filePaths);
       set((state) => ({
         hoverFiles: state.hoverFiles.map(h =>
@@ -545,12 +549,25 @@ export const preloadHoverContent = (path: string) => {
 
 // Import multi-window utility for separate window mode
 import { openHoverWindow } from '../../utils/multiWindow';
+import { useFileTreeStore } from './fileTreeStore';
+import { useContentCacheStore } from './contentCacheStore';
 
 // Actions (stable references - can be called outside React)
 export const hoverActions = {
-  open: (path: string) => useHoverStore.getState().openHoverFile(path),
-  // Open file in a separate OS window (multi-window mode)
-  openInWindow: (path: string) => openHoverWindow(path),
+  // Default: open in separate OS window (multi-window mode)
+  // Automatically detects note type from content cache for taskbar icon
+  open: (path: string, noteType?: string) => {
+    const vaultPath = useFileTreeStore.getState().vaultPath;
+    // Try to get note type from content cache if not provided
+    let type = noteType;
+    if (!type && path.endsWith('.md')) {
+      const frontmatter = useContentCacheStore.getState().getFrontmatter(path);
+      type = frontmatter?.type as string | undefined;
+    }
+    return openHoverWindow(path, vaultPath || undefined, type);
+  },
+  // Open as DOM overlay (legacy single-window mode)
+  openOverlay: (path: string) => useHoverStore.getState().openHoverFile(path),
   preload: preloadHoverContent,
   close: (id: string) => useHoverStore.getState().closeHoverFile(id),
   focus: (id: string) => useHoverStore.getState().focusHoverFile(id),

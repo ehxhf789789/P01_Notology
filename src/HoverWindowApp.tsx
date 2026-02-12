@@ -1,8 +1,11 @@
 /**
  * HoverWindowApp - Standalone hover window component for multi-window mode
  * Each hover window runs in a separate Tauri WebviewWindow
+ *
+ * Optimization: Window starts hidden (visible: false) and only shows after
+ * content is fully rendered to DOM - no white flash, no fade animation.
  */
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { listen } from '@tauri-apps/api/event';
 import { HoverEditorWindow } from './components/HoverEditor';
@@ -11,6 +14,7 @@ import HoverImageViewer from './components/hover/HoverImageViewer';
 import HoverCodeViewer from './components/hover/HoverCodeViewer';
 import HoverWebViewer from './components/hover/HoverWebViewer';
 import { useTheme } from './stores/zustand';
+import { useFileTreeStore } from './stores/zustand/fileTreeStore';
 import type { HoverWindow } from './types';
 import './App.css';
 
@@ -23,45 +27,75 @@ function getFileType(path: string): HoverWindow['type'] {
   return isUrl ? 'web' : isPdf ? 'pdf' : isImage ? 'image' : isCode ? 'code' : 'editor';
 }
 
-// Get file name from path
+// Get file name from path (replaces underscores with spaces for taskbar display)
 function getFileName(path: string): string {
   const normalized = path.replace(/\\/g, '/');
   const parts = normalized.split('/');
-  return parts[parts.length - 1] || 'Untitled';
+  const fileName = parts[parts.length - 1] || 'Untitled';
+  return fileName.replace(/_/g, ' ');
 }
+
+// Animation duration for fade-out (should match CSS: 0.1s = 100ms)
+const CLOSE_ANIMATION_DURATION = 100;
 
 function HoverWindowApp() {
   const [filePath, setFilePath] = useState<string>('');
   const [fileType, setFileType] = useState<HoverWindow['type']>('editor');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isClosing, setIsClosing] = useState(false); // For fade-out animation
   const theme = useTheme();
   const windowRef = useRef(getCurrentWindow());
+  const isClosingRef = useRef(false); // Prevent double-close
+  const hasShownRef = useRef(false); // Prevent double-show
 
-  // Get initial file path from window label (format: hover-{encodedPath})
+  // Animated close function
+  const handleAnimatedClose = useCallback(async () => {
+    if (isClosingRef.current) return;
+    isClosingRef.current = true;
+    setIsClosing(true);
+    // Wait for fade-out animation
+    await new Promise(resolve => setTimeout(resolve, CLOSE_ANIMATION_DURATION));
+    windowRef.current.close();
+  }, []);
+
+  // Get initial file path and vault path from URL parameters
   useEffect(() => {
     const initWindow = async () => {
       try {
         const win = windowRef.current;
-        const label = win.label;
 
-        // Parse file path from label (hover-{base64EncodedPath})
-        if (label.startsWith('hover-')) {
-          const encodedPath = label.substring(6);
-          // Handle base64 encoding issues
-          try {
-            const decodedPath = atob(encodedPath.split('-')[0] || encodedPath);
-            setFilePath(decodedPath);
-            setFileType(getFileType(decodedPath));
+        // Parse URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const encodedPath = urlParams.get('path');
+        const encodedVault = urlParams.get('vault');
 
-            // Set window title
-            const fileName = getFileName(decodedPath);
-            await win.setTitle(fileName);
-          } catch {
-            setError('Failed to decode file path');
+        if (encodedPath) {
+          const decodedPath = decodeURIComponent(encodedPath);
+          setFilePath(decodedPath);
+          setFileType(getFileType(decodedPath));
+
+          // Set window title
+          const fileName = getFileName(decodedPath);
+          await win.setTitle(fileName);
+
+          // Initialize vault path and file lookup for link resolution
+          if (encodedVault) {
+            const decodedVault = decodeURIComponent(encodedVault);
+            console.log('[HoverWindowApp] Initializing with vault:', decodedVault);
+
+            // Set vault path and load file tree for link resolution
+            useFileTreeStore.getState().setVaultPath(decodedVault);
+
+            // Load file tree (this will also trigger file lookup index rebuild)
+            useFileTreeStore.getState().refreshFileTree().then(() => {
+              console.log('[HoverWindowApp] File tree loaded, links should work now');
+            }).catch(err => {
+              console.error('[HoverWindowApp] Failed to load file tree:', err);
+            });
           }
         } else {
-          setError('Invalid window label');
+          setError('No file path provided');
         }
       } catch (err) {
         console.error('[HoverWindowApp] Failed to initialize:', err);
@@ -73,6 +107,21 @@ function HoverWindowApp() {
 
     initWindow();
   }, []);
+
+  // Show window after content is rendered (ref callback on content container)
+  const contentRef = useCallback((node: HTMLDivElement | null) => {
+    if (node && !hasShownRef.current && !loading) {
+      hasShownRef.current = true;
+      // Double RAF ensures DOM paint is complete
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          windowRef.current.show().catch(err => {
+            console.warn('[HoverWindowApp] Failed to show window:', err);
+          });
+        });
+      });
+    }
+  }, [loading]);
 
   // Listen for file change events from main window
   useEffect(() => {
@@ -97,17 +146,29 @@ function HoverWindowApp() {
     document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
   }, [theme]);
 
-  // Handle close with Ctrl/Cmd+W
+  // Handle close with Ctrl/Cmd+W (animated)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'w') {
         e.preventDefault();
-        windowRef.current.close();
+        handleAnimatedClose();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [handleAnimatedClose]);
+
+  // Intercept window close request for animated close
+  useEffect(() => {
+    const win = windowRef.current;
+    const unlisten = win.onCloseRequested(async (event) => {
+      if (!isClosingRef.current) {
+        event.preventDefault();
+        handleAnimatedClose();
+      }
+    });
+    return () => { unlisten.then(fn => fn()); };
+  }, [handleAnimatedClose]);
 
   if (loading) {
     return (
@@ -153,7 +214,11 @@ function HoverWindowApp() {
   };
 
   return (
-    <div className="hover-window-app" data-theme={theme}>
+    <div
+      ref={contentRef}
+      className={`hover-window-app ${isClosing ? 'closing' : ''}`}
+      data-theme={theme}
+    >
       {renderContent()}
     </div>
   );

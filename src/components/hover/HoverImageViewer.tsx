@@ -1,9 +1,11 @@
 import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import { Minus, X } from 'lucide-react';
 import { useHoverStore, hoverActions, useIsClosing, useIsMinimizing, HOVER_ANIMATION } from '../../stores/zustand/hoverStore';
 import { useLanguage } from '../../stores/zustand';
 import { t } from '../../utils/i18n';
+import { isHoverWindow } from '../../utils/multiWindow';
 import { runAnimation, HOVER_WINDOW_OPEN_DURATION, ANIMATION_BUFFER, hoverWindowPropsAreEqual, type HoverEditorWindowProps } from './hoverAnimationUtils';
 
 // Conditional logging - only in development
@@ -72,16 +74,32 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
 
   const handleMouseDown = () => { focusHoverFile(win.id); };
 
-  const handleClose = useCallback(() => {
-    const closeStartTime = performance.now();
-    log(`%c[Viewer ${win.id.slice(-6)}] handleClose() called`, 'color: #e91e63; font-weight: bold');
+  const handleClose = useCallback(async () => {
+    // Get window reference and check multi-window mode
+    const currentWin = getCurrentWindow();
+    const windowLabel = currentWin.label;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isHoverFromUrl = urlParams.get('hover') === 'true';
+    const isMultiWindow = windowLabel.startsWith('hover-') || isHoverFromUrl;
 
+    console.log(`%c[ImageViewer] handleClose() - label: ${windowLabel}, isMultiWindow: ${isMultiWindow}`, 'color: #e91e63; font-weight: bold');
+
+    // Multi-window mode: close the OS window directly using destroy()
+    if (isMultiWindow) {
+      try {
+        await currentWin.destroy();
+      } catch (err) {
+        console.error('[ImageViewer] Window destroy failed:', err);
+      }
+      return;
+    }
+
+    // DOM overlay mode: use animations
     const el = hoverEditorRef.current;
     if (el) {
       hoverActions.startClosing(win.id);
       runAnimation(el, 'close', HOVER_ANIMATION.CLOSE_DURATION).then(() => {
         hoverActions.finishClosing(win.id);
-        log(`  [Viewer ${win.id.slice(-6)}] close animation finished (${(performance.now() - closeStartTime).toFixed(1)}ms total)`);
       });
     } else {
       hoverActions.startClosing(win.id);
@@ -89,16 +107,30 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
     }
   }, [win.id]);
 
-  const handleMinimize = useCallback(() => {
-    const minimizeStartTime = performance.now();
-    log(`%c[Viewer ${win.id.slice(-6)}] handleMinimize() called`, 'color: #9c27b0; font-weight: bold');
+  const handleMinimize = useCallback(async () => {
+    // Get window reference and check multi-window mode
+    const currentWin = getCurrentWindow();
+    const windowLabel = currentWin.label;
+    const urlParams = new URLSearchParams(window.location.search);
+    const isHoverFromUrl = urlParams.get('hover') === 'true';
+    const isMultiWindow = windowLabel.startsWith('hover-') || isHoverFromUrl;
 
+    // Multi-window mode: minimize the OS window directly
+    if (isMultiWindow) {
+      try {
+        await currentWin.minimize();
+      } catch (err) {
+        console.error('[ImageViewer] Window minimize failed:', err);
+      }
+      return;
+    }
+
+    // DOM overlay mode: use animations
     const el = hoverEditorRef.current;
     if (el) {
       hoverActions.startMinimizing(win.id);
       runAnimation(el, 'minimize', HOVER_ANIMATION.MINIMIZE_DURATION).then(() => {
         hoverActions.finishMinimizing(win.id);
-        log(`  [Viewer ${win.id.slice(-6)}] minimize animation finished (${(performance.now() - minimizeStartTime).toFixed(1)}ms total)`);
       });
     } else {
       hoverActions.startMinimizing(win.id);
@@ -107,6 +139,13 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
   }, [win.id]);
 
   const handleDoubleClick = useCallback(() => {
+    // Multi-window mode: use Tauri's native maximize toggle
+    if (isHoverWindow()) {
+      getCurrentWindow().toggleMaximize();
+      return;
+    }
+
+    // DOM overlay mode: manual maximize/restore
     const screenWidth = window.innerWidth;
     const screenHeight = window.innerHeight;
     const isMaximized = win.position.x === 0 && win.position.y === 0 &&
@@ -125,6 +164,14 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
   const handleDragStart = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.hover-editor-close, .hover-editor-minimize')) return;
     e.preventDefault();
+
+    // Multi-window mode: use Tauri's native window dragging
+    if (isHoverWindow()) {
+      getCurrentWindow().startDragging();
+      return;
+    }
+
+    // DOM overlay mode: track mouse positions manually
     setIsDragging(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY, posX: win.position.x, posY: win.position.y };
   };
@@ -211,25 +258,49 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
   const displayFileName = fileName.replace(/_/g, ' ');
   const imgSrc = convertFileSrc(win.filePath);
 
+  // Detect multi-window mode (separate OS window vs DOM overlay)
+  const inMultiWindowMode = isHoverWindow();
+
   return (
     <div
       ref={hoverEditorRef}
       className={`hover-editor${isDragging ? ' is-dragging' : ''}${isResizing ? ' is-resizing' : ''}`}
       style={{
-        transform: `translate3d(${win.position.x}px, ${win.position.y}px, 0)`,
-        width: win.size.width,
-        height: win.size.height,
-        zIndex: win.zIndex,
+        // Multi-window mode: fill the entire viewport
+        // DOM overlay mode: use fixed positioning with transform
+        ...(inMultiWindowMode ? {
+          position: 'relative' as const,
+          width: '100%',
+          height: '100%',
+          transform: 'none',
+          border: 'none',
+          borderRadius: 0,
+          boxShadow: 'none',
+        } : {
+          transform: `translate3d(${win.position.x}px, ${win.position.y}px, 0)`,
+          width: win.size.width,
+          height: win.size.height,
+          zIndex: win.zIndex,
+        }),
       }}
       onMouseDown={handleMouseDown}
     >
       <div className="hover-editor-header" onMouseDown={handleDragStart} onDoubleClick={handleDoubleClick}>
         <span className="hover-editor-title">{displayFileName}</span>
         <div className="hover-editor-header-actions">
-          <button className="hover-editor-minimize" onClick={handleMinimize} title={t('minimize', language)}>
+          <button
+            className="hover-editor-minimize"
+            onClick={handleMinimize}
+            onMouseDown={(e) => e.stopPropagation()}
+            title={t('minimize', language)}
+          >
             <Minus size={14} />
           </button>
-          <button className="hover-editor-close" onClick={handleClose}>
+          <button
+            className="hover-editor-close"
+            onClick={handleClose}
+            onMouseDown={(e) => e.stopPropagation()}
+          >
             <X size={14} />
           </button>
         </div>
@@ -237,7 +308,7 @@ const HoverImageViewer = memo(function HoverImageViewer({ window: win }: HoverEd
       <div className="hover-editor-body image-viewer-body">
         <img src={imgSrc} alt={fileName} />
       </div>
-      <div className="hover-editor-resize" onMouseDown={handleResizeStart} />
+      {!inMultiWindowMode && <div className="hover-editor-resize" onMouseDown={handleResizeStart} />}
     </div>
   );
 }, hoverWindowPropsAreEqual);

@@ -910,10 +910,8 @@ impl SearchIndex {
         // Drop the writer lock before reloading to prevent blocking
         drop(writer);
 
-        // Small delay to ensure commit is fully persisted to disk (important for NAS/cloud sync)
-        std::thread::sleep(std::time::Duration::from_millis(20));
-
         // Force reload to ensure changes are immediately visible
+        // Note: commit() already does fsync internally, so no additional sleep needed
         self.force_reload()?;
 
         // Verify the document count after reload

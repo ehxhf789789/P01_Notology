@@ -3,88 +3,157 @@
  */
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { invoke } from '@tauri-apps/api/core';
 
-// Track open hover windows
-const openWindows = new Map<string, WebviewWindow>();
+// Track open hover windows: label -> { webview, filePath }
+const openWindows = new Map<string, { webview: WebviewWindow; filePath: string }>();
 
 // Counter for unique window IDs
 let windowCounter = 0;
 
+// Track cascade position for diagonal offset effect
+let cascadeIndex = 0;
+const WINDOW_CASCADE_OFFSET = 30; // Pixels to offset each new window diagonally
+const WINDOW_CASCADE_MAX = 8; // Reset cascade after this many windows
+
+/**
+ * Simple hash function for creating window labels from file paths
+ * Handles Unicode characters properly
+ */
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  // Convert to alphanumeric string
+  return Math.abs(hash).toString(36);
+}
+
 /**
  * Get a unique window label for a file path
- * Uses base64 encoding to create safe window labels
+ * Uses simple hash to create safe window labels (alphanumeric only)
  */
 function getWindowLabel(filePath: string): string {
-  // Create a short hash for the path to use as window label
-  // Window labels must be alphanumeric with dashes only
-  const encoded = btoa(filePath).replace(/[+/=]/g, '');
-  return `hover-${encoded.substring(0, 50)}-${++windowCounter}`;
+  const hash = simpleHash(filePath);
+  return `hover-${hash}-${++windowCounter}`;
 }
 
 /**
  * Get file name from path for window title
+ * Replaces underscores with spaces for better display
  */
 function getFileName(path: string): string {
   const normalized = path.replace(/\\/g, '/');
   const parts = normalized.split('/');
-  return parts[parts.length - 1] || 'Untitled';
+  const fileName = parts[parts.length - 1] || 'Untitled';
+  // Replace underscores with spaces for taskbar display
+  return fileName.replace(/_/g, ' ');
+}
+
+/**
+ * Detect file type for icon selection
+ * Maps file extensions to general categories for taskbar icons
+ */
+function detectFileType(path: string): string {
+  const ext = path.split('.').pop()?.toLowerCase() || '';
+  if (/^(pdf)$/.test(ext)) return 'PDF';
+  if (/^(png|jpg|jpeg|gif|webp|svg|bmp|ico)$/.test(ext)) return 'IMAGE';
+  if (/^(json|py|js|ts|jsx|tsx|css|html|xml|yaml|yml|toml|rs|go|java|c|cpp|h|hpp|cs|rb|php|sh|bash|zsh|sql|lua|r|swift|kt|scala|zig|vue|svelte|astro|ini|conf|cfg|env)$/.test(ext)) return 'CODE';
+  if (/^https?:\/\//i.test(path)) return 'WEB';
+  // For .md files, return empty string - caller should provide noteType
+  return '';
 }
 
 /**
  * Open a file in a new hover window
  * Creates a new Tauri WebviewWindow for the file
+ * @param filePath - Full path to the file
+ * @param vaultPath - Optional vault path for resolving links
+ * @param noteType - Optional note type for taskbar icon (e.g., 'MTG', 'EVENT', 'NOTE')
  */
-export async function openHoverWindow(filePath: string): Promise<WebviewWindow | null> {
+export async function openHoverWindow(filePath: string, vaultPath?: string, noteType?: string): Promise<WebviewWindow | null> {
   try {
-    // Check if already open
-    const existingLabel = Array.from(openWindows.entries())
-      .find(([_, win]) => {
-        // Can't directly check file path, so we track it
-        return false; // Let duplicate windows open for now
-      })?.[0];
-
-    if (existingLabel) {
-      const existing = openWindows.get(existingLabel);
-      if (existing) {
-        await existing.setFocus();
-        return existing;
+    // Check if already open for this file path
+    for (const [label, entry] of openWindows) {
+      if (entry.filePath === filePath) {
+        try {
+          await entry.webview.setFocus();
+          return entry.webview;
+        } catch {
+          // Window was destroyed, remove stale entry and create new one
+          openWindows.delete(label);
+          break;
+        }
       }
     }
 
     const label = getWindowLabel(filePath);
     const fileName = getFileName(filePath);
 
-    // Create new webview window
-    const webview = new WebviewWindow(label, {
+    // Encode file path and vault path for URL parameters (handles Unicode)
+    const encodedPath = encodeURIComponent(filePath);
+    const encodedVault = vaultPath ? encodeURIComponent(vaultPath) : '';
+
+    // Build URL with all necessary parameters
+    let url = `/?hover=true&path=${encodedPath}`;
+    if (encodedVault) {
+      url += `&vault=${encodedVault}`;
+    }
+
+    // Calculate cascade position for diagonal offset
+    // This prevents windows from stacking exactly on top of each other
+    const windowWidth = 900;
+    const windowHeight = 700;
+    const screenWidth = window.screen.availWidth;
+    const screenHeight = window.screen.availHeight;
+
+    // Calculate base center position
+    const baseCenterX = Math.round((screenWidth - windowWidth) / 2);
+    const baseCenterY = Math.round((screenHeight - windowHeight) / 2);
+
+    // Apply cascade offset (diagonal offset from center)
+    const offset = cascadeIndex * WINDOW_CASCADE_OFFSET;
+    const x = baseCenterX + offset;
+    const y = baseCenterY + offset;
+
+    // Increment cascade index, reset if reaching max or going off-screen
+    cascadeIndex = (cascadeIndex + 1) % WINDOW_CASCADE_MAX;
+
+    // Clamp to screen bounds
+    const finalX = Math.max(50, Math.min(x, screenWidth - windowWidth - 50));
+    const finalY = Math.max(50, Math.min(y, screenHeight - windowHeight - 50));
+
+    // Create window via Rust command (has background_color support to prevent white flash)
+    await invoke('create_hover_window', {
+      label,
+      url,
       title: fileName,
-      width: 900,
-      height: 700,
-      minWidth: 400,
-      minHeight: 300,
-      center: true,
-      decorations: true,
-      resizable: true,
-      focus: true,
-      url: '/', // Same URL, but window label determines content
+      x: finalX,
+      y: finalY,
+      width: windowWidth,
+      height: windowHeight,
     });
+
+    // Get the WebviewWindow instance after creation
+    const webview = await WebviewWindow.getByLabel(label);
+    if (!webview) {
+      throw new Error('Failed to get window after creation');
+    }
+
+    // Track the window
+    openWindows.set(label, { webview, filePath });
 
     // Listen for window close
     webview.onCloseRequested(async () => {
       openWindows.delete(label);
     });
 
-    // Wait for window to be created
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => reject(new Error('Window creation timeout')), 5000);
-      webview.once('tauri://created', () => {
-        clearTimeout(timeout);
-        openWindows.set(label, webview);
-        resolve();
-      });
-      webview.once('tauri://error', (e) => {
-        clearTimeout(timeout);
-        reject(e);
-      });
+    // Set window icon based on note type (non-blocking)
+    const iconType = noteType || detectFileType(filePath) || 'NOTE';
+    invoke('set_window_icon', { windowLabel: label, noteType: iconType }).catch((err) => {
+      console.warn('[multiWindow] Failed to set window icon:', err);
     });
 
     return webview;
@@ -98,19 +167,15 @@ export async function openHoverWindow(filePath: string): Promise<WebviewWindow |
  * Close a hover window by file path
  */
 export async function closeHoverWindow(filePath: string): Promise<void> {
-  // Find window by checking all open windows
-  // This is a simplified approach - in production you might want better tracking
-  for (const [label, win] of openWindows) {
-    try {
-      // Window label contains encoded path
-      if (label.includes(btoa(filePath).replace(/[+/=]/g, '').substring(0, 30))) {
-        await win.close();
-        openWindows.delete(label);
-        return;
+  for (const [label, entry] of openWindows) {
+    if (entry.filePath === filePath) {
+      try {
+        await entry.webview.close();
+      } catch {
+        // Window might already be closed
       }
-    } catch {
-      // Window might already be closed
       openWindows.delete(label);
+      return;
     }
   }
 }
@@ -120,9 +185,9 @@ export async function closeHoverWindow(filePath: string): Promise<void> {
  */
 export async function closeAllHoverWindows(): Promise<void> {
   const promises: Promise<void>[] = [];
-  for (const [label, win] of openWindows) {
+  for (const [label, entry] of openWindows) {
     promises.push(
-      win.close().catch(() => {}).finally(() => {
+      entry.webview.close().catch(() => {}).finally(() => {
         openWindows.delete(label);
       })
     );

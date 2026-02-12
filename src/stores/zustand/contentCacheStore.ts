@@ -3,6 +3,8 @@ import type { FileContent, NoteFrontmatter } from '../../types';
 import { parseFrontmatter } from '../../utils/frontmatter';
 import { fileCommands, cacheCommands } from '../../services/tauriCommands';
 import type { FrontmatterOnly, FileMeta } from '../../services/tauriCommands';
+import { subscribeToWindowSync, type FileSavedPayload, type MemoChangedPayload, type SearchIndexUpdatedPayload } from '../../utils/windowSync';
+import { refreshActions } from './refreshStore';
 
 // Conditional logging - only in development
 const DEV = import.meta.env.DEV;
@@ -548,3 +550,49 @@ export const contentCacheActions = {
   getWarmupProgress: () => useContentCacheStore.getState().warmupProgress,
   isWarming: () => useContentCacheStore.getState().isWarming,
 };
+
+// Window sync subscription for cross-window cache invalidation
+let windowSyncUnsubscribe: (() => void) | null = null;
+
+/**
+ * Subscribe to window sync events for automatic cache invalidation
+ * Call this once when the app initializes (in main window)
+ */
+export async function initContentCacheSync(): Promise<void> {
+  // Avoid duplicate subscriptions
+  if (windowSyncUnsubscribe) return;
+
+  try {
+    windowSyncUnsubscribe = await subscribeToWindowSync({
+      onFileSaved: (payload: FileSavedPayload) => {
+        // Invalidate cache when another window saves a file
+        log(`[ContentCache] FILE_SAVED from window ${payload.windowLabel}: ${payload.filePath}`);
+        useContentCacheStore.getState().invalidateContent(payload.filePath);
+      },
+      onMemoChanged: (payload: MemoChangedPayload) => {
+        // Refresh calendar when another window changes memo/todo content
+        log(`[ContentCache] MEMO_CHANGED from window ${payload.windowLabel}: ${payload.filePath}`);
+        refreshActions.refreshCalendar();
+      },
+      onSearchIndexUpdated: (payload: SearchIndexUpdatedPayload) => {
+        // Refresh search when another window updates the index
+        log(`[ContentCache] SEARCH_INDEX_UPDATED from window ${payload.windowLabel}: ${payload.filePath}`);
+        refreshActions.incrementSearchRefresh();
+      },
+    });
+    log('[ContentCache] Window sync subscription initialized');
+  } catch (err) {
+    console.error('[ContentCache] Failed to initialize window sync:', err);
+  }
+}
+
+/**
+ * Cleanup window sync subscription
+ */
+export function cleanupContentCacheSync(): void {
+  if (windowSyncUnsubscribe) {
+    windowSyncUnsubscribe();
+    windowSyncUnsubscribe = null;
+    log('[ContentCache] Window sync subscription cleaned up');
+  }
+}
