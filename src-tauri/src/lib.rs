@@ -800,9 +800,12 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
     // For files, use platform-specific commands to select the file in explorer
     #[cfg(target_os = "windows")]
     {
-        // Windows: explorer.exe /select,"path" - must be single argument
+        // Windows: explorer.exe /select,"path"
+        // The path must be quoted and combined with /select, as a single argument
+        // Using raw_arg to prevent automatic quoting issues
+        use std::os::windows::process::CommandExt;
         std::process::Command::new("explorer")
-            .arg(format!("/select,{}", path))
+            .raw_arg(format!("/select,\"{}\"", path))
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())
