@@ -115,10 +115,10 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [rootExpanded, setRootExpanded] = useState(false);
 
-  // Drag-and-drop state for container reordering
+  // Drag-and-drop state for container reordering (mouse-based)
   const [draggedContainer, setDraggedContainer] = useState<string | null>(null);
   const [dragOverContainer, setDragOverContainer] = useState<string | null>(null);
-  const draggedRef = useRef<string | null>(null);
+  const containerRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // Sort containers by custom order, fallback to alphabetical
   const sortedContainers = useMemo(() => {
@@ -141,80 +141,59 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     });
   }, [containers, containerOrder]);
 
-  // Handle drag start (only from drag handle)
-  const handleDragStart = useCallback((e: React.DragEvent, containerName: string) => {
+  // Mouse-based drag handler
+  const handleMouseDown = useCallback((e: React.MouseEvent, containerName: string) => {
+    e.preventDefault();
     e.stopPropagation();
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', containerName);
-    // Set a transparent drag image
-    const dragImage = document.createElement('div');
-    dragImage.style.opacity = '0';
-    document.body.appendChild(dragImage);
-    e.dataTransfer.setDragImage(dragImage, 0, 0);
-    setTimeout(() => document.body.removeChild(dragImage), 0);
+
+    const startY = e.clientY;
+    let currentTarget: string | null = null;
 
     setDraggedContainer(containerName);
-    draggedRef.current = containerName;
-  }, []);
 
-  // Handle drag over
-  const handleDragOver = useCallback((e: React.DragEvent, containerName: string) => {
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-    if (draggedRef.current && draggedRef.current !== containerName) {
-      setDragOverContainer(containerName);
-    }
-  }, []);
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      // Find which container we're over based on Y position
+      let foundTarget: string | null = null;
+      for (const [name, element] of containerRefs.current) {
+        if (name === containerName) continue;
+        const rect = element.getBoundingClientRect();
+        if (moveEvent.clientY >= rect.top && moveEvent.clientY <= rect.bottom) {
+          foundTarget = name;
+          break;
+        }
+      }
+      if (foundTarget !== currentTarget) {
+        currentTarget = foundTarget;
+        setDragOverContainer(foundTarget);
+      }
+    };
 
-  // Handle drag leave
-  const handleDragLeave = useCallback(() => {
-    setDragOverContainer(null);
-  }, []);
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
 
-  // Handle drop
-  const handleDrop = useCallback((e: React.DragEvent, targetContainerName: string) => {
-    e.preventDefault();
-    // Use ref as primary source (more reliable), fallback to dataTransfer
-    const sourceContainerName = draggedRef.current || e.dataTransfer.getData('text/plain');
-    if (!sourceContainerName || sourceContainerName === targetContainerName) {
+      if (currentTarget && currentTarget !== containerName) {
+        // Perform the reorder
+        const containerNames = sortedContainers.map(c => c.name);
+        const sourceIndex = containerNames.indexOf(containerName);
+        const targetIndex = containerNames.indexOf(currentTarget);
+
+        if (sourceIndex !== -1 && targetIndex !== -1) {
+          const newOrder = [...containerNames];
+          newOrder.splice(sourceIndex, 1);
+          const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+          newOrder.splice(adjustedTargetIndex, 0, containerName);
+          vaultConfigActions.setContainerOrderWithPersist(newOrder);
+        }
+      }
+
       setDraggedContainer(null);
       setDragOverContainer(null);
-      draggedRef.current = null;
-      return;
-    }
+    };
 
-    // Build new order
-    const containerNames = sortedContainers.map(c => c.name);
-    const sourceIndex = containerNames.indexOf(sourceContainerName);
-    const targetIndex = containerNames.indexOf(targetContainerName);
-    if (sourceIndex === -1 || targetIndex === -1) {
-      setDraggedContainer(null);
-      setDragOverContainer(null);
-      draggedRef.current = null;
-      return;
-    }
-
-    // Remove source and insert at target position
-    // Adjust target index if source was before target (indices shift after removal)
-    const newOrder = [...containerNames];
-    newOrder.splice(sourceIndex, 1);
-    const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
-    newOrder.splice(adjustedTargetIndex, 0, sourceContainerName);
-
-    // Persist new order
-    vaultConfigActions.setContainerOrderWithPersist(newOrder);
-
-    setDraggedContainer(null);
-    setDragOverContainer(null);
-    draggedRef.current = null;
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
   }, [sortedContainers]);
-
-  // Handle drag end
-  const handleDragEnd = useCallback(() => {
-    setDraggedContainer(null);
-    setDragOverContainer(null);
-    draggedRef.current = null;
-  }, []);
 
   // Reset expanded state when root container changes
   useEffect(() => {
@@ -471,11 +450,11 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           return (
             <div
               key={node.path}
+              ref={(el) => {
+                if (el) containerRefs.current.set(node.name, el);
+                else containerRefs.current.delete(node.name);
+              }}
               className={`container-tree-section ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
-              onDragOver={(e) => handleDragOver(e, node.name)}
-              onDragEnter={(e) => { e.preventDefault(); handleDragOver(e, node.name); }}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, node.name)}
             >
               {/* Root Container Item */}
               <div
@@ -485,9 +464,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
               >
                 <span
                   className="container-drag-handle"
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, node.name)}
-                  onDragEnd={handleDragEnd}
+                  onMouseDown={(e) => handleMouseDown(e, node.name)}
                 >
                   <GripVertical size={12} />
                 </span>
