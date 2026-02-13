@@ -141,10 +141,18 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     });
   }, [containers, containerOrder]);
 
-  // Handle drag start
+  // Handle drag start (only from drag handle)
   const handleDragStart = useCallback((e: React.DragEvent, containerName: string) => {
+    e.stopPropagation();
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', containerName);
+    // Set a transparent drag image
+    const dragImage = document.createElement('div');
+    dragImage.style.opacity = '0';
+    document.body.appendChild(dragImage);
+    e.dataTransfer.setDragImage(dragImage, 0, 0);
+    setTimeout(() => document.body.removeChild(dragImage), 0);
+
     setDraggedContainer(containerName);
     draggedRef.current = containerName;
   }, []);
@@ -464,12 +472,10 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
             <div
               key={node.path}
               className={`container-tree-section ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
-              draggable
-              onDragStart={(e) => handleDragStart(e, node.name)}
               onDragOver={(e) => handleDragOver(e, node.name)}
+              onDragEnter={(e) => { e.preventDefault(); handleDragOver(e, node.name); }}
               onDragLeave={handleDragLeave}
               onDrop={(e) => handleDrop(e, node.name)}
-              onDragEnd={handleDragEnd}
             >
               {/* Root Container Item */}
               <div
@@ -477,7 +483,12 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
                 onClick={() => handleContainerClick(node)}
                 onContextMenu={(e) => handleContextMenu(e, node)}
               >
-                <span className="container-drag-handle" onMouseDown={(e) => e.stopPropagation()}>
+                <span
+                  className="container-drag-handle"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, node.name)}
+                  onDragEnd={handleDragEnd}
+                >
                   <GripVertical size={12} />
                 </span>
                 <span

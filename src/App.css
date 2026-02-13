@@ -1509,6 +1509,12 @@ html[data-theme="light"] {
   cursor: grabbing;
 }
 
+/* Show handle when dragging is active (any container being dragged) */
+.container-tree-section.dragging .container-drag-handle,
+.container-tree-content:has(.dragging) .container-drag-handle {
+  opacity: 0.6;
+}
+
 .container-tree-item {
   display: flex;
   align-items: center;
