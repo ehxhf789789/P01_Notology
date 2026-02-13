@@ -141,6 +141,36 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     });
   }, [containers, containerOrder]);
 
+  // Precompute note counts for all folders to avoid expensive recalculations during render
+  // Key: folder path, Value: { collapsed: count when collapsed, expanded: count when expanded }
+  const folderNoteCounts = useMemo(() => {
+    const counts = new Map<string, { collapsed: number; expanded: number }>();
+
+    const computeForNode = (node: FileNode) => {
+      if (!node.is_dir) return;
+      counts.set(node.path, {
+        collapsed: countNotesInFolder(node, true),  // Include subfolders
+        expanded: countNotesInFolder(node, false),  // Only direct children
+      });
+      // Recursively compute for child folders
+      node.children?.forEach(child => {
+        if (child.is_dir && !child.name.endsWith('_att') && child.name !== '.notology') {
+          computeForNode(child);
+        }
+      });
+    };
+
+    containers.forEach(computeForNode);
+    return counts;
+  }, [containers]);
+
+  // Helper to get cached note count
+  const getNoteCount = useCallback((nodePath: string, isExpanded: boolean): number => {
+    const cached = folderNoteCounts.get(nodePath);
+    if (!cached) return 0;
+    return isExpanded ? cached.expanded : cached.collapsed;
+  }, [folderNoteCounts]);
+
   // Mouse-based drag handler
   const handleMouseDown = useCallback((e: React.MouseEvent, containerName: string) => {
     e.preventDefault();
@@ -352,8 +382,8 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     const hasChildFolders = childFolders.length > 0;
     const isSelected = node.path === selectedContainer;
 
-    // Calculate note count based on expanded state
-    const noteCount = countNotesInFolder(node, !isExpanded);
+    // Use cached note count based on expanded state
+    const noteCount = getNoteCount(node.path, isExpanded);
 
     return (
       <div key={node.path} className="folder-tree-item-wrapper">
@@ -439,7 +469,8 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           const isSelected = node.path === selectedContainer;
           const config = containerConfigs[node.path];
           const isStorage = config?.type === 'storage';
-          const noteCount = countNotesInFolder(node, !(isRootActive && rootExpanded));
+          // Use cached note count based on expanded state
+          const noteCount = getNoteCount(node.path, isRootActive && rootExpanded);
           // Check if this container has child folders
           const hasChildFolders = node.children?.some(child =>
             child.is_dir && !child.name.endsWith('_att') && child.name !== '.notology'

@@ -8,6 +8,7 @@ import { join } from '@tauri-apps/api/path';
 import { fileCommands, noteCommands, searchCommands, vaultCommands, utilCommands } from '../services/tauriCommands';
 import { fileTreeActions, useFileTreeStore } from './zustand/fileTreeStore';
 import { hoverActions, useHoverStore } from './zustand/hoverStore';
+import { closeHoverWindow } from '../utils/multiWindow';
 import { refreshActions, useRefreshStore } from './zustand/refreshStore';
 import { modalActions } from './zustand/modalStore';
 import { settingsActions, useSettingsStore } from './zustand/settingsStore';
@@ -181,7 +182,9 @@ export async function createFolder(name: string, parentPath?: string): Promise<s
 export async function deleteFile(path: string) {
   await searchCommands.removeFromIndex(path).catch(() => {});
   await fileCommands.deleteFile(path);
+  // Close hover windows in both overlay mode and multi-window mode
   hoverActions.closeByFilePath(path);
+  closeHoverWindow(path).catch(() => {});
   await fileTreeActions.refreshFileTree();
   refreshActions.incrementSearchRefresh();
   refreshActions.refreshCalendar(); // Sync memos/todos
@@ -228,7 +231,9 @@ export async function importFile(sourcePath: string, targetDir?: string): Promis
 export async function deleteNote(notePath: string) {
   await searchCommands.removeFromIndex(notePath).catch(() => {});
   await noteCommands.deleteNote(notePath);
+  // Close hover windows in both overlay mode and multi-window mode
   hoverActions.closeByFilePath(notePath);
+  closeHoverWindow(notePath).catch(() => {});
   await fileTreeActions.refreshFileTree();
   refreshActions.incrementSearchRefresh();
   refreshActions.refreshCalendar(); // Sync memos/todos

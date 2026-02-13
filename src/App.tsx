@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useLayoutEffect, useMemo, memo, startTransition, lazy, Suspense } from 'react';
-import { PanelLeftOpen, PanelRightOpen, Image, FileText, BookOpen, Globe, FileCode } from 'lucide-react';
+import { PanelLeftOpen, CalendarDays, Image, FileText, BookOpen, Globe, FileCode } from 'lucide-react';
 import { AppInitializer } from './stores/appStore';
 import {
   useHoverStore,
@@ -20,7 +20,6 @@ import {
   useCustomShortcuts,
   useNoteTemplates,
   useShowSearch,
-  useShowCalendar,
   useShowHoverPanel,
   useShowSidebar,
   useSidebarAnimState,
@@ -34,9 +33,8 @@ import TitleBar from './components/TitleBar';
 import Sidebar from './components/Sidebar';
 import ContainerView from './components/ContainerView';
 import Search from './components/Search';
-const Calendar = lazy(() => import('./components/Calendar'));
 import HoverEditorLayer from './components/hover/HoverEditorLayer';
-import HoverWindowsPanel from './components/HoverWindowsPanel';
+import RightPanel, { useTodayMemoCount } from './components/RightPanel';
 import ContextMenu from './components/ContextMenu';
 const MoveNoteModal = lazy(() => import('./components/MoveNoteModal'));
 import TemplateSelector from './components/TemplateSelector';
@@ -281,6 +279,8 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
   const animatedHoverWindows = useAnimatedWindowList(visibleHoverFiles);
   const noteTemplates = useNoteTemplates();
   const language = useLanguage();
+  // Today's memo/task count for the badge
+  const { total: todayMemoCount } = useTodayMemoCount();
 
   const [windowContextMenu, setWindowContextMenu] = useState<{ x: number; y: number; windowId: string } | null>(null);
   const [windowContextMenuPos, setWindowContextMenuPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -323,10 +323,12 @@ const CollapsedHoverBar = memo(function CollapsedHoverBar() {
       <button
         className="hover-panel-collapsed-toggle"
         onClick={() => uiActions.setShowHoverPanel(true)}
-        title={t('openWindowsList', language)}
+        title={t('calendar', language)}
       >
-        <PanelRightOpen size={18} />
-        <span className="hover-panel-collapsed-badge">{visibleHoverFiles.length}</span>
+        <CalendarDays size={18} />
+        {todayMemoCount > 0 && (
+          <span className="hover-panel-collapsed-badge">{todayMemoCount}</span>
+        )}
       </button>
       {/* All windows in collapsed right panel - with iOS-like animations */}
       {animatedHoverWindows.length > 0 && (
@@ -502,7 +504,6 @@ function AppLayout() {
 
   // UI state (individual Zustand subscriptions - only re-renders when specific value changes)
   const showSearch = useShowSearch();
-  const showCalendar = useShowCalendar();
   const showHoverPanel = useShowHoverPanel();
   const showSidebar = useShowSidebar();
   const sidebarAnimState = useSidebarAnimState();
@@ -776,10 +777,10 @@ function AppLayout() {
         return;
       }
 
-      // Calendar (Ctrl+Shift+C)
+      // Calendar (Ctrl+Shift+C) - now opens right panel which contains calendar
       if (checkShortcut('calendar')) {
         e.preventDefault();
-        uiActions.setShowCalendar(true);
+        uiActions.setShowHoverPanel(true);
         return;
       }
 
@@ -850,8 +851,6 @@ function AppLayout() {
         <div className="editor-area">
           {showSearch ? (
             <Search refreshTrigger={searchRefreshTrigger} />
-          ) : showCalendar ? (
-            <Suspense fallback={null}><Calendar /></Suspense>
           ) : selectedContainer ? (
             <ContainerView />
           ) : (
@@ -863,7 +862,7 @@ function AppLayout() {
         {/* Right Panel with slide animation */}
         <div className={`hover-panel-wrapper ${showHoverPanel ? 'open' : 'closed'} ${hoverPanelAnimState}`} style={{ width: showHoverPanel || hoverPanelAnimState === 'closing' ? HOVER_PANEL_WIDTH : undefined }}>
           {showHoverPanel || hoverPanelAnimState === 'closing' ? (
-            <HoverWindowsPanel width={HOVER_PANEL_WIDTH} />
+            <RightPanel width={HOVER_PANEL_WIDTH} />
           ) : (
             <CollapsedHoverBar />
           )}

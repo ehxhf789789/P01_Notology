@@ -19,6 +19,10 @@ const loadSidebarWidth = (): number => {
   return DEFAULT_SIDEBAR_WIDTH;
 };
 
+// Track animation timeouts to prevent memory leaks on rapid toggling
+let sidebarAnimTimeout: ReturnType<typeof setTimeout> | null = null;
+let hoverPanelAnimTimeout: ReturnType<typeof setTimeout> | null = null;
+
 interface UIState {
   // State
   showSearch: boolean;
@@ -64,27 +68,49 @@ export const useUIStore = create<UIState>()(
       }
     },
 
-    // Animated sidebar toggle (100ms open, 80ms close)
+    // Animated sidebar toggle (180ms open, 180ms close for smooth transition)
     setShowSidebar: (show: boolean) => {
       if (show === get().showSidebar) return;
+      // Clear previous timeout to prevent memory leaks on rapid toggling
+      if (sidebarAnimTimeout) {
+        clearTimeout(sidebarAnimTimeout);
+        sidebarAnimTimeout = null;
+      }
       if (show) {
         set({ sidebarAnimState: 'opening', showSidebar: true });
-        setTimeout(() => set({ sidebarAnimState: 'idle' }), 120);
+        sidebarAnimTimeout = setTimeout(() => {
+          set({ sidebarAnimState: 'idle' });
+          sidebarAnimTimeout = null;
+        }, 200);
       } else {
         set({ sidebarAnimState: 'closing' });
-        setTimeout(() => set({ showSidebar: false, sidebarAnimState: 'idle' }), 100);
+        sidebarAnimTimeout = setTimeout(() => {
+          set({ showSidebar: false, sidebarAnimState: 'idle' });
+          sidebarAnimTimeout = null;
+        }, 180);
       }
     },
 
-    // Animated hover panel toggle (100ms open, 80ms close)
+    // Animated hover panel toggle (180ms open, 180ms close for smooth transition)
     setShowHoverPanel: (show: boolean) => {
       if (show === get().showHoverPanel) return;
+      // Clear previous timeout to prevent memory leaks on rapid toggling
+      if (hoverPanelAnimTimeout) {
+        clearTimeout(hoverPanelAnimTimeout);
+        hoverPanelAnimTimeout = null;
+      }
       if (show) {
         set({ hoverPanelAnimState: 'opening', showHoverPanel: true });
-        setTimeout(() => set({ hoverPanelAnimState: 'idle' }), 120);
+        hoverPanelAnimTimeout = setTimeout(() => {
+          set({ hoverPanelAnimState: 'idle' });
+          hoverPanelAnimTimeout = null;
+        }, 200);
       } else {
         set({ hoverPanelAnimState: 'closing' });
-        setTimeout(() => set({ showHoverPanel: false, hoverPanelAnimState: 'idle' }), 100);
+        hoverPanelAnimTimeout = setTimeout(() => {
+          set({ showHoverPanel: false, hoverPanelAnimState: 'idle' });
+          hoverPanelAnimTimeout = null;
+        }, 180);
       }
     },
 

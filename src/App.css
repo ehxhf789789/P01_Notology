@@ -730,8 +730,8 @@ html[data-theme="light"] {
  * 6. Using cubic-bezier(0.22, 1, 0.36, 1) - smooth deceleration curve
  */
 
-/* Sidebar Wrapper - Left Panel (GPU-optimized, instant width change)
- * OPTIMIZATION: No width transition - causes reflow. Only content animates.
+/* Sidebar Wrapper - Left Panel (GPU-optimized, smooth slide animation)
+ * OPTIMIZATION: Uses transform for GPU acceleration with smooth width transition.
  */
 .sidebar-wrapper {
   display: flex;
@@ -741,19 +741,20 @@ html[data-theme="light"] {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: translateZ(0);
+  transition: width 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .sidebar-wrapper.open {
-  /* Width is set inline - instant change */
+  /* Width is set inline */
 }
 
 .sidebar-wrapper.closed {
-  width: 44px !important; /* Collapsed bar width - instant */
+  width: 44px !important; /* Collapsed bar width */
 }
 
-/* Closing state - instant width, content fades */
+/* Closing state - animating to collapsed */
 .sidebar-wrapper.closing {
-  width: 44px !important;
+  /* Width transitions smoothly via transition property */
 }
 
 /* Sidebar content - GPU layer ready */
@@ -765,32 +766,32 @@ html[data-theme="light"] {
   transform: translateZ(0);
 }
 
-/* Opening animation - fast fade in */
+/* Opening animation - smooth slide in from left */
 .sidebar-wrapper.opening > .sidebar {
-  animation: sidebarOpen 0.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: sidebarOpen 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Closing animation - very fast fade out */
+/* Closing animation - smooth slide out to left */
 .sidebar-wrapper.closing > .sidebar {
-  animation: sidebarClose 0.06s ease-out forwards;
+  animation: sidebarClose 0.12s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 
 /* Divider fade animation */
 .sidebar-wrapper.opening > .divider {
-  animation: fadeIn 0.1s ease-out forwards;
+  animation: fadeIn 0.15s ease-out forwards;
 }
 
 .sidebar-wrapper.closing > .divider {
-  animation: fadeOut 0.05s ease-out forwards;
+  animation: fadeOut 0.08s ease-out forwards;
 }
 
 .sidebar-wrapper.closed > .sidebar-collapsed-bar {
-  animation: fadeIn 0.05s ease-out forwards;
+  animation: fadeIn 0.08s ease-out forwards;
 }
 
-/* Hover Panel Wrapper - Right Panel (GPU-optimized, instant width change)
- * OPTIMIZATION: No width transition - causes reflow. Only content animates.
+/* Hover Panel Wrapper - Right Panel (GPU-optimized, smooth slide animation)
+ * OPTIMIZATION: Uses transform for GPU acceleration with smooth width transition.
  */
 .hover-panel-wrapper {
   display: flex;
@@ -800,22 +801,24 @@ html[data-theme="light"] {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: translateZ(0);
+  transition: width 0.18s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .hover-panel-wrapper.open {
-  /* Width is set inline - instant change */
+  /* Width is set inline */
 }
 
 .hover-panel-wrapper.closed {
-  width: 44px !important; /* Collapsed bar width - instant */
+  width: 44px !important; /* Collapsed bar width */
 }
 
-/* Closing state - instant width, content fades */
+/* Closing state - animating to collapsed */
 .hover-panel-wrapper.closing {
-  width: 44px !important;
+  /* Width transitions smoothly via transition property */
 }
 
-/* Panel content - GPU layer ready */
+/* Panel content - GPU layer ready (supports .right-panel) */
+.hover-panel-wrapper > .right-panel,
 .hover-panel-wrapper > .hover-windows-panel {
   flex-shrink: 0;
   will-change: transform, opacity;
@@ -823,26 +826,28 @@ html[data-theme="light"] {
   transform: translateZ(0);
 }
 
-/* Opening animation - fast fade in */
+/* Opening animation - smooth slide in from right */
+.hover-panel-wrapper.opening > .right-panel,
 .hover-panel-wrapper.opening > .hover-windows-panel {
-  animation: panelOpen 0.1s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: panelOpen 0.18s cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-/* Closing animation - very fast fade out */
+/* Closing animation - smooth slide out to right */
+.hover-panel-wrapper.closing > .right-panel,
 .hover-panel-wrapper.closing > .hover-windows-panel {
-  animation: panelClose 0.06s ease-out forwards;
+  animation: panelClose 0.12s cubic-bezier(0.4, 0, 0.2, 1) forwards;
   pointer-events: none;
 }
 
 .hover-panel-wrapper.closed > .hover-panel-collapsed-bar {
-  animation: fadeIn 0.05s ease-out forwards;
+  animation: fadeIn 0.08s ease-out forwards;
 }
 
-/* Sidebar-specific animations */
+/* Sidebar-specific animations - subtle slide for smooth feel */
 @keyframes sidebarOpen {
   0% {
     opacity: 0;
-    transform: translate3d(-30px, 0, 0);
+    transform: translate3d(-16px, 0, 0);
   }
   100% {
     opacity: 1;
@@ -857,15 +862,15 @@ html[data-theme="light"] {
   }
   100% {
     opacity: 0;
-    transform: translate3d(-30px, 0, 0);
+    transform: translate3d(-16px, 0, 0);
   }
 }
 
-/* Panel-specific animations */
+/* Panel-specific animations - subtle slide for smooth feel */
 @keyframes panelOpen {
   0% {
     opacity: 0;
-    transform: translate3d(30px, 0, 0);
+    transform: translate3d(16px, 0, 0);
   }
   100% {
     opacity: 1;
@@ -880,7 +885,7 @@ html[data-theme="light"] {
   }
   100% {
     opacity: 0;
-    transform: translate3d(30px, 0, 0);
+    transform: translate3d(16px, 0, 0);
   }
 }
 
@@ -1087,33 +1092,30 @@ html[data-theme="light"] {
   transition:
     opacity 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
     transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-  will-change: opacity, filter;
+    background-color 0.15s ease;
+  will-change: opacity, transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: translateZ(0);
   -webkit-tap-highlight-color: transparent;
-  /* Blur fade entrance animation */
+  /* Scale fade entrance animation - GPU accelerated */
   animation: collapsedBtnEnter 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards;
 }
 
-/* Blur fade entrance animation */
+/* Scale fade entrance animation - GPU accelerated (no blur) */
 @keyframes collapsedBtnEnter {
   0% {
     opacity: 0;
-    filter: blur(6px);
+    transform: scale(0.8) translateZ(0);
   }
   100% {
     opacity: 1;
-    filter: blur(0);
+    transform: scale(1) translateZ(0);
   }
 }
 
 /* GPU acceleration for all buttons - forces compositor layer */
 .hover-panel-collapsed-window-btn {
-  will-change: opacity, filter;
   transform: translateZ(0);
   backface-visibility: hidden;
 }
@@ -1124,7 +1126,7 @@ html[data-theme="light"] {
   /* No transition - instant response */
 }
 
-/* Blur fade exit animation */
+/* Scale fade exit animation - GPU accelerated */
 .hover-panel-collapsed-window-btn.is-exiting {
   animation: collapsedBtnExit 0.15s ease-out forwards;
   pointer-events: none;
@@ -1133,11 +1135,11 @@ html[data-theme="light"] {
 @keyframes collapsedBtnExit {
   0% {
     opacity: 1;
-    filter: blur(0);
+    transform: scale(1) translateZ(0);
   }
   100% {
     opacity: 0;
-    filter: blur(6px);
+    transform: scale(0.8) translateZ(0);
   }
 }
 
@@ -1540,7 +1542,6 @@ body:has(.container-tree-section.dragging) * {
   /* Click optimization */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  will-change: background-color;
 }
 
 .container-tree-item:hover {
@@ -1605,7 +1606,6 @@ body:has(.container-tree-section.dragging) * {
   /* Click optimization */
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  will-change: background-color;
 }
 
 .folder-tree-item:hover {
@@ -4126,6 +4126,390 @@ html[data-theme="light"] .wiki-image-embed-delete {
   padding: 24px 16px;
   color: var(--text-muted);
   font-size: 12px;
+}
+
+/* ========================================
+   Right Panel (Calendar + Memo List)
+   ======================================== */
+.right-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bg-primary);
+  border-left: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.right-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background-color: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.right-panel-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.right-panel-today-icon {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, rgba(100, 150, 255, 0.2) 0%, rgba(100, 150, 255, 0.1) 100%);
+  border: 1px solid rgba(100, 150, 255, 0.3);
+  border-radius: 8px;
+  color: #6496ff;
+}
+
+.right-panel-today-icon svg {
+  position: absolute;
+  top: 4px;
+  opacity: 0.6;
+}
+
+.right-panel-today-day {
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 6px;
+  color: #a0c4ff;
+}
+
+.right-panel-today-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.right-panel-today-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.right-panel-today-date {
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+.right-panel-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.right-panel-close:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+/* Calendar Section - Compact */
+.right-panel-calendar {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.right-panel-calendar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 4px 8px;
+}
+
+.right-panel-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.right-panel-nav-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.right-panel-month {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.right-panel-calendar-grid {
+  display: flex;
+  flex-direction: column;
+}
+
+.right-panel-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.right-panel-weekday {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 2px 0;
+}
+
+.right-panel-days {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.right-panel-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  position: relative;
+  aspect-ratio: 1;
+}
+
+.right-panel-day:hover:not(.empty) {
+  background-color: var(--bg-hover);
+}
+
+.right-panel-day.empty {
+  cursor: default;
+}
+
+.right-panel-day.today {
+  background-color: rgba(100, 150, 255, 0.15);
+}
+
+.right-panel-day.today .right-panel-day-number {
+  color: #6496ff;
+  font-weight: 600;
+}
+
+.right-panel-day.selected {
+  background-color: rgba(100, 150, 255, 0.25);
+  outline: 1px solid rgba(100, 150, 255, 0.5);
+}
+
+.right-panel-day.has-memos .right-panel-day-number {
+  font-weight: 600;
+}
+
+.right-panel-day-number {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1;
+}
+
+.right-panel-day-count {
+  font-size: 8px;
+  font-weight: 600;
+  color: #6496ff;
+  background: rgba(100, 150, 255, 0.2);
+  padding: 1px 4px;
+  border-radius: 6px;
+  margin-top: 2px;
+}
+
+/* Divider */
+.right-panel-divider {
+  height: 1px;
+  background-color: var(--border-color);
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+
+/* Memo List Section - Fills remaining space */
+.right-panel-memos {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  padding: 8px;
+  overflow: hidden;
+}
+
+.right-panel-memo-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.right-panel-memo-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.right-panel-toggle-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.right-panel-toggle-btn:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.right-panel-toggle-btn.active {
+  background-color: rgba(100, 150, 255, 0.15);
+  border-color: rgba(100, 150, 255, 0.4);
+  color: #a0c4ff;
+}
+
+.right-panel-toggle-badge {
+  font-size: 10px;
+  font-weight: 600;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background-color: rgba(100, 150, 255, 0.3);
+  color: #a0c4ff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 2px;
+}
+
+.right-panel-toggle-btn.active .right-panel-toggle-badge {
+  background-color: rgba(100, 150, 255, 0.5);
+}
+
+.right-panel-memo-count {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.right-panel-memo-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.right-panel-memo-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 8px;
+  background-color: var(--bg-secondary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+
+.right-panel-memo-item:hover {
+  background-color: var(--bg-hover);
+}
+
+.right-panel-memo-item.resolved {
+  opacity: 0.5;
+}
+
+.right-panel-memo-item.resolved .right-panel-memo-text {
+  text-decoration: line-through;
+}
+
+.right-panel-memo-checkbox {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  margin-top: 2px;
+  cursor: pointer;
+  accent-color: #6496ff;
+}
+
+.right-panel-memo-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.right-panel-memo-text {
+  font-size: 12px;
+  color: var(--text-primary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.right-panel-memo-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.right-panel-memo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+/* Collapsed Right Panel Badge */
+.right-panel-collapsed-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
+  font-weight: 600;
+  background: rgba(100, 150, 255, 0.2);
+  color: #a0c4ff;
+  border-radius: 8px;
+  padding: 0 4px;
 }
 
 .hover-editor-frontmatter {

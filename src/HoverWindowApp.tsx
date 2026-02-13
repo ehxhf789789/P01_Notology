@@ -138,20 +138,32 @@ function HoverWindowApp() {
 
   // Listen for file change events from main window
   useEffect(() => {
-    let unlisten: (() => void) | null = null;
+    let unlistenRename: (() => void) | null = null;
+    let unlistenDelete: (() => void) | null = null;
 
+    // Handle file rename
     listen<{ oldPath: string; newPath: string }>('file-renamed', (event) => {
       if (event.payload.oldPath === filePath) {
         setFilePath(event.payload.newPath);
         const fileName = getFileName(event.payload.newPath);
         windowRef.current.setTitle(fileName);
       }
-    }).then(fn => { unlisten = fn; });
+    }).then(fn => { unlistenRename = fn; });
+
+    // Handle file delete - close this window if our file was deleted
+    listen<{ filePath: string; normalizedPath: string }>('file-deleted', (event) => {
+      const currentNormalized = filePath.replace(/\\/g, '/').toLowerCase();
+      if (event.payload.normalizedPath === currentNormalized) {
+        console.log('[HoverWindowApp] File deleted, closing window');
+        handleAnimatedClose();
+      }
+    }).then(fn => { unlistenDelete = fn; });
 
     return () => {
-      if (unlisten) unlisten();
+      if (unlistenRename) unlistenRename();
+      if (unlistenDelete) unlistenDelete();
     };
-  }, [filePath]);
+  }, [filePath, handleAnimatedClose]);
 
   // Apply theme
   useEffect(() => {

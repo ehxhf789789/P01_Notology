@@ -1,15 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Calendar, Plus, Settings as SettingsIcon, FolderClosed, ChevronDown, FolderPlus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Search, Plus, Settings as SettingsIcon, FolderClosed, ChevronDown, FolderPlus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import {
   useVaultPath,
   useFileTree,
   useSelectedContainer,
 } from '../stores/zustand';
-import { useShowSearch, useShowCalendar, useShowSidebar, uiActions } from '../stores/zustand/uiStore';
+import { useShowSearch, useShowSidebar, uiActions } from '../stores/zustand/uiStore';
 import { useContainerConfigs, vaultConfigActions } from '../stores/zustand/vaultConfigStore';
 import { modalActions } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { useModalClose } from '../hooks/useModalListeners';
 import { openVault, createFolder, selectContainer } from '../stores/appActions';
 import Settings from './Settings';
 import RibbonBar from './RibbonBar';
@@ -25,7 +26,6 @@ function Sidebar() {
 
   // ========== ZUSTAND UI STATE ==========
   const showSearch = useShowSearch();
-  const showCalendar = useShowCalendar();
   const showSidebar = useShowSidebar();
   const containerConfigs = useContainerConfigs();
   const language = useSettingsStore(s => s.language);
@@ -57,27 +57,12 @@ function Sidebar() {
     }
   }, [showNewSubfolder]);
 
-  useEffect(() => {
-    if (!showTypeSelector) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (typeSelectorRef.current && !typeSelectorRef.current.contains(e.target as Node)) {
-        setShowTypeSelector(false);
-        setPendingContainerPath(null);
-      }
-    };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowTypeSelector(false);
-        setPendingContainerPath(null);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEsc);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
-    };
-  }, [showTypeSelector]);
+  // Handle type selector close with hook
+  const closeTypeSelector = useCallback(() => {
+    setShowTypeSelector(false);
+    setPendingContainerPath(null);
+  }, []);
+  useModalClose(typeSelectorRef, closeTypeSelector, showTypeSelector);
 
   const cancelNew = () => {
     setShowNewContainer(false);
@@ -226,14 +211,6 @@ function Sidebar() {
               disabled={!vaultPath}
             >
               <Search size={16} strokeWidth={2} />
-            </button>
-            <button
-              className={`sidebar-action-btn ${showCalendar ? 'active' : ''}`}
-              onClick={() => uiActions.setShowCalendar(true)}
-              title="Calendar"
-              disabled={!vaultPath}
-            >
-              <Calendar size={16} strokeWidth={2} />
             </button>
           </div>
         </div>

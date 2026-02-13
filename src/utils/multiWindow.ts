@@ -4,6 +4,7 @@
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { invoke } from '@tauri-apps/api/core';
+import { emit } from '@tauri-apps/api/event';
 
 // Track open hover windows: label -> { webview, filePath }
 const openWindows = new Map<string, { webview: WebviewWindow; filePath: string }>();
@@ -80,9 +81,10 @@ function detectFileType(path: string): string {
  */
 export async function openHoverWindow(filePath: string, vaultPath?: string, noteType?: string): Promise<WebviewWindow | null> {
   try {
-    // Check if already open for this file path
+    // Check if already open for this file path (normalize for comparison)
+    const normalizedPath = normalizePath(filePath);
     for (const [label, entry] of openWindows) {
-      if (entry.filePath === filePath) {
+      if (normalizePath(entry.filePath) === normalizedPath) {
         try {
           await entry.webview.setFocus();
           return entry.webview;
@@ -169,19 +171,37 @@ export async function openHoverWindow(filePath: string, vaultPath?: string, note
 }
 
 /**
+ * Normalize file path for comparison (handle Windows path separators and case)
+ */
+function normalizePath(path: string): string {
+  return path.replace(/\\/g, '/').toLowerCase();
+}
+
+/**
  * Close a hover window by file path
+ * Uses both local tracking and global event emission to ensure window is closed
  */
 export async function closeHoverWindow(filePath: string): Promise<void> {
+  const normalizedPath = normalizePath(filePath);
+
+  // First, try to close from our tracked windows
   for (const [label, entry] of openWindows) {
-    if (entry.filePath === filePath) {
+    if (normalizePath(entry.filePath) === normalizedPath) {
       try {
         await entry.webview.close();
       } catch {
         // Window might already be closed
       }
       openWindows.delete(label);
-      return;
     }
+  }
+
+  // Emit a global event for hover windows to check and close themselves
+  // This handles windows that weren't tracked in the main window's Map
+  try {
+    await emit('file-deleted', { filePath, normalizedPath });
+  } catch {
+    // Event emission might fail
   }
 }
 

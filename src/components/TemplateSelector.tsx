@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useModalStore } from '../stores/zustand/modalStore';
 import { useTemplateStore } from '../stores/zustand/templateStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
+import { useModalClose } from '../hooks/useModalListeners';
 import { t } from '../utils/i18n';
 import type { LanguageSetting } from '../utils/i18n';
 
@@ -37,28 +38,18 @@ function TemplateSelector() {
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Use optimized hook for click-outside and escape handling
+  useModalClose(menuRef, hideTemplateSelector, !!templateSelectorState?.visible);
+
+  // Reset search term and focus input when state changes
   useEffect(() => {
     if (!templateSelectorState) {
       setSearchTerm('');
       return;
     }
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        hideTemplateSelector();
-      }
-    };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') hideTemplateSelector();
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEsc);
     // Focus search input when opened
     setTimeout(() => searchInputRef.current?.focus(), 50);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
-    };
-  }, [templateSelectorState, hideTemplateSelector]);
+  }, [templateSelectorState]);
 
   useLayoutEffect(() => {
     if (!templateSelectorState?.visible || !menuRef.current) return;

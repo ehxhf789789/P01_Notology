@@ -9,6 +9,7 @@ import type { ContainerType, FolderStatus } from '../types';
 import { FOLDER_STATUS_INFO } from '../types';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { t } from '../utils/i18n';
+import { useModalClose } from '../hooks/useModalListeners';
 
 // Render folder status icon using Lucide
 function renderStatusIcon(status: FolderStatus) {
@@ -38,27 +39,16 @@ function ContextMenu() {
   const [showTypeSubmenu, setShowTypeSubmenu] = useState(false);
   const [showStatusSubmenu, setShowStatusSubmenu] = useState(false);
 
+  // Reset submenus when context menu closes
   useEffect(() => {
     if (!contextMenu) {
       setShowTypeSubmenu(false);
       setShowStatusSubmenu(false);
-      return;
     }
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        modalActions.hideContextMenu();
-      }
-    };
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') modalActions.hideContextMenu();
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEsc);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEsc);
-    };
   }, [contextMenu]);
+
+  // Use optimized hook for click outside and escape key handling
+  useModalClose(menuRef, () => modalActions.hideContextMenu(), !!contextMenu);
 
   const findFilePath = useCallback((fileName: string): string | null => {
     const search = (nodes: typeof fileTree): string | null => {
