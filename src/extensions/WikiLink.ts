@@ -337,7 +337,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
                       img.className = 'wiki-image-embed';
                       img.alt = capturedFileName;
-                      img.onclick = () => onClickLink(capturedFileName);
+                      img.ondblclick = () => onClickLink(capturedFileName);
 
                       // Delete button
                       const deleteBtn = document.createElement('button');
@@ -437,7 +437,7 @@ export const WikiLink = Node.create<WikiLinkOptions>({
 
             return DecorationSet.create(doc, decorations);
           },
-          handleClick(_view, _pos, event) {
+          handleDoubleClick(_view, _pos, event) {
             if (event.button !== 0) return false;
             const target = event.target as HTMLElement;
             const wikiLink = target.closest('[data-wiki-link]');
