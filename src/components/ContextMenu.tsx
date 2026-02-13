@@ -314,6 +314,9 @@ function ContextMenu() {
     zIndex: 10000,
   };
 
+  // Check if wiki link target is an attachment (non-.md file or in _att folder)
+  const isWikiLinkAttachment = filePath && (isInAttFolder || !filePath.endsWith('.md'));
+
   return (
     <div ref={menuRef} className="context-menu" style={menuStyle}>
       {wikiLinkDeleteCallback ? (
@@ -321,6 +324,11 @@ function ContextMenu() {
           <button className="context-menu-item" onClick={handleOpenNewWindow}>
             {t('openNote', language)}
           </button>
+          {isWikiLinkAttachment && (
+            <button className="context-menu-item" onClick={handleRevealFolder}>
+              {t('revealInExplorer', language)}
+            </button>
+          )}
           <div className="context-menu-separator" />
           <button className="context-menu-item" onClick={handleRenameWikiLink}>
             {t('renameWikiLink', language)}
