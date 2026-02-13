@@ -832,7 +832,7 @@ function AppLayout() {
         <div className={`sidebar-wrapper ${showSidebar ? 'open' : 'closed'} ${sidebarAnimState}`} style={{ width: showSidebar || sidebarAnimState === 'closing' ? sidebarWidth : undefined }}>
           {showSidebar || sidebarAnimState === 'closing' ? (
             <>
-              <Sidebar width={sidebarWidth} />
+              <Sidebar />
               <div className="divider" onMouseDown={startResize} />
             </>
           ) : (

@@ -17,11 +17,7 @@ import FolderTree from './FolderTree';
 import type { ContainerType } from '../types';
 import { t } from '../utils/i18n';
 
-interface SidebarProps {
-  width: number;
-}
-
-function Sidebar({ width }: SidebarProps) {
+function Sidebar() {
   // ========== ZUSTAND SELECTIVE SUBSCRIPTIONS (prevents cascade re-renders) ==========
   const vaultPath = useVaultPath();
   const fileTree = useFileTree();
@@ -202,7 +198,7 @@ function Sidebar({ width }: SidebarProps) {
 
   return (
     <>
-      <aside className="sidebar" style={{ width }}>
+      <aside className="sidebar">
         {/* Sidebar Header */}
         <div className="sidebar-header">
           <div className="sidebar-header-left">
