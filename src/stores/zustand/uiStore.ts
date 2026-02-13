@@ -1,6 +1,24 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 
+const MIN_SIDEBAR_WIDTH = 200;
+const MAX_SIDEBAR_WIDTH = 500;
+const DEFAULT_SIDEBAR_WIDTH = 280;
+
+// Load sidebar width from localStorage
+const loadSidebarWidth = (): number => {
+  try {
+    const stored = localStorage.getItem('notology-sidebar-width');
+    if (stored) {
+      const width = parseInt(stored, 10);
+      if (!isNaN(width) && width >= MIN_SIDEBAR_WIDTH && width <= MAX_SIDEBAR_WIDTH) {
+        return width;
+      }
+    }
+  } catch {}
+  return DEFAULT_SIDEBAR_WIDTH;
+};
+
 interface UIState {
   // State
   showSearch: boolean;
@@ -9,12 +27,14 @@ interface UIState {
   showSidebar: boolean;
   sidebarAnimState: 'idle' | 'opening' | 'closing';
   hoverPanelAnimState: 'idle' | 'opening' | 'closing';
+  sidebarWidth: number;
 
   // Actions
   setShowSearch: (show: boolean) => void;
   setShowCalendar: (show: boolean) => void;
   setShowSidebar: (show: boolean) => void;
   setShowHoverPanel: (show: boolean) => void;
+  setSidebarWidth: (width: number) => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -26,6 +46,7 @@ export const useUIStore = create<UIState>()(
     showSidebar: true,
     sidebarAnimState: 'idle',
     hoverPanelAnimState: 'idle',
+    sidebarWidth: loadSidebarWidth(),
 
     // Show search (mutually exclusive with calendar)
     setShowSearch: (show: boolean) => {
@@ -66,6 +87,15 @@ export const useUIStore = create<UIState>()(
         setTimeout(() => set({ showHoverPanel: false, hoverPanelAnimState: 'idle' }), 100);
       }
     },
+
+    // Set sidebar width with persistence
+    setSidebarWidth: (width: number) => {
+      const clampedWidth = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
+      set({ sidebarWidth: clampedWidth });
+      try {
+        localStorage.setItem('notology-sidebar-width', String(clampedWidth));
+      } catch {}
+    },
   }))
 );
 
@@ -76,6 +106,7 @@ export const useShowHoverPanel = () => useUIStore((s) => s.showHoverPanel);
 export const useShowSidebar = () => useUIStore((s) => s.showSidebar);
 export const useSidebarAnimState = () => useUIStore((s) => s.sidebarAnimState);
 export const useHoverPanelAnimState = () => useUIStore((s) => s.hoverPanelAnimState);
+export const useSidebarWidth = () => useUIStore((s) => s.sidebarWidth);
 
 // Actions (stable references)
 export const uiActions = {
@@ -83,4 +114,5 @@ export const uiActions = {
   setShowCalendar: (show: boolean) => useUIStore.getState().setShowCalendar(show),
   setShowSidebar: (show: boolean) => useUIStore.getState().setShowSidebar(show),
   setShowHoverPanel: (show: boolean) => useUIStore.getState().setShowHoverPanel(show),
+  setSidebarWidth: (width: number) => useUIStore.getState().setSidebarWidth(width),
 };

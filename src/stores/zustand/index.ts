@@ -101,6 +101,7 @@ export {
   useShowSidebar,
   useSidebarAnimState,
   useHoverPanelAnimState,
+  useSidebarWidth,
   uiActions,
 } from './uiStore';
 

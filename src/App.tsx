@@ -25,6 +25,7 @@ import {
   useShowSidebar,
   useSidebarAnimState,
   useHoverPanelAnimState,
+  useSidebarWidth,
   uiActions,
   useContainerConfigs,
 } from './stores/zustand';
@@ -61,10 +62,6 @@ import { detectGpuPerformance } from './utils/gpuDetect';
 import { closeAllHoverWindows } from './utils/multiWindow';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import './App.css';
-
-const MIN_SIDEBAR_WIDTH = 200;
-const MAX_SIDEBAR_WIDTH = 500;
-const DEFAULT_SIDEBAR_WIDTH = 280;
 
 const HOVER_PANEL_WIDTH = 280;
 
@@ -585,7 +582,7 @@ function AppLayout() {
     }
     return null;
   };
-  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const sidebarWidth = useSidebarWidth();
   const isResizing = useRef(false);
 
   useDragDropListener();
@@ -600,8 +597,7 @@ function AppLayout() {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing.current) return;
-      const newWidth = Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, e.clientX));
-      setSidebarWidth(newWidth);
+      uiActions.setSidebarWidth(e.clientX);
     };
 
     const handleMouseUp = () => {
