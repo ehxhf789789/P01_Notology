@@ -791,12 +791,59 @@ fn open_in_default_app(path: String) -> Result<(), String> {
 #[tauri::command]
 fn reveal_in_explorer(path: String) -> Result<(), String> {
     let target = Path::new(&path);
-    let dir = if target.is_dir() {
-        target.to_path_buf()
-    } else {
-        target.parent().unwrap_or(target).to_path_buf()
-    };
-    opener::open(&dir).map_err(|e| e.to_string())
+
+    // If it's a directory, just open it
+    if target.is_dir() {
+        return opener::open(target).map_err(|e| e.to_string());
+    }
+
+    // For files, use platform-specific commands to select the file in explorer
+    #[cfg(target_os = "windows")]
+    {
+        // Windows: explorer.exe /select,"path"
+        std::process::Command::new("explorer")
+            .arg("/select,")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        // macOS: open -R "path" (reveals in Finder)
+        std::process::Command::new("open")
+            .arg("-R")
+            .arg(&path)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: Try dbus method first, fallback to opening parent directory
+        // Most file managers support this via dbus
+        let dbus_result = std::process::Command::new("dbus-send")
+            .args(&[
+                "--session",
+                "--dest=org.freedesktop.FileManager1",
+                "--type=method_call",
+                "/org/freedesktop/FileManager1",
+                "org.freedesktop.FileManager1.ShowItems",
+                &format!("array:string:file://{}", path),
+                "string:",
+            ])
+            .spawn();
+
+        if dbus_result.is_ok() {
+            Ok(())
+        } else {
+            // Fallback: just open the parent directory
+            let dir = target.parent().unwrap_or(target);
+            opener::open(dir).map_err(|e| e.to_string())
+        }
+    }
 }
 
 // UNUSED: Not invoked from frontend
