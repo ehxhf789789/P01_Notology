@@ -2075,18 +2075,18 @@ fn set_window_icon(app: tauri::AppHandle, window_label: String, note_type: Strin
         .ok_or_else(|| format!("Window '{}' not found", window_label))?;
 
     // Map note type to icon file
-    // For now, using the same icon for all types until template-specific icons are created
-    // Future: match note_type.as_str() { "MTG" => "mtg.png", "EVENT" => "event.png", ... }
+    // Lucide-style icons for hover windows: note (blue), image (green), pdf (red), code (purple), web (cyan)
+    // Main Notology window keeps the original icon.png
     let icon_name = match note_type.to_uppercase().as_str() {
-        "MTG" => "icon.png",      // Future: "mtg.png"
-        "EVENT" => "icon.png",    // Future: "event.png"
-        "SEM" => "icon.png",      // Future: "sem.png"
-        "NOTE" => "icon.png",     // Future: "note.png"
-        "SKETCH" => "icon.png",   // Future: "sketch.png"
-        "OFA" => "icon.png",      // Future: "ofa.png"
-        "PAPER" => "icon.png",    // Future: "paper.png"
-        "CONTAINER" => "icon.png", // Future: "container.png"
-        _ => "icon.png",          // Default icon
+        // Attachment viewers (distinct colored icons)
+        "IMAGE" => "image.png",   // Green - image viewer
+        "PDF" => "pdf.png",       // Red - PDF viewer
+        "CODE" => "code.png",     // Purple - code viewer
+        "WEB" => "web.png",       // Cyan - web viewer
+        // Note types (all use blue note icon)
+        "NOTE" | "MTG" | "EVENT" | "SEM" | "SKETCH" | "OFA" | "PAPER" | "LIT" | "DATA" | "THEO" | "CONTACT" => "note.png",
+        // Default for editor windows
+        _ => "note.png",
     };
 
     // Get the icon path from resources

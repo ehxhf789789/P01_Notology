@@ -27,11 +27,16 @@ function getFileType(path: string): HoverWindow['type'] {
   return isUrl ? 'web' : isPdf ? 'pdf' : isImage ? 'image' : isCode ? 'code' : 'editor';
 }
 
-// Get file name from path (replaces underscores with spaces for taskbar display)
+// Get file name from path (removes extension, replaces underscores with spaces)
 function getFileName(path: string): string {
   const normalized = path.replace(/\\/g, '/');
   const parts = normalized.split('/');
-  const fileName = parts[parts.length - 1] || 'Untitled';
+  let fileName = parts[parts.length - 1] || 'Untitled';
+  // Remove extension
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot > 0) {
+    fileName = fileName.substring(0, lastDot);
+  }
   return fileName.replace(/_/g, ' ');
 }
 

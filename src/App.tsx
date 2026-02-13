@@ -58,6 +58,8 @@ import { t } from './utils/i18n';
 import { initializeSnippets, loadSnippets, clearSnippets } from './utils/snippetLoader';
 import { getNoteTypeFromFileName, getTemplateCustomColor } from './utils/noteTypeHelpers';
 import { detectGpuPerformance } from './utils/gpuDetect';
+import { closeAllHoverWindows } from './utils/multiWindow';
+import { getCurrentWindow } from '@tauri-apps/api/window';
 import './App.css';
 
 const MIN_SIDEBAR_WIDTH = 200;
@@ -517,6 +519,17 @@ function AppLayout() {
   const noteTemplates = useNoteTemplates();
   const containerConfigs = useContainerConfigs();
   const language = useLanguage();
+
+  // ========== CLOSE ALL HOVER WINDOWS WHEN MAIN WINDOW CLOSES ==========
+  useEffect(() => {
+    const mainWindow = getCurrentWindow();
+    const unlistenPromise = mainWindow.onCloseRequested(async () => {
+      await closeAllHoverWindows();
+    });
+    return () => {
+      unlistenPromise.then(unlisten => unlisten());
+    };
+  }, []);
 
   // ========== GLOBAL NOTE TYPE CACHE REFRESH (runs once globally, not per hover window) ==========
   // Triggered by searchRefreshTrigger (incremented on actual file operations)

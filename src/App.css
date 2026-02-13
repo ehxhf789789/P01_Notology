@@ -730,13 +730,13 @@ html[data-theme="light"] {
  * 6. Using cubic-bezier(0.22, 1, 0.36, 1) - smooth deceleration curve
  */
 
-/* Sidebar Wrapper - Left Panel (GPU-optimized, fast animations) */
+/* Sidebar Wrapper - Left Panel (GPU-optimized, instant width change)
+ * OPTIMIZATION: No width transition - causes reflow. Only content animates.
+ */
 .sidebar-wrapper {
   display: flex;
   flex-shrink: 0;
   overflow: hidden;
-  will-change: width;
-  transition: width 0.1s cubic-bezier(0.22, 1, 0.36, 1);
   contain: layout style;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -744,17 +744,16 @@ html[data-theme="light"] {
 }
 
 .sidebar-wrapper.open {
-  /* Width is set inline */
+  /* Width is set inline - instant change */
 }
 
 .sidebar-wrapper.closed {
-  width: 44px !important; /* Collapsed bar width */
+  width: 44px !important; /* Collapsed bar width - instant */
 }
 
-/* Closing state - faster width shrink */
+/* Closing state - instant width, content fades */
 .sidebar-wrapper.closing {
   width: 44px !important;
-  transition: width 0.08s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Sidebar content - GPU layer ready */
@@ -789,30 +788,30 @@ html[data-theme="light"] {
   animation: fadeIn 0.05s ease-out forwards;
 }
 
-/* Hover Panel Wrapper - Right Panel (GPU-optimized) */
+/* Hover Panel Wrapper - Right Panel (GPU-optimized, instant width change)
+ * OPTIMIZATION: No width transition - causes reflow. Only content animates.
+ */
 .hover-panel-wrapper {
   display: flex;
   flex-shrink: 0;
   overflow: hidden;
-  will-change: width;
-  transition: width 0.1s cubic-bezier(0.22, 1, 0.36, 1);
+  contain: layout style;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
   transform: translateZ(0);
 }
 
 .hover-panel-wrapper.open {
-  /* Width is set inline */
+  /* Width is set inline - instant change */
 }
 
 .hover-panel-wrapper.closed {
-  width: 44px !important; /* Collapsed bar width */
+  width: 44px !important; /* Collapsed bar width - instant */
 }
 
-/* Closing state - faster width shrink */
+/* Closing state - instant width, content fades */
 .hover-panel-wrapper.closing {
   width: 44px !important;
-  transition: width 0.08s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* Panel content - GPU layer ready */
@@ -3499,15 +3498,17 @@ html[data-theme="light"] .wiki-image-embed-delete {
   animation: hover-window-restore 0.18s cubic-bezier(0.22, 1, 0.36, 1) forwards !important;
 }
 
-/* Maximize/unmaximize - fast size transition */
+/* Maximize/unmaximize - instant size change for performance
+ * OPTIMIZATION: Removed width/height transitions that cause reflow
+ */
 .hover-editor.is-maximizing,
 .hover-editor.is-unmaximizing {
-  transition: width 0.12s cubic-bezier(0.22, 1, 0.36, 1), height 0.12s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  contain: layout style;
 }
 
-/* Snap - instant feel */
+/* Snap - instant feel, no transition */
 .hover-editor.is-snapping {
-  transition: width 0.08s ease-out, height 0.08s ease-out !important;
+  contain: layout style;
 }
 
 /* Prevent text selection during drag/resize operations */
@@ -3543,10 +3544,7 @@ html[data-theme="light"] .wiki-image-embed-delete {
   backdrop-filter: none !important;
 }
 
-/* Fast snap size transition */
-.hover-editor.is-snapping {
-  transition: width 0.1s ease-out, height 0.1s ease-out !important;
-}
+/* Fast snap - handled above with contain: layout style */
 
 /* Hover Editor Type Borders */
 .hover-editor.note-type { border-color: var(--note-border); }

@@ -42,12 +42,17 @@ function getWindowLabel(filePath: string): string {
 
 /**
  * Get file name from path for window title
- * Replaces underscores with spaces for better display
+ * Removes extension and replaces underscores with spaces
  */
 function getFileName(path: string): string {
   const normalized = path.replace(/\\/g, '/');
   const parts = normalized.split('/');
-  const fileName = parts[parts.length - 1] || 'Untitled';
+  let fileName = parts[parts.length - 1] || 'Untitled';
+  // Remove extension
+  const lastDot = fileName.lastIndexOf('.');
+  if (lastDot > 0) {
+    fileName = fileName.substring(0, lastDot);
+  }
   // Replace underscores with spaces for taskbar display
   return fileName.replace(/_/g, ' ');
 }
