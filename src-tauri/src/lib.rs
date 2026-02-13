@@ -801,11 +801,12 @@ fn reveal_in_explorer(path: String) -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
         // Windows: explorer.exe /select,"path"
-        // The path must be quoted and combined with /select, as a single argument
-        // Using raw_arg to prevent automatic quoting issues
+        // Using raw_arg for proper path handling and DETACHED_PROCESS for faster startup
         use std::os::windows::process::CommandExt;
+        const DETACHED_PROCESS: u32 = 0x00000008;
         std::process::Command::new("explorer")
             .raw_arg(format!("/select,\"{}\"", path))
+            .creation_flags(DETACHED_PROCESS)
             .spawn()
             .map_err(|e| e.to_string())?;
         Ok(())
