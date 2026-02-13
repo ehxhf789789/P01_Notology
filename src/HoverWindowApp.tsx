@@ -13,6 +13,10 @@ import HoverPdfViewer from './components/hover/HoverPdfViewer';
 import HoverImageViewer from './components/hover/HoverImageViewer';
 import HoverCodeViewer from './components/hover/HoverCodeViewer';
 import HoverWebViewer from './components/hover/HoverWebViewer';
+import ContextMenu from './components/ContextMenu';
+import RenameDialog from './components/RenameDialog';
+import ConfirmDeleteModal from './components/ConfirmDeleteModal';
+import AlertModal from './components/AlertModal';
 import { useTheme } from './stores/zustand';
 import { useFileTreeStore } from './stores/zustand/fileTreeStore';
 import { useDragDropListener } from './hooks/useDragDrop';
@@ -229,6 +233,11 @@ function HoverWindowApp() {
       data-theme={theme}
     >
       {renderContent()}
+      {/* Context menu and modals for multi-window mode */}
+      <ContextMenu />
+      <RenameDialog />
+      <ConfirmDeleteModal />
+      <AlertModal />
     </div>
   );
 }
