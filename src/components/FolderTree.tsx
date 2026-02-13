@@ -1,7 +1,7 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Folder, FolderOpen, FolderDot, FolderRoot, FolderOpenDot, ChevronsUpDown, ChevronsDownUp, FolderPlus, RefreshCw, Check, Pause, Circle } from 'lucide-react';
+import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
+import { Folder, FolderOpen, FolderDot, FolderRoot, FolderOpenDot, ChevronsUpDown, ChevronsDownUp, FolderPlus, RefreshCw, Check, Pause, Circle, GripVertical } from 'lucide-react';
 import { useFileTree, useSelectedContainer } from '../stores/zustand/fileTreeStore';
-import { useContainerConfigs, useFolderStatuses } from '../stores/zustand/vaultConfigStore';
+import { useContainerConfigs, useFolderStatuses, useContainerOrder, vaultConfigActions } from '../stores/zustand/vaultConfigStore';
 import { modalActions } from '../stores/zustand/modalStore';
 import { useTemplateStore } from '../stores/zustand/templateStore';
 import { selectContainer } from '../stores/appActions';
@@ -102,6 +102,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
   const selectedContainer = useSelectedContainer();
   const containerConfigs = useContainerConfigs();
   const folderStatuses = useFolderStatuses();
+  const containerOrder = useContainerOrder();
   const noteTemplates = useTemplateStore(s => s.noteTemplates);
 
   // Get template prefix for a Storage container
@@ -113,6 +114,99 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
   };
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [rootExpanded, setRootExpanded] = useState(false);
+
+  // Drag-and-drop state for container reordering
+  const [draggedContainer, setDraggedContainer] = useState<string | null>(null);
+  const [dragOverContainer, setDragOverContainer] = useState<string | null>(null);
+  const draggedRef = useRef<string | null>(null);
+
+  // Sort containers by custom order, fallback to alphabetical
+  const sortedContainers = useMemo(() => {
+    if (!containerOrder || containerOrder.length === 0) {
+      // No custom order, sort alphabetically
+      return [...containers].sort((a, b) => a.name.localeCompare(b.name));
+    }
+    // Sort by custom order, containers not in order go to the end (alphabetically)
+    return [...containers].sort((a, b) => {
+      const aIndex = containerOrder.indexOf(a.name);
+      const bIndex = containerOrder.indexOf(b.name);
+      // Both in order: sort by order index
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      // Only a in order: a comes first
+      if (aIndex !== -1) return -1;
+      // Only b in order: b comes first
+      if (bIndex !== -1) return 1;
+      // Neither in order: alphabetical
+      return a.name.localeCompare(b.name);
+    });
+  }, [containers, containerOrder]);
+
+  // Handle drag start
+  const handleDragStart = useCallback((e: React.DragEvent, containerName: string) => {
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', containerName);
+    setDraggedContainer(containerName);
+    draggedRef.current = containerName;
+  }, []);
+
+  // Handle drag over
+  const handleDragOver = useCallback((e: React.DragEvent, containerName: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (draggedRef.current && draggedRef.current !== containerName) {
+      setDragOverContainer(containerName);
+    }
+  }, []);
+
+  // Handle drag leave
+  const handleDragLeave = useCallback(() => {
+    setDragOverContainer(null);
+  }, []);
+
+  // Handle drop
+  const handleDrop = useCallback((e: React.DragEvent, targetContainerName: string) => {
+    e.preventDefault();
+    // Use ref as primary source (more reliable), fallback to dataTransfer
+    const sourceContainerName = draggedRef.current || e.dataTransfer.getData('text/plain');
+    if (!sourceContainerName || sourceContainerName === targetContainerName) {
+      setDraggedContainer(null);
+      setDragOverContainer(null);
+      draggedRef.current = null;
+      return;
+    }
+
+    // Build new order
+    const containerNames = sortedContainers.map(c => c.name);
+    const sourceIndex = containerNames.indexOf(sourceContainerName);
+    const targetIndex = containerNames.indexOf(targetContainerName);
+    if (sourceIndex === -1 || targetIndex === -1) {
+      setDraggedContainer(null);
+      setDragOverContainer(null);
+      draggedRef.current = null;
+      return;
+    }
+
+    // Remove source and insert at target position
+    // Adjust target index if source was before target (indices shift after removal)
+    const newOrder = [...containerNames];
+    newOrder.splice(sourceIndex, 1);
+    const adjustedTargetIndex = sourceIndex < targetIndex ? targetIndex - 1 : targetIndex;
+    newOrder.splice(adjustedTargetIndex, 0, sourceContainerName);
+
+    // Persist new order
+    vaultConfigActions.setContainerOrderWithPersist(newOrder);
+
+    setDraggedContainer(null);
+    setDragOverContainer(null);
+    draggedRef.current = null;
+  }, [sortedContainers]);
+
+  // Handle drag end
+  const handleDragEnd = useCallback(() => {
+    setDraggedContainer(null);
+    setDragOverContainer(null);
+    draggedRef.current = null;
+  }, []);
 
   // Reset expanded state when root container changes
   useEffect(() => {
@@ -353,7 +447,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
 
       {/* Unified Container and Folder Tree */}
       <div className="folder-tree-content">
-        {containers.map(node => {
+        {sortedContainers.map(node => {
           const isRootActive = node.path === rootContainer;
           const isSelected = node.path === selectedContainer;
           const config = containerConfigs[node.path];
@@ -363,15 +457,29 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           const hasChildFolders = node.children?.some(child =>
             child.is_dir && !child.name.endsWith('_att') && child.name !== '.notology'
           ) || false;
+          const isDragging = draggedContainer === node.name;
+          const isDragOver = dragOverContainer === node.name;
 
           return (
-            <div key={node.path} className="container-tree-section">
+            <div
+              key={node.path}
+              className={`container-tree-section ${isDragging ? 'dragging' : ''} ${isDragOver ? 'drag-over' : ''}`}
+              draggable
+              onDragStart={(e) => handleDragStart(e, node.name)}
+              onDragOver={(e) => handleDragOver(e, node.name)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, node.name)}
+              onDragEnd={handleDragEnd}
+            >
               {/* Root Container Item */}
               <div
                 className={`container-tree-item ${isSelected ? 'selected' : ''} ${isRootActive && !isSelected ? 'root-active' : ''} ${isStorage ? 'storage' : ''}`}
                 onClick={() => handleContainerClick(node)}
                 onContextMenu={(e) => handleContextMenu(e, node)}
               >
+                <span className="container-drag-handle" onMouseDown={(e) => e.stopPropagation()}>
+                  <GripVertical size={12} />
+                </span>
                 <span
                   className="container-tree-icon"
                   onClick={(e) => handleContainerIconClick(node, e)}
@@ -406,7 +514,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           );
         })}
 
-        {containers.length === 0 && (
+        {sortedContainers.length === 0 && (
           <div className="folder-tree-empty">{t('noContainers', language)}</div>
         )}
       </div>

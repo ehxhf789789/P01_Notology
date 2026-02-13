@@ -32,6 +32,7 @@ async function loadVaultSettings(targetVaultPath: string) {
   templateActions.loadTemplates(targetVaultPath, vaultConfig);
   vaultConfigActions.setContainerConfigs(vaultConfig.containerConfigs || {});
   vaultConfigActions.setFolderStatuses(vaultConfig.folderStatuses || {});
+  vaultConfigActions.setContainerOrder(vaultConfig.containerOrder || []);
 }
 
 async function initSearchIndex(vaultPath: string) {

@@ -70,6 +70,7 @@ export function AppInitializer({ children }: { children: ReactNode }) {
               templateActions.loadTemplates(vaultPath, config);
               vaultConfigActions.setContainerConfigs(config.containerConfigs || {});
               vaultConfigActions.setFolderStatuses(config.folderStatuses || {});
+              vaultConfigActions.setContainerOrder(config.containerOrder || []);
               console.log('[Sync] vault-config.yaml reloaded from external change');
             }).catch(() => {});
           }

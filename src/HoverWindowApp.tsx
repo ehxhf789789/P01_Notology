@@ -15,6 +15,7 @@ import HoverCodeViewer from './components/hover/HoverCodeViewer';
 import HoverWebViewer from './components/hover/HoverWebViewer';
 import { useTheme } from './stores/zustand';
 import { useFileTreeStore } from './stores/zustand/fileTreeStore';
+import { useDragDropListener } from './hooks/useDragDrop';
 import type { HoverWindow } from './types';
 import './App.css';
 
@@ -53,6 +54,9 @@ function HoverWindowApp() {
   const windowRef = useRef(getCurrentWindow());
   const isClosingRef = useRef(false); // Prevent double-close
   const hasShownRef = useRef(false); // Prevent double-show
+
+  // Initialize drag-drop listener for this window
+  useDragDropListener();
 
   // Animated close function
   const handleAnimatedClose = useCallback(async () => {

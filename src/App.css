@@ -1469,6 +1469,44 @@ html[data-theme="light"] {
 /* Container Tree Section */
 .container-tree-section {
   user-select: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.container-tree-section.dragging {
+  opacity: 0.5;
+}
+
+.container-tree-section.drag-over {
+  background-color: rgba(100, 150, 255, 0.1);
+  border-top: 2px solid rgba(100, 150, 255, 0.5);
+}
+
+/* Drag handle for container reordering */
+.container-drag-handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 2px;
+  margin-left: -4px;
+  margin-right: 2px;
+  border-radius: 3px;
+  transition: opacity 0.15s ease, background-color 0.1s ease;
+}
+
+.container-tree-item:hover .container-drag-handle {
+  opacity: 0.6;
+}
+
+.container-drag-handle:hover {
+  opacity: 1 !important;
+  background-color: var(--bg-tertiary);
+}
+
+.container-drag-handle:active {
+  cursor: grabbing;
 }
 
 .container-tree-item {

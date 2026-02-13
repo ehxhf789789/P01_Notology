@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { ContainerConfig, FolderStatus, FolderStatusConfig } from '../../types';
-import { updateContainerConfig, updateFolderStatus, loadVaultConfig, saveVaultConfig } from '../../utils/vaultConfigUtils';
+import { updateContainerConfig, updateFolderStatus, updateContainerOrder, loadVaultConfig, saveVaultConfig } from '../../utils/vaultConfigUtils';
 import { useFileTreeStore } from './fileTreeStore';
 
 export interface RecentVault {
@@ -14,6 +14,7 @@ interface VaultConfigState {
   // State
   containerConfigs: Record<string, ContainerConfig>;
   folderStatuses: Record<string, FolderStatusConfig>;
+  containerOrder: string[]; // Custom container order (array of container names)
   recentVaults: RecentVault[];
   isNasSynced: boolean;
   nasPlatform: string;
@@ -22,6 +23,8 @@ interface VaultConfigState {
   // Actions
   setContainerConfigs: (configs: Record<string, ContainerConfig>) => void;
   setFolderStatuses: (statuses: Record<string, FolderStatusConfig>) => void;
+  setContainerOrder: (order: string[]) => void;
+  setContainerOrderWithPersist: (order: string[]) => Promise<void>;
   setContainerConfig: (containerPath: string, config: ContainerConfig) => Promise<void>;
   setFolderStatus: (folderPath: string, status: FolderStatus) => Promise<void>;
   setRecentVaults: (vaults: RecentVault[]) => void;
@@ -38,6 +41,7 @@ export const useVaultConfigStore = create<VaultConfigState>()(
     // Initial state
     containerConfigs: {},
     folderStatuses: {},
+    containerOrder: [],
     recentVaults: [],
     isNasSynced: false,
     nasPlatform: '',
@@ -46,6 +50,15 @@ export const useVaultConfigStore = create<VaultConfigState>()(
     // Bulk setters
     setContainerConfigs: (configs) => set({ containerConfigs: configs }),
     setFolderStatuses: (statuses) => set({ folderStatuses: statuses }),
+    setContainerOrder: (order) => set({ containerOrder: order }),
+
+    // Set container order with persistence
+    setContainerOrderWithPersist: async (order) => {
+      set({ containerOrder: order });
+      const vaultPath = useFileTreeStore.getState().vaultPath;
+      if (!vaultPath) return;
+      await updateContainerOrder(vaultPath, order);
+    },
 
     // Set container config with persistence
     setContainerConfig: async (containerPath, config) => {
@@ -94,6 +107,7 @@ export const useVaultConfigStore = create<VaultConfigState>()(
     clearAll: () => set({
       containerConfigs: {},
       folderStatuses: {},
+      containerOrder: [],
       isNasSynced: false,
       nasPlatform: '',
       isBulkSyncing: false,
@@ -104,6 +118,7 @@ export const useVaultConfigStore = create<VaultConfigState>()(
 // Selector hooks
 export const useContainerConfigs = () => useVaultConfigStore((s) => s.containerConfigs);
 export const useFolderStatuses = () => useVaultConfigStore((s) => s.folderStatuses);
+export const useContainerOrder = () => useVaultConfigStore((s) => s.containerOrder);
 export const useRecentVaults = () => useVaultConfigStore((s) => s.recentVaults);
 export const useIsNasSynced = () => useVaultConfigStore((s) => s.isNasSynced);
 export const useNasPlatform = () => useVaultConfigStore((s) => s.nasPlatform);
@@ -115,6 +130,10 @@ export const vaultConfigActions = {
     useVaultConfigStore.getState().setContainerConfigs(configs),
   setFolderStatuses: (statuses: Record<string, FolderStatusConfig>) =>
     useVaultConfigStore.getState().setFolderStatuses(statuses),
+  setContainerOrder: (order: string[]) =>
+    useVaultConfigStore.getState().setContainerOrder(order),
+  setContainerOrderWithPersist: (order: string[]) =>
+    useVaultConfigStore.getState().setContainerOrderWithPersist(order),
   setContainerConfig: (containerPath: string, config: ContainerConfig) =>
     useVaultConfigStore.getState().setContainerConfig(containerPath, config),
   setFolderStatus: (folderPath: string, status: FolderStatus) =>

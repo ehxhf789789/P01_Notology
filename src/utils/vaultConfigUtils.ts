@@ -12,6 +12,7 @@ import type { ShortcutBinding } from './shortcuts';
 export interface VaultConfig {
   containerConfigs: Record<string, ContainerConfig>;
   folderStatuses: Record<string, FolderStatusConfig>;
+  containerOrder?: string[]; // Custom container order (array of container names)
   customTemplates?: NoteTemplate[];
   enabledTemplateIds?: string[];
   defaultTemplateType?: 'A' | 'B';
@@ -483,6 +484,18 @@ export async function updateCustomShortcuts(
 ): Promise<void> {
   const config = await loadVaultConfig(vaultPath);
   config.customShortcuts = shortcuts;
+  await saveVaultConfig(vaultPath, config);
+}
+
+/**
+ * Update container order (array of container names for custom sorting)
+ */
+export async function updateContainerOrder(
+  vaultPath: string,
+  order: string[]
+): Promise<void> {
+  const config = await loadVaultConfig(vaultPath);
+  config.containerOrder = order;
   await saveVaultConfig(vaultPath, config);
 }
 
