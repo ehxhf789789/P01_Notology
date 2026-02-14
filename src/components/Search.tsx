@@ -908,16 +908,20 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const virtualContainerRef = useRef<HTMLDivElement>(null);
   const [virtualHeight, setVirtualHeight] = useState(400);
   const [scrollTop, setScrollTop] = useState(0);
+  const virtualRoRef = useRef<ResizeObserver | null>(null);
 
-  useEffect(() => {
-    const el = virtualContainerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      setVirtualHeight(entry.contentRect.height);
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
+  // Callback ref for virtual body — re-attach ResizeObserver on mount/unmount (tab switch)
+  const setVirtualContainerEl = useCallback((el: HTMLDivElement | null) => {
+    if (virtualRoRef.current) { virtualRoRef.current.disconnect(); virtualRoRef.current = null; }
+    virtualContainerRef.current = el;
+    if (el) {
+      setVirtualHeight(el.clientHeight || 400);
+      virtualRoRef.current = new ResizeObserver(([entry]) => setVirtualHeight(entry.contentRect.height));
+      virtualRoRef.current.observe(el);
+    }
   }, []);
+
+  useEffect(() => () => { virtualRoRef.current?.disconnect(); }, []);
 
   const handleVirtualScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     setScrollTop(e.currentTarget.scrollTop);
@@ -933,7 +937,6 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const roRef = useRef<ResizeObserver | null>(null);
 
   // Callback ref: re-attach ResizeObserver whenever the wrapper element mounts/unmounts
-  // (fixes stale width after tab switch, where a new DOM element replaces the old one)
   const setWrapperEl = useCallback((el: HTMLDivElement | null) => {
     if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
     wrapperRef.current = el;
@@ -958,24 +961,11 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     return DEFAULT_RATIOS;
   });
 
-  // Always compute px widths from ratios × container width — exact fit, no gap
+  // Compute px widths from ratios (used only for drag-resize reference)
   const colWidths = useMemo(() => {
     const w = wrapperWidth || 900;
     const total = ratios.reduce((a, b) => a + b, 0);
-    const widths = ratios.map((r, i) => Math.max(MIN_COL[i], Math.round(w * r / total)));
-    const sum = widths.reduce((a, b) => a + b, 0);
-    if (sum > w && w > 0) {
-      // Scale down if min-col enforcement pushes total beyond container
-      const scale = w / sum;
-      const scaled = widths.map(col => Math.max(1, Math.round(col * scale)));
-      // Distribute rounding remainder to last column
-      const scaledSum = scaled.reduce((a, b) => a + b, 0);
-      if (scaledSum !== w) scaled[scaled.length - 1] += w - scaledSum;
-      return scaled;
-    }
-    // Distribute rounding remainder to last column so columns fill container exactly
-    if (sum !== w) widths[widths.length - 1] += w - sum;
-    return widths;
+    return ratios.map((r, i) => Math.max(MIN_COL[i], Math.round(w * r / total)));
   }, [wrapperWidth, ratios]);
 
   const colWidthsRef = useRef(colWidths);
@@ -983,9 +973,10 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const ratiosRef = useRef(ratios);
   ratiosRef.current = ratios;
 
+  // Use CSS fr units — grid natively fills 100% of container (no px measurement gaps)
   const gridTemplateColumns = useMemo(
-    () => colWidths.map(w => `${w}px`).join(' '),
-    [colWidths],
+    () => ratios.map((r, i) => `minmax(${MIN_COL[i]}px, ${r}fr)`).join(' '),
+    [ratios],
   );
 
   const resizingRef = useRef<{
@@ -1258,7 +1249,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
               {t('modifiedDate', language)}{getSortIndicator('modified')}
             </div>
           </div>
-          <div className="search-virtual-body" ref={virtualContainerRef} onScroll={handleVirtualScroll}>
+          <div className="search-virtual-body" ref={setVirtualContainerEl} onScroll={handleVirtualScroll}>
             {filteredNotes.length === 0 ? (
               <div className="search-grid-row search-empty-row">
                 <div className="search-td search-empty">
