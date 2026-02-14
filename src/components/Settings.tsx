@@ -27,7 +27,7 @@ interface SettingsProps {
   onClose: () => void;
 }
 
-type SettingsTab = 'general' | 'editor' | 'templates' | 'shortcuts';
+type SettingsTab = 'general' | 'editor' | 'templates' | 'shortcuts' | 'developer';
 
 function Settings({ onClose }: SettingsProps) {
   const vaultPath = useVaultPath();
@@ -35,6 +35,7 @@ function Settings({ onClose }: SettingsProps) {
     toolbarDefaultCollapsed, setToolbarDefaultCollapsed,
     hoverZoomEnabled, setHoverZoomEnabled, hoverZoomLevel, hoverDefaultWidth, hoverDefaultHeight, setHoverDefaultSize,
     theme, setTheme, font, setFont, customFonts, selectedCustomFont, addCustomFont, removeCustomFont, language, setLanguage,
+    devMode, setDevMode,
   } = useSettingsStore();
   const {
     noteTemplates, enabledTemplateIds, addNoteTemplate, updateNoteTemplate, removeNoteTemplate, toggleTemplateEnabled,
@@ -96,6 +97,7 @@ function Settings({ onClose }: SettingsProps) {
     { id: 'editor', label: t('editor', language) },
     { id: 'templates', label: t('templates', language) },
     { id: 'shortcuts', label: t('shortcuts', language) },
+    { id: 'developer', label: t('developer', language) },
   ];
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -458,6 +460,26 @@ function Settings({ onClose }: SettingsProps) {
                       <code className="trigger-code">//</code>
                       <span className="trigger-desc">{t('triggerAttachment', language)}</span>
                     </div>
+                  </div>
+                </section>
+              </div>
+            )}
+
+            {activeTab === 'developer' && (
+              <div className="settings-panel">
+                <section className="settings-section">
+                  <h3 className="settings-section-title">{t('developerTools', language)}</h3>
+                  <div className="settings-row">
+                    <div className="settings-row-info">
+                      <span className="settings-row-label">{t('devModeLabel', language)}</span>
+                      <span className="settings-row-desc">{t('devModeDesc', language)}</span>
+                    </div>
+                    <button
+                      className={`settings-toggle-btn ${devMode ? 'active' : ''}`}
+                      onClick={() => setDevMode(!devMode)}
+                    >
+                      {devMode ? t('on', language) : t('off', language)}
+                    </button>
                   </div>
                 </section>
               </div>

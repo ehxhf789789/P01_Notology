@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FacetedTags } from '../../types/frontmatter';
 import type { TagOntology, FacetNamespace } from '../../types/tagOntology';
 import { FACET_NAMESPACES } from '../../types/tagOntology';
@@ -20,6 +20,46 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
   const incrementOntologyRefresh = refreshActions.incrementOntologyRefresh;
   const [ontology, setOntology] = useState<TagOntology | null>(null);
   const [activeFacet, setActiveFacet] = useState<FacetNamespace | null>(null);
+  const [overflowFacets, setOverflowFacets] = useState<Set<FacetNamespace>>(new Set());
+  const tagContainerRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  // Check overflow for each facet tag container
+  const checkOverflow = useCallback(() => {
+    const newOverflow = new Set<FacetNamespace>();
+    for (const facet of FACET_NAMESPACES) {
+      const el = tagContainerRefs.current[facet.namespace];
+      if (el && el.scrollWidth > el.clientWidth) {
+        newOverflow.add(facet.namespace);
+      }
+    }
+    setOverflowFacets(newOverflow);
+  }, []);
+
+  useEffect(() => {
+    checkOverflow();
+  }, [tags, checkOverflow]);
+
+  // Wheel event → horizontal scroll (native listener to allow preventDefault)
+  useEffect(() => {
+    const handlers: Array<{ el: HTMLDivElement; handler: (e: WheelEvent) => void }> = [];
+    for (const facet of FACET_NAMESPACES) {
+      const el = tagContainerRefs.current[facet.namespace];
+      if (!el) continue;
+      const handler = (e: WheelEvent) => {
+        if (el.scrollWidth <= el.clientWidth) return;
+        e.preventDefault();
+        e.stopPropagation();
+        el.scrollLeft += e.deltaY !== 0 ? e.deltaY : e.deltaX;
+      };
+      el.addEventListener('wheel', handler, { passive: false });
+      handlers.push({ el, handler });
+    }
+    return () => {
+      for (const { el, handler } of handlers) {
+        el.removeEventListener('wheel', handler);
+      }
+    };
+  }, [tags, ontology]);
 
   // Strip namespace prefix from tag name
   const stripNamespacePrefix = (tagName: string): string => {
@@ -138,22 +178,30 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
             </div>
 
             {facetTags.length > 0 && (
-              <div className="facet-tags">
-                {facetTags.map((tagId) => (
-                  <div
-                    key={tagId}
-                    className={`tag-chip tag-${facet.namespace}`}
-                  >
-                    <span className="tag-label">{getTagLabel(facet.namespace, tagId)}</span>
-                    <button
-                      className="tag-remove-btn"
-                      onClick={() => removeTag(facet.namespace, tagId)}
-                      title={t('removeBtn', language)}
+              <div className="facet-tags-wrapper">
+                <div
+                  className={`facet-tags ${overflowFacets.has(facet.namespace) ? 'has-overflow' : ''}`}
+                  ref={(el) => { tagContainerRefs.current[facet.namespace] = el; }}
+                >
+                  {facetTags.map((tagId) => (
+                    <div
+                      key={tagId}
+                      className={`tag-chip tag-${facet.namespace}`}
                     >
-                      ×
-                    </button>
-                  </div>
-                ))}
+                      <span className="tag-label">{getTagLabel(facet.namespace, tagId)}</span>
+                      <button
+                        className="tag-remove-btn"
+                        onClick={() => removeTag(facet.namespace, tagId)}
+                        title={t('removeBtn', language)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                {overflowFacets.has(facet.namespace) && (
+                  <span className="facet-tags-count">{facetTags.length}</span>
+                )}
               </div>
             )}
 

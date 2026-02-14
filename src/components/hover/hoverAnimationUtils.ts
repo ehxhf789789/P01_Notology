@@ -14,13 +14,12 @@ const log = DEV ? console.log.bind(console) : () => {};
 
 export interface AnimationKeyframes {
   opacity: number[];
-  filter: string[];
 }
 
 export const ANIMATION_KEYFRAMES = {
-  open: { opacity: [0, 1], filter: ['blur(8px)', 'blur(0)'] },
-  close: { opacity: [1, 0], filter: ['blur(0)', 'blur(8px)'] },
-  minimize: { opacity: [1, 0], filter: ['blur(0)', 'blur(6px)'] },
+  open: { opacity: [0, 1] },
+  close: { opacity: [1, 0] },
+  minimize: { opacity: [1, 0] },
 } as const;
 
 /**
@@ -35,11 +34,11 @@ export function runAnimation(
   const keyframes = ANIMATION_KEYFRAMES[type];
   const startTime = performance.now();
 
-  // Create animation using Web Animations API
+  // Create animation using Web Animations API (opacity-only for GPU performance)
   const animation = el.animate(
     [
-      { opacity: keyframes.opacity[0], filter: keyframes.filter[0] },
-      { opacity: keyframes.opacity[1], filter: keyframes.filter[1] },
+      { opacity: keyframes.opacity[0] },
+      { opacity: keyframes.opacity[1] },
     ],
     {
       duration,

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, type CSSProperties } from 'react';
 import { searchCommands, utilCommands } from '../services/tauriCommands';
 import { FilePlus, Filter } from 'lucide-react';
 
@@ -6,7 +6,7 @@ const GraphView = lazy(() => import('./GraphView'));
 import { useHoverStore, hoverActions } from '../stores/zustand/hoverStore';
 import { useVaultPath } from '../stores/zustand/fileTreeStore';
 import { fileTreeActions } from '../stores/zustand/fileTreeStore';
-import { useSearchReady } from '../stores/zustand/refreshStore';
+import { useSearchReady, useRefreshStore } from '../stores/zustand/refreshStore';
 import { refreshActions } from '../stores/zustand/refreshStore';
 import { modalActions } from '../stores/zustand/modalStore';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
@@ -20,6 +20,10 @@ import { getTemplateCustomColor as getTemplateColor } from '../utils/noteTypeHel
 import { NOTE_TYPES } from './search/searchHelpers';
 import { SearchFilters } from './search/SearchFilters';
 import { FrontmatterResultRow, ContentResultCard, AttachmentResultRow, DetailsResultCard } from './search/SearchResultItem';
+
+// Conditional logging - only in development
+const DEV = import.meta.env.DEV;
+const log = DEV ? console.log.bind(console) : () => {};
 
 interface SearchProps {
   containerPath?: string | null;
@@ -50,6 +54,10 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const [attachmentResults, setAttachmentResults] = useState<AttachmentInfo[]>([]);
   const [sortBy, setSortBy] = useState('modified');
   const [sortOrder, setSortOrder] = useState('desc');
+  // Tag sort: category selection for tag-based sorting
+  const [tagSortCategory, setTagSortCategory] = useState<string | null>(null);
+  const [showTagCategoryMenu, setShowTagCategoryMenu] = useState(false);
+  const tagHeaderRef = useRef<HTMLDivElement>(null);
   // Date filters
   const [createdAfter, setCreatedAfter] = useState('');
   const [createdBefore, setCreatedBefore] = useState('');
@@ -79,101 +87,137 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   // Multi-select notes (Ctrl+click, Shift+click)
   const [selectedNotePaths, setSelectedNotePaths] = useState<Set<string>>(new Set());
   const lastSelectedNoteRef = useRef<string | null>(null);
+  // Refs for stable callbacks (avoid dependency churn)
+  const selectedNotePathsRef = useRef(selectedNotePaths);
+  selectedNotePathsRef.current = selectedNotePaths;
+  const selectedAttachmentsRef = useRef(selectedAttachments);
+  selectedAttachmentsRef.current = selectedAttachments;
+  const filteredNotesRef = useRef<NoteMetadata[]>([]);
+  const filteredDetailsNotesRef = useRef<NoteMetadata[]>([]);
 
-  // Frontmatter mode search
+  // Optimistic patch: instantly update notes[] when HoverEditor saves (bypasses Tantivy)
+  useEffect(() => {
+    const unsub = useRefreshStore.subscribe(
+      (state) => state.lastNotePatch,
+      (patch) => {
+        if (!patch) return;
+        setNotes((prev) => {
+          const idx = prev.findIndex((n) => n.path === patch.meta.path);
+          if (idx >= 0) {
+            const updated = [...prev];
+            updated[idx] = patch.meta;
+            return updated;
+          }
+          return prev;
+        });
+      }
+    );
+    return unsub;
+  }, []);
+
+  // Frontmatter mode search — refreshTrigger excluded from deps (triggered by useEffect below)
+  const searchReadyRef = useRef(searchReady);
+  searchReadyRef.current = searchReady;
+  const sortByRef = useRef(sortBy);
+  sortByRef.current = sortBy;
+  const sortOrderRef = useRef(sortOrder);
+  sortOrderRef.current = sortOrder;
+  const dateFiltersRef = useRef({ createdAfter, createdBefore, modifiedAfter, modifiedBefore });
+  dateFiltersRef.current = { createdAfter, createdBefore, modifiedAfter, modifiedBefore };
+
   const fetchNotes = useCallback(async () => {
-    if (!searchReady) {
-      console.log('[fetchNotes] Search not ready, skipping');
-      return;
-    }
+    if (!searchReadyRef.current) return;
 
+    const df = dateFiltersRef.current;
+    // Tags sorting is done client-side; fallback to modified for backend
+    const backendSortBy = sortByRef.current === 'tags' ? 'modified' : sortByRef.current;
     const filter: NoteFilter = {
-      sort_by: sortBy,
-      sort_order: sortOrder,
-      created_after: createdAfter || undefined,
-      created_before: createdBefore || undefined,
-      modified_after: modifiedAfter || undefined,
-      modified_before: modifiedBefore || undefined,
+      sort_by: backendSortBy,
+      sort_order: sortOrderRef.current,
+      created_after: df.createdAfter || undefined,
+      created_before: df.createdBefore || undefined,
+      modified_after: df.modifiedAfter || undefined,
+      modified_before: df.modifiedBefore || undefined,
     };
 
-    console.log('[fetchNotes] Querying notes with refreshTrigger:', refreshTrigger);
     try {
       const results = await searchCommands.queryNotes(filter);
-      console.log('[fetchNotes] Got', results.length, 'results');
       setNotes(results);
     } catch (err) {
       console.error('Failed to query notes:', err);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchReady, sortBy, sortOrder, createdAfter, createdBefore, modifiedAfter, modifiedBefore, refreshTrigger]);
+  }, []);
 
   // Contents mode search - uses ref to avoid recreating callback on every query change
   const contentsQueryRef = useRef(contentsQuery);
   contentsQueryRef.current = contentsQuery;
 
+  const vaultPathRef = useRef(vaultPath);
+  vaultPathRef.current = vaultPath;
+  const attachmentsQueryRef = useRef(attachmentsQuery);
+  attachmentsQueryRef.current = attachmentsQuery;
+
   const searchContents = useCallback(async () => {
     const query = contentsQueryRef.current.trim();
-    if (!searchReady || !query) {
+    if (!searchReadyRef.current || !query) {
       setContentResults([]);
       return;
     }
 
     try {
       const results = await searchCommands.fullTextSearch(query, 50);
-      // Only update if query hasn't changed during search
       if (query === contentsQueryRef.current.trim()) {
         setContentResults(results);
       }
     } catch (err) {
       console.error('Failed to search contents:', err);
     }
-  }, [searchReady, refreshTrigger]);
+  }, []);
 
-  // Attachments mode search
   const searchAttachments = useCallback(async () => {
-    if (!searchReady || !vaultPath) {
+    if (!searchReadyRef.current || !vaultPathRef.current) {
       setAttachmentResults([]);
       return;
     }
 
     try {
       const results = await searchCommands.searchAttachments(
-        vaultPath,
-        attachmentsQuery.trim(),
+        vaultPathRef.current,
+        attachmentsQueryRef.current.trim(),
       );
       setAttachmentResults(results);
     } catch (err) {
       console.error('Failed to search attachments:', err);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchReady, vaultPath, attachmentsQuery, refreshTrigger]);
+  }, []);
 
+  // Single trigger for frontmatter/details refresh
   useEffect(() => {
-    console.log('[Search] useEffect triggered, mode:', mode, 'refreshTrigger:', refreshTrigger);
     if (mode === 'frontmatter' || mode === 'details') {
       fetchNotes();
     }
-  }, [mode, fetchNotes, refreshTrigger]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, searchReady, sortBy, sortOrder, createdAfter, createdBefore, modifiedAfter, modifiedBefore, refreshTrigger]);
 
   useEffect(() => {
     if (mode === 'contents') {
-      // Clear results immediately when query is empty
       if (!contentsQuery.trim()) {
         setContentResults([]);
         return;
       }
-      // Short debounce (100ms) for responsive search while preventing excessive API calls
       const timeout = setTimeout(searchContents, 100);
       return () => clearTimeout(timeout);
     }
-  }, [mode, contentsQuery, searchContents]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, contentsQuery, searchReady, refreshTrigger]);
 
   useEffect(() => {
     if (mode === 'attachments') {
       const timeout = setTimeout(searchAttachments, 10);
       return () => clearTimeout(timeout);
     }
-  }, [mode, searchAttachments, refreshTrigger]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, attachmentsQuery, searchReady, refreshTrigger]);
 
   // Compute unique tags from all notes for dropdown
   const uniqueTags = useMemo(() => {
@@ -242,15 +286,35 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       result.push(n);
     }
 
-    // Sort folder notes (CONTAINER) first
+    // Sort: containers first, then by tag category if tag sort is active
     result.sort((a, b) => {
       const aIsContainer = a.note_type === 'CONTAINER' ? 0 : 1;
       const bIsContainer = b.note_type === 'CONTAINER' ? 0 : 1;
-      return aIsContainer - bIsContainer;
+      if (aIsContainer !== bIsContainer) return aIsContainer - bIsContainer;
+
+      // Client-side tag category sort (secondary: modified date)
+      if (sortBy === 'tags' && tagSortCategory) {
+        const prefix = tagSortCategory + '/';
+        const aTags = a.tags.filter(t => t.startsWith(prefix)).sort();
+        const bTags = b.tags.filter(t => t.startsWith(prefix)).sort();
+        const aFirst = aTags.length > 0 ? aTags[0] : null;
+        const bFirst = bTags.length > 0 ? bTags[0] : null;
+
+        if (!aFirst && !bFirst) return b.modified.localeCompare(a.modified);
+        if (!aFirst) return 1; // no tags in category → end
+        if (!bFirst) return -1;
+
+        const cmp = aFirst.localeCompare(bFirst);
+        const dir = sortOrder === 'asc' ? cmp : -cmp;
+        return dir !== 0 ? dir : b.modified.localeCompare(a.modified);
+      }
+
+      return 0; // preserve backend sort order
     });
 
+    filteredNotesRef.current = result;
     return result;
-  }, [notes, containerPath, frontmatterQuery, mode, frontmatterTypeFilter, frontmatterTagFilter, frontmatterMemoFilter, showFolderNotes]);
+  }, [notes, containerPath, frontmatterQuery, mode, frontmatterTypeFilter, frontmatterTagFilter, frontmatterMemoFilter, showFolderNotes, sortBy, sortOrder, tagSortCategory]);
 
   // Details mode filtering — single-pass loop (avoids intermediate arrays)
   const filteredDetailsNotes = useMemo(() => {
@@ -298,15 +362,32 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       result.push(n);
     }
 
-    // Sort folder notes first
+    // Sort: containers first, then by tag category if tag sort is active
     result.sort((a, b) => {
       const aIsContainer = a.note_type === 'CONTAINER' ? 0 : 1;
       const bIsContainer = b.note_type === 'CONTAINER' ? 0 : 1;
-      return aIsContainer - bIsContainer;
+      if (aIsContainer !== bIsContainer) return aIsContainer - bIsContainer;
+
+      if (sortBy === 'tags' && tagSortCategory) {
+        const prefix = tagSortCategory + '/';
+        const aTags = a.tags.filter(t => t.startsWith(prefix)).sort();
+        const bTags = b.tags.filter(t => t.startsWith(prefix)).sort();
+        const aFirst = aTags.length > 0 ? aTags[0] : null;
+        const bFirst = bTags.length > 0 ? bTags[0] : null;
+        if (!aFirst && !bFirst) return b.modified.localeCompare(a.modified);
+        if (!aFirst) return 1;
+        if (!bFirst) return -1;
+        const cmp = aFirst.localeCompare(bFirst);
+        const dir = sortOrder === 'asc' ? cmp : -cmp;
+        return dir !== 0 ? dir : b.modified.localeCompare(a.modified);
+      }
+
+      return 0;
     });
 
+    filteredDetailsNotesRef.current = result;
     return result;
-  }, [notes, containerPath, detailsTypeFilter, detailsTagFilter]);
+  }, [notes, containerPath, detailsTypeFilter, detailsTagFilter, sortBy, sortOrder, tagSortCategory]);
 
   // Content results filtering — single-pass loop
   const filteredContentResults = useMemo(() => {
@@ -413,32 +494,25 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     return result;
   }, [attachmentResults, containerPath, attachmentsContainerFilter, attachmentsExtensionFilter, attachmentsShowDummyOnly, attachmentsNotePathFilter]);
 
-  const handleNoteClick = (path: string, noteType?: string) => {
-    // If it's a Container type, open in ContainerView (main editor area)
+  const handleNoteClick = useCallback((path: string, noteType?: string) => {
     if (noteType?.toUpperCase() === 'CONTAINER') {
-      // Get the parent folder path (folder note is FolderName/FolderName.md)
       const parts = path.split(/[/\\]/);
-      parts.pop(); // Remove the file name
+      parts.pop();
       const folderPath = parts.join('\\');
       selectContainer(folderPath);
     } else {
-      // Check if the note is already open in an ACTIVE hover window
-      // Cached windows are handled by openHoverFile's cache restoration logic
       const existingWindow = useHoverStore.getState().hoverFiles.find(h => h.filePath === path && !h.cached);
       if (existingWindow) {
         if (existingWindow.minimized) {
-          // Restore minimized window
           hoverActions.restore(existingWindow.id);
         } else {
-          // Focus the existing window
           hoverActions.focus(existingWindow.id);
         }
       } else {
-        // Opens new window or restores from cache
         hoverActions.open(path);
       }
     }
-  };
+  }, []);
 
   // Preload content when hovering over search results - for instant loading when clicked
   const handleNoteHover = useCallback((path: string) => {
@@ -448,8 +522,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     }
   }, []);
 
-  const handleAttachmentClick = (e: React.MouseEvent, att: AttachmentInfo) => {
-    // Check if Ctrl key is pressed for multi-select
+  const handleAttachmentClick = useCallback((e: React.MouseEvent, att: AttachmentInfo) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -465,7 +538,6 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       return;
     }
 
-    // Normal click without Ctrl - clear selection and open file
     setSelectedAttachments(new Set());
     const isPreviewable = /\.(md|pdf|png|jpg|jpeg|gif|webp|svg|bmp|ico|json|py|js|ts|jsx|tsx|css|html|xml|yaml|yml|toml|rs|go|java|c|cpp|h|hpp|cs|rb|php|sh|bash|sql|lua|r|swift|kt|scala)$/i.test(att.path);
     if (isPreviewable) {
@@ -473,28 +545,24 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     } else {
       utilCommands.openInDefaultApp(att.path);
     }
-  };
+  }, []);
 
   const [customContextMenu, setCustomContextMenu] = useState<{ x: number; y: number } | null>(null);
   const customContextMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleAttachmentContextMenu = (e: React.MouseEvent, att: AttachmentInfo) => {
+  const handleAttachmentContextMenu = useCallback((e: React.MouseEvent, att: AttachmentInfo) => {
     e.preventDefault();
 
-    // If there are selected items, show the batch delete custom context menu
-    if (selectedAttachments.size > 0) {
-      // If the right-clicked item is not in selection, add it
-      if (!selectedAttachments.has(att.path)) {
+    if (selectedAttachmentsRef.current.size > 0) {
+      if (!selectedAttachmentsRef.current.has(att.path)) {
         setSelectedAttachments(prev => new Set(prev).add(att.path));
       }
       setCustomContextMenu({ x: e.clientX, y: e.clientY });
       return;
     }
 
-    // No selection - show normal context menu for single item (hide delete option - delete only via Ctrl+click selection)
-    // Pass isAttachment: true to ensure attachment menu is shown (not note menu even for .md files)
     modalActions.showContextMenu(att.file_name, { x: e.clientX, y: e.clientY }, att.note_path, att.path, false, false, undefined, true, true);
-  };
+  }, []);
 
   // Close custom context menu on outside click
   useEffect(() => {
@@ -635,18 +703,69 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     }, count);
   }, [selectedAttachments, searchAttachments]);
 
-  const handleSortChange = (field: string) => {
-    if (sortBy === field) {
-      setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc');
+  const handleSortChange = useCallback((field: string) => {
+    if (field === 'tags') {
+      // Tag header: show category dropdown
+      setShowTagCategoryMenu(prev => !prev);
+      return;
+    }
+    // Clear tag category when switching to non-tag sort
+    setTagSortCategory(null);
+    setShowTagCategoryMenu(false);
+    setSortBy(prev => {
+      if (prev === field) {
+        setSortOrder(order => order === 'desc' ? 'asc' : 'desc');
+        return prev;
+      } else {
+        setSortOrder('desc');
+        return field;
+      }
+    });
+  }, []);
+
+  const handleTagCategorySelect = useCallback((category: string) => {
+    setShowTagCategoryMenu(false);
+    if (sortBy === 'tags' && tagSortCategory === category) {
+      // Same category → toggle direction
+      setSortOrder(order => order === 'desc' ? 'asc' : 'desc');
     } else {
-      setSortBy(field);
+      // New category
+      setTagSortCategory(category);
+      setSortBy('tags');
       setSortOrder('desc');
     }
-  };
+  }, [sortBy, tagSortCategory]);
+
+  // Close tag dropdown on outside click
+  useEffect(() => {
+    if (!showTagCategoryMenu) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (tagHeaderRef.current && !tagHeaderRef.current.contains(e.target as Node)) {
+        setShowTagCategoryMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showTagCategoryMenu]);
+
+  const TAG_CATEGORIES = [
+    { prefix: 'domain', labelKey: 'facetDomain' },
+    { prefix: 'who', labelKey: 'facetWho' },
+    { prefix: 'org', labelKey: 'facetOrg' },
+    { prefix: 'ctx', labelKey: 'facetCtx' },
+  ] as const;
 
   const getSortIndicator = (field: string) => {
     if (sortBy !== field) return '';
     return sortOrder === 'asc' ? ' ↑' : ' ↓';
+  };
+
+  const getTagSortLabel = () => {
+    if (sortBy !== 'tags' || !tagSortCategory) return '';
+    const cat = TAG_CATEGORIES.find(c => c.prefix === tagSortCategory);
+    const catName = cat ? t(cat.labelKey, language) : '';
+    const arrow = sortOrder === 'asc' ? '↑' : '↓';
+    return ` · ${catName} ${arrow}`;
   };
 
   // Multi-select note click handler (returns true if handled as multi-select)
@@ -677,40 +796,37 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       }
     }
     // Normal click - clear multi-selection
-    if (selectedNotePaths.size > 0) {
+    if (selectedNotePathsRef.current.size > 0) {
       setSelectedNotePaths(new Set());
     }
     lastSelectedNoteRef.current = note.path;
     return false;
-  }, [selectedNotePaths]);
+  }, []);
 
   // Context menu for notes (single or multi-selected)
   const [noteContextMenu, setNoteContextMenu] = useState<{ x: number; y: number } | null>(null);
   const noteContextMenuRef = useRef<HTMLDivElement>(null);
 
-  const handleFrontmatterContextMenu = (e: React.MouseEvent, note: NoteMetadata) => {
+  const handleNoteContextMenu = useCallback((e: React.MouseEvent, note: NoteMetadata) => {
     e.preventDefault();
-    if (selectedNotePaths.size > 0) {
-      if (!selectedNotePaths.has(note.path)) {
+    if (selectedNotePathsRef.current.size > 0) {
+      if (!selectedNotePathsRef.current.has(note.path)) {
         setSelectedNotePaths(prev => new Set(prev).add(note.path));
       }
       setNoteContextMenu({ x: e.clientX, y: e.clientY });
       return;
     }
     modalActions.showContextMenu(note.title, { x: e.clientX, y: e.clientY }, note.path, note.path, false, true);
-  };
+  }, []);
 
-  const handleDetailsContextMenu = (e: React.MouseEvent, note: NoteMetadata) => {
-    e.preventDefault();
-    if (selectedNotePaths.size > 0) {
-      if (!selectedNotePaths.has(note.path)) {
-        setSelectedNotePaths(prev => new Set(prev).add(note.path));
-      }
-      setNoteContextMenu({ x: e.clientX, y: e.clientY });
-      return;
-    }
-    modalActions.showContextMenu(note.title, { x: e.clientX, y: e.clientY }, note.path, note.path, false, true);
-  };
+  // Stable multi-click callbacks using refs (avoids inline arrow functions in JSX)
+  const handleFrontmatterMultiClick = useCallback((e: React.MouseEvent, note: NoteMetadata) => {
+    return handleNoteMultiClick(e, note, filteredNotesRef.current);
+  }, [handleNoteMultiClick]);
+
+  const handleDetailsMultiClick = useCallback((e: React.MouseEvent, note: NoteMetadata) => {
+    return handleNoteMultiClick(e, note, filteredDetailsNotesRef.current);
+  }, [handleNoteMultiClick]);
 
   // Close note context menu on outside click
   useEffect(() => {
@@ -785,6 +901,153 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const conflictCount = useMemo(() =>
     attachmentResults.filter(a => a.is_conflict).length,
   [attachmentResults]);
+
+  // Lightweight virtual list — no external dependency
+  const ROW_HEIGHT = 32;
+  const OVERSCAN = 10;
+  const virtualContainerRef = useRef<HTMLDivElement>(null);
+  const [virtualHeight, setVirtualHeight] = useState(400);
+  const [scrollTop, setScrollTop] = useState(0);
+
+  useEffect(() => {
+    const el = virtualContainerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => {
+      setVirtualHeight(entry.contentRect.height);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const handleVirtualScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    setScrollTop(e.currentTarget.scrollTop);
+  }, []);
+
+  // ── Column resize (divider-style, always fits container width) ──
+  const COLUMN_STORAGE_KEY = 'search-col-ratios-v3';
+  const DEFAULT_RATIOS = [2.5, 0.9, 2.5, 0.5, 1.5, 1.5];
+  const MIN_COL = [80, 50, 60, 30, 80, 80];
+
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const [wrapperWidth, setWrapperWidth] = useState(0);
+  const roRef = useRef<ResizeObserver | null>(null);
+
+  // Callback ref: re-attach ResizeObserver whenever the wrapper element mounts/unmounts
+  // (fixes stale width after tab switch, where a new DOM element replaces the old one)
+  const setWrapperEl = useCallback((el: HTMLDivElement | null) => {
+    if (roRef.current) { roRef.current.disconnect(); roRef.current = null; }
+    wrapperRef.current = el;
+    if (el) {
+      setWrapperWidth(el.getBoundingClientRect().width);
+      roRef.current = new ResizeObserver(([entry]) => setWrapperWidth(entry.contentRect.width));
+      roRef.current.observe(el);
+    }
+  }, []);
+
+  // Cleanup observer on unmount
+  useEffect(() => () => { roRef.current?.disconnect(); }, []);
+
+  const [ratios, setRatios] = useState<number[]>(() => {
+    try {
+      const stored = localStorage.getItem(COLUMN_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length === 6) return parsed;
+      }
+    } catch { /* */ }
+    return DEFAULT_RATIOS;
+  });
+
+  // Always compute px widths from ratios × container width — exact fit, no gap
+  const colWidths = useMemo(() => {
+    const w = wrapperWidth || 900;
+    const total = ratios.reduce((a, b) => a + b, 0);
+    const widths = ratios.map((r, i) => Math.max(MIN_COL[i], Math.round(w * r / total)));
+    const sum = widths.reduce((a, b) => a + b, 0);
+    if (sum > w && w > 0) {
+      // Scale down if min-col enforcement pushes total beyond container
+      const scale = w / sum;
+      const scaled = widths.map(col => Math.max(1, Math.round(col * scale)));
+      // Distribute rounding remainder to last column
+      const scaledSum = scaled.reduce((a, b) => a + b, 0);
+      if (scaledSum !== w) scaled[scaled.length - 1] += w - scaledSum;
+      return scaled;
+    }
+    // Distribute rounding remainder to last column so columns fill container exactly
+    if (sum !== w) widths[widths.length - 1] += w - sum;
+    return widths;
+  }, [wrapperWidth, ratios]);
+
+  const colWidthsRef = useRef(colWidths);
+  colWidthsRef.current = colWidths;
+  const ratiosRef = useRef(ratios);
+  ratiosRef.current = ratios;
+
+  const gridTemplateColumns = useMemo(
+    () => colWidths.map(w => `${w}px`).join(' '),
+    [colWidths],
+  );
+
+  const resizingRef = useRef<{
+    colIdx: number; startX: number;
+    leftStartPx: number; rightStartPx: number;
+  } | null>(null);
+
+  // Drag = move divider between col[idx] and col[idx+1], update ratios
+  const onResizeStart = useCallback((colIdx: number, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const widths = colWidthsRef.current;
+    const rightIdx = colIdx + 1;
+    if (rightIdx >= widths.length) return;
+
+    resizingRef.current = {
+      colIdx,
+      startX: e.clientX,
+      leftStartPx: widths[colIdx],
+      rightStartPx: widths[rightIdx],
+    };
+
+    const onMouseMove = (ev: MouseEvent) => {
+      const r = resizingRef.current;
+      if (!r) return;
+      const delta = ev.clientX - r.startX;
+      // Clamp both sides to min widths
+      const maxDelta = r.rightStartPx - MIN_COL[r.colIdx + 1];
+      const minDelta = -(r.leftStartPx - MIN_COL[r.colIdx]);
+      const clampedDelta = Math.max(minDelta, Math.min(maxDelta, delta));
+
+      const newLeftPx = r.leftStartPx + clampedDelta;
+      const newRightPx = r.rightStartPx - clampedDelta;
+
+      // Convert px back to ratios (preserving total)
+      const currentRatios = [...ratiosRef.current];
+      const pairSum = currentRatios[r.colIdx] + currentRatios[r.colIdx + 1];
+      const pxSum = newLeftPx + newRightPx;
+      currentRatios[r.colIdx] = pairSum * (newLeftPx / pxSum);
+      currentRatios[r.colIdx + 1] = pairSum * (newRightPx / pxSum);
+      setRatios(currentRatios);
+    };
+
+    const onMouseUp = () => {
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      try { localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(ratiosRef.current)); } catch { /* */ }
+      resizingRef.current = null;
+    };
+
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  }, []);
+
+  const onResizeReset = useCallback(() => {
+    setRatios(DEFAULT_RATIOS);
+    try { localStorage.removeItem(COLUMN_STORAGE_KEY); } catch { /* */ }
+  }, []);
 
   return (
     <div className="search-view">
@@ -951,49 +1214,89 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       />
 
       {mode === 'frontmatter' ? (
-        <div className="search-table-wrapper">
-          <table className="search-table">
-            <thead>
-              <tr>
-                <th className="search-th clickable" onClick={() => handleSortChange('title')}>
-                  {t('titleColumn', language)}{getSortIndicator('title')}
-                </th>
-                <th className="search-th">{t('noteType', language)}</th>
-                <th className="search-th">{t('tags', language)}</th>
-                <th className="search-th">{t('memos', language)}</th> {/* Note body presence */}
-                <th className="search-th clickable" onClick={() => handleSortChange('created')}>
-                  {t('createdDate', language)}{getSortIndicator('created')}
-                </th>
-                <th className="search-th clickable" onClick={() => handleSortChange('modified')}>
-                  {t('modifiedDate', language)}{getSortIndicator('modified')}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredNotes.map(note => (
-                <FrontmatterResultRow
-                  key={note.path}
-                  note={note}
-                  frontmatterQuery={frontmatterQuery}
-                  getTemplateCustomColor={getTemplateCustomColor}
-                  onNoteClick={handleNoteClick}
-                  onNoteHover={handleNoteHover}
-                  onContextMenu={handleFrontmatterContextMenu}
-                  selectedPath={selectedFolderNotePath}
-                  onSelect={setSelectedFolderNotePath}
-                  isMultiSelected={selectedNotePaths.has(note.path)}
-                  onMultiClick={(e, n) => handleNoteMultiClick(e, n, filteredNotes)}
-                />
-              ))}
-              {filteredNotes.length === 0 && (
-                <tr>
-                  <td className="search-td search-empty" colSpan={6}>
-                    {searchReady ? t('noResults', language) : t('indexInitializing', language)}
-                  </td>
-                </tr>
+        <div className="search-virtual-wrapper" ref={setWrapperEl} style={{ '--grid-cols': gridTemplateColumns } as CSSProperties}>
+          <div className="search-grid-header">
+            <div className="search-th clickable" onClick={() => handleSortChange('title')}>
+              {t('titleColumn', language)}{getSortIndicator('title')}
+              <span className="col-resize-handle" onMouseDown={e => onResizeStart(0, e)} onDoubleClick={onResizeReset} />
+            </div>
+            <div className="search-th clickable" onClick={() => handleSortChange('type')}>
+              {t('noteType', language)}{getSortIndicator('type')}
+              <span className="col-resize-handle" onMouseDown={e => onResizeStart(1, e)} onDoubleClick={onResizeReset} />
+            </div>
+            <div className="search-th clickable" ref={tagHeaderRef} onClick={() => handleSortChange('tags')} style={{ position: 'relative' }}>
+              {t('tags', language)}{getTagSortLabel()}
+              <span className="col-resize-handle" onMouseDown={e => onResizeStart(2, e)} onDoubleClick={onResizeReset} />
+              {showTagCategoryMenu && (
+                <div className="tag-category-dropdown">
+                  {TAG_CATEGORIES.map(cat => (
+                    <button
+                      key={cat.prefix}
+                      className={`tag-category-option${tagSortCategory === cat.prefix ? ' active' : ''}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleTagCategorySelect(cat.prefix);
+                      }}
+                    >
+                      <span className={`tag-category-dot tag-${cat.prefix}`} />
+                      {t(cat.labelKey, language)}
+                      {sortBy === 'tags' && tagSortCategory === cat.prefix ? (sortOrder === 'asc' ? ' ↑' : ' ↓') : ''}
+                    </button>
+                  ))}
+                </div>
               )}
-            </tbody>
-          </table>
+            </div>
+            <div className="search-th clickable" onClick={() => handleSortChange('memo')}>
+              {t('memos', language)}{getSortIndicator('memo')}
+              <span className="col-resize-handle" onMouseDown={e => onResizeStart(3, e)} onDoubleClick={onResizeReset} />
+            </div>
+            <div className="search-th clickable" onClick={() => handleSortChange('created')}>
+              {t('createdDate', language)}{getSortIndicator('created')}
+              <span className="col-resize-handle" onMouseDown={e => onResizeStart(4, e)} onDoubleClick={onResizeReset} />
+            </div>
+            <div className="search-th clickable" onClick={() => handleSortChange('modified')}>
+              {t('modifiedDate', language)}{getSortIndicator('modified')}
+            </div>
+          </div>
+          <div className="search-virtual-body" ref={virtualContainerRef} onScroll={handleVirtualScroll}>
+            {filteredNotes.length === 0 ? (
+              <div className="search-grid-row search-empty-row">
+                <div className="search-td search-empty">
+                  {searchReady ? t('noResults', language) : t('indexInitializing', language)}
+                </div>
+              </div>
+            ) : (() => {
+              const totalHeight = filteredNotes.length * ROW_HEIGHT;
+              const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
+              const endIdx = Math.min(filteredNotes.length - 1, Math.ceil((scrollTop + virtualHeight) / ROW_HEIGHT) + OVERSCAN);
+              const rows = [];
+              for (let i = startIdx; i <= endIdx; i++) {
+                const note = filteredNotes[i];
+                rows.push(
+                  <FrontmatterResultRow
+                    key={note.path}
+                    style={{ position: 'absolute', top: i * ROW_HEIGHT, height: ROW_HEIGHT, width: '100%' } as CSSProperties}
+                    note={note}
+                    frontmatterQuery={frontmatterQuery}
+                    getTemplateCustomColor={getTemplateCustomColor}
+                    onNoteClick={handleNoteClick}
+                    onNoteHover={handleNoteHover}
+                    onContextMenu={handleNoteContextMenu}
+                    selectedPath={selectedFolderNotePath}
+                    onSelect={setSelectedFolderNotePath}
+                    isMultiSelected={selectedNotePaths.has(note.path)}
+                    onMultiClick={handleFrontmatterMultiClick}
+                    tagSortCategory={tagSortCategory}
+                  />
+                );
+              }
+              return (
+                <div style={{ height: totalHeight, position: 'relative' }}>
+                  {rows}
+                </div>
+              );
+            })()}
+          </div>
         </div>
       ) : mode === 'contents' ? (
         <div className="search-content-results">
@@ -1067,13 +1370,14 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                 getTemplateCustomColor={getTemplateCustomColor}
                 onNoteClick={handleNoteClick}
                 onNoteHover={handleNoteHover}
-                onContextMenu={handleDetailsContextMenu}
+                onContextMenu={handleNoteContextMenu}
                 onTagClick={setDetailsTagFilter}
                 language={language}
                 selectedPath={selectedFolderNotePath}
                 onSelect={setSelectedFolderNotePath}
                 isMultiSelected={selectedNotePaths.has(note.path)}
-                onMultiClick={(e, n) => handleNoteMultiClick(e, n, filteredDetailsNotes)}
+                onMultiClick={handleDetailsMultiClick}
+                tagSortCategory={tagSortCategory}
               />
             ))
           )}

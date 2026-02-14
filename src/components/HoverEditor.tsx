@@ -6,7 +6,7 @@ import { fileCommands, searchCommands, utilCommands, noteLockCommands, memoComma
 import type { NoteLockInfo } from '../services/tauriCommands';
 import { editorPool } from '../utils/editorPool';
 import { isHoverWindow } from '../utils/multiWindow';
-import { LayoutList, MessageSquare, Minus, X } from 'lucide-react';
+import { Tags, MessageSquare, Minus, X } from 'lucide-react';
 import { SyncStatusIndicator, type SyncStatus } from './SyncStatusIndicator';
 import { useHoverStore, hoverActions, useIsClosing, useIsMinimizing, HOVER_ANIMATION } from '../stores/zustand/hoverStore';
 import { useFileTreeStore, useVaultPath, fileTreeActions } from '../stores/zustand/fileTreeStore';
@@ -32,7 +32,7 @@ import EditorContextMenu from './EditorContextMenu';
 import CommentPanel from './CommentPanel';
 import Search from './Search';
 import CanvasEditor from './CanvasEditor';
-import MetadataEditor from './metadata/MetadataEditor';
+import TagPanel from './metadata/TagPanel';
 import { runAnimation, HOVER_WINDOW_OPEN_DURATION, hoverWindowPropsAreEqual, type HoverEditorWindowProps } from './hover/hoverAnimationUtils';
 
 // Conditional logging - only in development
@@ -81,7 +81,6 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const appStoreActionsRef = useRef({
     showContextMenu: modalActions.showContextMenu,
     refreshFileTree: fileTreeActions.refreshFileTree,
-    refreshCalendar: refreshActions.refreshCalendar,
     createNote,
     createNoteWithTemplate,
     createFolder,
@@ -148,14 +147,13 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const restoredFromMinimized = prevMinimizedRef.current === true && win.minimized === false;
 
     if (restoredFromCache) {
-      console.log(`%c[HoverEditor ${win.id.slice(-6)}] Restored from CACHE - triggering opening animation`, 'color: #4caf50; font-weight: bold');
+      log(`[HoverEditor ${win.id.slice(-6)}] Restored from CACHE - triggering opening animation`);
       setIsOpening(true);
     } else if (restoredFromMinimized) {
-      console.log(`%c[HoverEditor ${win.id.slice(-6)}] Restored from MINIMIZED - triggering opening animation`, 'color: #2196f3; font-weight: bold');
-      // Reset any lingering animation styles before starting new animation
+      log(`[HoverEditor ${win.id.slice(-6)}] Restored from MINIMIZED - triggering opening animation`);
+      // Reset opacity before starting new animation
       if (hoverEditorRef.current) {
         hoverEditorRef.current.style.opacity = '0';
-        hoverEditorRef.current.style.filter = 'blur(8px)';
       }
       setIsOpening(true);
     }
@@ -189,7 +187,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const [editorMenuPos, setEditorMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [comments, setComments] = useState<NoteComment[]>([]);
   const [showComments, setShowComments] = useState(false);
-  const [showMetadata, setShowMetadata] = useState(false);
+  const [showTags, setShowTags] = useState(false);
   const [activeCommentId, setActiveCommentId] = useState<string | null>(null);
   const [canvasData, setCanvasData] = useState<CanvasData>({ nodes: [], edges: [] });
   const [canvasSelection, setCanvasSelection] = useState<CanvasSelection | null>(null);
@@ -208,6 +206,12 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
   const commentsRef = useRef<NoteComment[]>([]);
   const commentsMtimeRef = useRef<number>(0); // Track comments.json mtime for sync safety
   const contentSetRef = useRef(false); // Track if content was already set by sync path
+  const prevCommentsKeyRef = useRef(''); // Track comment changes to avoid redundant editor dispatches
+  // Refs for stable saveFile callback (avoids dependency chain: every edit → saveFile recreated → 4+ downstream callbacks recreated)
+  const frontmatterRef = useRef<NoteFrontmatter | null>(null);
+  frontmatterRef.current = frontmatter;
+  const bodyRef = useRef('');
+  bodyRef.current = body;
 
   // Keep commentsRef in sync with comments state
   useEffect(() => {
@@ -399,18 +403,17 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
                 saveComments(win.filePath, validComments, commentsMtimeRef.current).then((result) => {
                   commentsMtimeRef.current = result.mtime;
                   if (result.comments !== validComments) setComments(result.comments);
-                  refreshActions.incrementSearchRefresh();
-                  appStoreActionsRef.current.refreshCalendar();
+                  refreshActions.batchRefresh({ search: true, calendar: true });
                 });
               }
             }
-          }, 2000);
+          }, 1000);
 
           if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
           saveTimeoutRef.current = setTimeout(() => {
             const markdown = (ed.storage as any).markdown.getMarkdown();
             saveFile(markdown);
-          }, 500); // Reduced from 1000ms for faster search index updates
+          }, 300); // Reduced for faster content reflection to main view
         });
 
         editorRef.current = pooledEditor;
@@ -448,7 +451,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     };
   }, []); // Only run once on mount
 
-  // Update pool callbacks when fileTree, filePath, or vaultPath changes
+  // Update pool callbacks when filePath or vaultPath changes + log editor readiness
   useEffect(() => {
     if (editor) {
       editorPool.updateCallbacks(editor, {
@@ -456,19 +459,14 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         notePath: win.filePath,
         vaultPath: vaultPathRef.current,
       });
+      logTiming('Editor reference available');
     }
   }, [editor, win.filePath, vaultPath]);
 
-  // Log when editor reference becomes available
-  useEffect(() => {
-    if (editor) {
-      logTiming('Editor reference available');
-    }
-  }, [editor]);
-
   const saveFile = useCallback(async (currentBody?: string) => {
-    const bodyToSave = currentBody !== undefined ? currentBody : body;
-    if (!win.filePath || !frontmatter) return;
+    const fm = frontmatterRef.current;
+    const bodyToSave = currentBody !== undefined ? currentBody : bodyRef.current;
+    if (!win.filePath || !fm) return;
 
     // Optimistic locking: check if file was modified externally (Synology sync)
     if (mtimeOnLoadRef.current > 0) {
@@ -477,7 +475,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         log(`[HoverEditor] External modification detected, showing conflict UI`);
         setConflictState({
           myContent: bodyToSave,
-          myFrontmatter: { ...frontmatter },
+          myFrontmatter: { ...fm },
           externalMtime: currentMtime,
         });
         return;
@@ -485,10 +483,23 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     }
 
     const updatedFm: NoteFrontmatter = {
-      ...frontmatter,
+      ...fm,
       modified: getCurrentTimestamp(),
     };
     const fmString = serializeFrontmatter(updatedFm);
+
+    // Optimistic patch BEFORE disk write: update Search UI instantly (0ms)
+    // Even if writeFile fails, next Tantivy refresh will correct the data
+    refreshActions.patchNote({
+      path: win.filePath,
+      title: updatedFm.title || win.filePath.split(/[\\/]/).pop()?.replace(/\.md$/, '') || '',
+      note_type: updatedFm.type || '',
+      tags: updatedFm.tags || [],
+      created: updatedFm.created || '',
+      modified: updatedFm.modified,
+      has_body: bodyToSave.length > 0,
+      comment_count: commentsRef.current.length,
+    });
 
     try {
       await fileCommands.writeFile(win.filePath, fmString, bodyToSave);
@@ -498,33 +509,40 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       // Mark as self-saved to prevent false "external change" warnings
       markAsSelfSaved(win.filePath);
 
-      // Update mtime after successful save
-      const savedMtime = await fileCommands.getFileMtime(win.filePath);
-      mtimeOnLoadRef.current = savedMtime;
+      // Update content cache immediately with estimated mtime (non-blocking)
+      const estimatedMtime = Date.now();
+      contentCacheActions.updateContent(win.filePath, bodyToSave, updatedFm, estimatedMtime);
 
-      // Update content cache with saved content (pass real mtime for cache alignment)
-      contentCacheActions.updateContent(win.filePath, bodyToSave, updatedFm, savedMtime);
+      // Parallelize: mtime refresh, notifications, and indexing
+      // mtime refresh runs in background to update ref for next conflict check
+      fileCommands.getFileMtime(win.filePath).then(realMtime => {
+        mtimeOnLoadRef.current = realMtime;
+        // Correct cache mtime if significantly different
+        if (Math.abs(realMtime - estimatedMtime) > 1000) {
+          contentCacheActions.updateContent(win.filePath, bodyToSave, updatedFm, realMtime);
+        }
+      }).catch(() => {});
 
       // Notify other windows about save (for cache invalidation)
       notifyFileSaved(win.filePath).catch(() => {});
 
-      // Index note in background, then refresh search (local + remote)
-      // NOTE: Refresh AFTER indexing completes so search sees updated data
+      // Refresh calendar (search already handled by patchNote above)
+      refreshActions.batchRefresh({ calendar: true });
+
+      // Index note in background, then refresh again with fully accurate data
       searchCommands.indexNote(win.filePath).then(() => {
-        refreshActions.incrementSearchRefresh();
+        refreshActions.batchRefresh({ search: true, calendar: true });
         notifySearchIndexUpdated(win.filePath).catch(() => {});
       }).catch(() => {});
       memoCommands.indexNoteMemos(win.filePath).catch(() => {});
 
       // Notify other windows about memo/todo changes (cross-window calendar sync)
       notifyMemoChanged(win.filePath).catch(() => {});
-
-      // Refresh calendar to reflect memo/todo changes
-      appStoreActionsRef.current.refreshCalendar();
     } catch (e) {
       console.error('HoverEditor: Failed to save:', e);
     }
-  }, [win.filePath, frontmatter, body, refreshHoverWindowsForFile]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [win.filePath]);
 
   // ========== CONFLICT RESOLUTION HANDLERS ==========
 
@@ -559,11 +577,10 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       contentCacheActions.updateContent(win.filePath, conflictState.myContent, updatedFm);
       notifyFileSaved(win.filePath).catch(() => {});
       searchCommands.indexNote(win.filePath).then(() => {
-        refreshActions.incrementSearchRefresh();
+        refreshActions.batchRefresh({ search: true, calendar: true });
         notifySearchIndexUpdated(win.filePath).catch(() => {});
       }).catch(() => {});
       memoCommands.indexNoteMemos(win.filePath).catch(() => {});
-      appStoreActionsRef.current.refreshCalendar();
     } catch (e) {
       console.error('HoverEditor: Conflict force save failed:', e);
     }
@@ -591,11 +608,10 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       appStoreActionsRef.current.refreshFileTree();
       notifyFileSaved(copyPath).catch(() => {});
       searchCommands.indexNote(copyPath).then(() => {
-        refreshActions.incrementSearchRefresh();
+        refreshActions.batchRefresh({ search: true, calendar: true });
         notifySearchIndexUpdated(copyPath).catch(() => {});
       }).catch(() => {});
       memoCommands.indexNoteMemos(copyPath).catch(() => {});
-      appStoreActionsRef.current.refreshCalendar();
     } catch (e) {
       console.error('HoverEditor: Save copy failed:', e);
     }
@@ -630,12 +646,11 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       refreshHoverWindowsForFile(conflictCopyInfo.originalPath);
       // Re-index original in background, then refresh search
       searchCommands.indexNote(conflictCopyInfo.originalPath).then(() => {
-        refreshActions.incrementSearchRefresh();
+        refreshActions.batchRefresh({ search: true, calendar: true });
         notifySearchIndexUpdated(conflictCopyInfo.originalPath).catch(() => {});
       }).catch(() => {});
       memoCommands.indexNoteMemos(conflictCopyInfo.originalPath).catch(() => {});
       appStoreActionsRef.current.refreshFileTree();
-      appStoreActionsRef.current.refreshCalendar();
       // Close this copy window
       hoverActions.startClosing(win.id);
       setTimeout(() => hoverActions.finishClosing(win.id), HOVER_ANIMATION.CLOSE_DURATION);
@@ -651,9 +666,8 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     await searchCommands.removeFromIndex(win.filePath).catch(() => {});
     // Delete this copy file (delete_file, not delete_note — protect _att)
     await fileCommands.deleteFile(win.filePath).catch(() => {});
-    refreshActions.incrementSearchRefresh();
+    refreshActions.batchRefresh({ search: true, calendar: true });
     appStoreActionsRef.current.refreshFileTree();
-    appStoreActionsRef.current.refreshCalendar();
     // Close this copy window
     hoverActions.startClosing(win.id);
     setTimeout(() => hoverActions.finishClosing(win.id), HOVER_ANIMATION.CLOSE_DURATION);
@@ -689,8 +703,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         saveComments(win.filePath, validComments, commentsMtimeRef.current).then((result) => {
           commentsMtimeRef.current = result.mtime;
           if (result.comments !== validComments) setComments(result.comments);
-          refreshActions.incrementSearchRefresh();
-          appStoreActionsRef.current.refreshCalendar();
+          refreshActions.batchRefresh({ search: true, calendar: true });
         });
       }
     }
@@ -699,7 +712,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     saveTimeoutRef.current = setTimeout(() => {
       const jsonBody = JSON.stringify(data, null, 2);
       saveFile(jsonBody);
-    }, 500); // Reduced from 1000ms for faster search index updates
+    }, 300); // Reduced for faster content reflection to main view
   }, [saveFile, win.filePath]);
 
   // Process loaded content (used by both sync and async paths)
@@ -923,52 +936,55 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
 
   // ========== NOTE-LEVEL EDITING LOCK ==========
 
-  // Acquire lock on mount, release on unmount, heartbeat every 30s
-  useEffect(() => {
-    if (!win.filePath || !vaultPath || win.type !== 'editor') return;
-
-    noteLockCommands.acquireNoteLock(vaultPath, win.filePath).catch(() => {});
-
-    const heartbeatInterval = setInterval(() => {
-      noteLockCommands.updateHeartbeat(vaultPath, win.filePath).catch(() => {});
-    }, 30000);
-
-    return () => {
-      clearInterval(heartbeatInterval);
-      noteLockCommands.releaseNoteLock(vaultPath, win.filePath).catch(() => {});
-    };
-  }, [win.filePath, vaultPath, win.type]);
-
-  // Check for locks from other devices every 10s
+  // Note-level editing lock: acquire + heartbeat + remote check (consolidated)
   useEffect(() => {
     if (!win.filePath || !vaultPath) return;
 
+    // Acquire lock (editor type only) + heartbeat every 30s
+    const isEditor = win.type === 'editor';
+    if (isEditor) {
+      noteLockCommands.acquireNoteLock(vaultPath, win.filePath).catch(() => {});
+    }
+    const heartbeatInterval = isEditor ? setInterval(() => {
+      noteLockCommands.updateHeartbeat(vaultPath, win.filePath).catch(() => {});
+    }, 30000) : null;
+
+    // Check for remote locks every 10s
     const checkLock = () => {
       noteLockCommands.checkNoteLock(vaultPath, win.filePath)
         .then(setRemoteLock)
         .catch(() => {});
     };
-
     checkLock();
-    const interval = setInterval(checkLock, 10000);
-    return () => clearInterval(interval);
-  }, [win.filePath, vaultPath]);
+    const lockCheckInterval = setInterval(checkLock, 10000);
 
-  // Update comment decorations when comments change
+    return () => {
+      if (heartbeatInterval) clearInterval(heartbeatInterval);
+      clearInterval(lockCheckInterval);
+      if (isEditor) {
+        noteLockCommands.releaseNoteLock(vaultPath, win.filePath).catch(() => {});
+      }
+    };
+  }, [win.filePath, vaultPath, win.type]);
+
+  // Update comment decorations when comments actually change (deep equality check)
   useEffect(() => {
     const storage = editor?.storage as { commentMarks?: { comments: typeof comments } } | undefined;
     if (editor && storage?.commentMarks) {
+      // Always sync data to storage
       storage.commentMarks.comments = comments;
-      editor.view.dispatch(editor.state.tr);
+      // Only dispatch (expensive re-render) if comments actually changed
+      const key = comments.map(c => `${c.id}:${c.resolved}`).join(',');
+      if (key !== prevCommentsKeyRef.current) {
+        prevCommentsKeyRef.current = key;
+        editor.view.dispatch(editor.state.tr);
+      }
     }
   }, [comments, editor]);
 
-  // Refresh decorations when fileTree changes (for wiki-link resolution)
-  useEffect(() => {
-    if (editor && editor.view) {
-      editor.view.dispatch(editor.state.tr);
-    }
-  }, [fileTree, editor]);
+  // NOTE: Removed empty transaction dispatch on fileTree change.
+  // Wiki-link resolution uses ref-based callbacks (resolveLinkRef.current)
+  // which automatically access the latest fileTree without needing a re-render.
 
   const handleAddComment = useCallback(async (comment: NoteComment) => {
     const updated = [...comments, comment];
@@ -976,8 +992,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const result = await saveComments(win.filePath, updated, commentsMtimeRef.current);
     commentsMtimeRef.current = result.mtime;
     if (result.comments !== updated) setComments(result.comments);
-    refreshActions.incrementSearchRefresh();
-    appStoreActionsRef.current.refreshCalendar();
+    refreshActions.batchRefresh({ search: true, calendar: true });
     notifyMemoChanged(win.filePath).catch(() => {});
     // Clear preserved selection and task mode after adding comment
     setPreservedSelection(null);
@@ -990,8 +1005,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const result = await saveComments(win.filePath, updated, commentsMtimeRef.current);
     commentsMtimeRef.current = result.mtime;
     if (result.comments !== updated) setComments(result.comments);
-    refreshActions.incrementSearchRefresh();
-    appStoreActionsRef.current.refreshCalendar();
+    refreshActions.batchRefresh({ search: true, calendar: true });
     notifyMemoChanged(win.filePath).catch(() => {});
     if (activeCommentId === commentId) setActiveCommentId(null);
   }, [comments, win.filePath, activeCommentId]);
@@ -1002,8 +1016,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const result = await saveComments(win.filePath, updated, commentsMtimeRef.current);
     commentsMtimeRef.current = result.mtime;
     if (result.comments !== updated) setComments(result.comments);
-    refreshActions.incrementSearchRefresh();
-    appStoreActionsRef.current.refreshCalendar();
+    refreshActions.batchRefresh({ search: true, calendar: true });
     notifyMemoChanged(win.filePath).catch(() => {});
   }, [comments, win.filePath]);
 
@@ -1013,8 +1026,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const result = await saveComments(win.filePath, updated, commentsMtimeRef.current);
     commentsMtimeRef.current = result.mtime;
     if (result.comments !== updated) setComments(result.comments);
-    refreshActions.incrementSearchRefresh();
-    appStoreActionsRef.current.refreshCalendar();
+    refreshActions.batchRefresh({ search: true, calendar: true });
     notifyMemoChanged(win.filePath).catch(() => {});
   }, [comments, win.filePath]);
 
@@ -1079,7 +1091,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
     const isHoverFromUrl = urlParams.get('hover') === 'true';
     const isMultiWindow = windowLabel.startsWith('hover-') || isHoverFromUrl;
 
-    console.log(`%c[HoverWindow] handleClose() - label: ${windowLabel}, isMultiWindow: ${isMultiWindow}`, 'color: #e91e63; font-weight: bold; font-size: 14px');
+    log(`[HoverWindow] handleClose() - label: ${windowLabel}, isMultiWindow: ${isMultiWindow}`);
 
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -1088,7 +1100,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
 
     // Multi-window mode: save, index, then close
     if (isMultiWindow) {
-      console.log('[HoverWindow] Multi-window mode detected, closing...');
+      log('[HoverWindow] Multi-window mode detected, closing...');
       // Save before closing if dirty
       if (isDirty && frontmatter && editor) {
         try {
@@ -1099,16 +1111,16 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
           await searchCommands.indexNote(win.filePath);
           refreshActions.incrementSearchRefresh();
           notifySearchIndexUpdated(win.filePath).catch(() => {});
-          console.log('[HoverWindow] Saved and indexed before close');
+          log('[HoverWindow] Saved and indexed before close');
         } catch (err) {
           console.error('Save/index before close failed:', err);
         }
       }
       // Close the OS window using destroy() for immediate closing
-      console.log('[HoverWindow] Calling currentWin.destroy()...');
+      log('[HoverWindow] Calling currentWin.destroy()...');
       try {
         await currentWin.destroy();
-        console.log('[HoverWindow] destroy() completed');
+        log('[HoverWindow] destroy() completed');
       } catch (err) {
         console.error('[HoverWindow] Window destroy failed:', err);
       }
@@ -1161,7 +1173,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
 
   const handleMinimize = useCallback(async () => {
     const minimizeStartTime = performance.now();
-    console.log(`%c[HoverWindow ${win.id.slice(-6)}] ▼ MINIMIZE BUTTON CLICKED`, 'color: #9c27b0; font-weight: bold; font-size: 14px');
+    log(`[HoverWindow ${win.id.slice(-6)}] MINIMIZE BUTTON CLICKED`);
 
     // Multi-window mode: minimize the OS window directly
     const isMultiWindow = isHoverWindow();
@@ -1172,7 +1184,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         await saveFile().catch(err => console.error('Background save failed:', err));
       }
       getCurrentWindow().minimize();
-      console.log(`  [HoverWindow] handleMinimize() OS window minimized (${(performance.now() - minimizeStartTime).toFixed(2)}ms)`);
+      log(`  [HoverWindow] handleMinimize() OS window minimized (${(performance.now() - minimizeStartTime).toFixed(2)}ms)`);
       return;
     }
 
@@ -1182,7 +1194,7 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
       hoverActions.startMinimizing(win.id);
       runAnimation(el, 'minimize', HOVER_ANIMATION.MINIMIZE_DURATION).then(() => {
         hoverActions.finishMinimizing(win.id);
-        console.log(`  [HoverWindow ${win.id.slice(-6)}] minimize animation finished (${(performance.now() - minimizeStartTime).toFixed(1)}ms total)`);
+        log(`  [HoverWindow ${win.id.slice(-6)}] minimize animation finished (${(performance.now() - minimizeStartTime).toFixed(1)}ms total)`);
       });
     } else {
       hoverActions.startMinimizing(win.id);
@@ -1207,14 +1219,14 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
           refreshActions.incrementSearchRefresh();
           notifySearchIndexUpdated(copyPath).catch(() => {});
         }).catch(() => {});
-        console.log(`[HoverEditor] Conflict auto-saved as copy on minimize: ${copyPath}`);
+        log(`[HoverEditor] Conflict auto-saved as copy on minimize: ${copyPath}`);
       }).catch(err => console.error('Conflict auto-save on minimize failed:', err));
     } else if (isDirty && frontmatter) {
       // Save in background (with sync grace period if another device was editing)
       const syncGrace = remoteLock ? new Promise(r => setTimeout(r, 2000)) : Promise.resolve();
       syncGrace.then(() => saveFile()).catch(err => console.error('Background save failed:', err));
     }
-    console.log(`  [HoverWindow] handleMinimize() TOTAL: ${(performance.now() - minimizeStartTime).toFixed(2)}ms`);
+    log(`  [HoverWindow] handleMinimize() TOTAL: ${(performance.now() - minimizeStartTime).toFixed(2)}ms`);
   }, [isDirty, frontmatter, saveFile, win.id, remoteLock, conflictState, vaultPath, win.filePath]);
 
   // Ctrl+Wheel zoom state ref (to access current values in event handler)
@@ -1263,10 +1275,10 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
         return;
       }
 
-      // Ctrl+Shift+M: Toggle metadata panel
+      // Ctrl+Shift+M: Toggle tag panel
       if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
-        setShowMetadata(prev => !prev);
+        setShowTags(prev => !prev);
         return;
       }
 
@@ -1865,13 +1877,13 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
           {!isAttachmentFile && (
             <>
               <button
-                className={`hover-editor-fm-toggle ${showMetadata ? 'active' : ''}`}
-                onClick={() => setShowMetadata(!showMetadata)}
+                className={`hover-editor-fm-toggle ${showTags ? 'active' : ''}`}
+                onClick={() => setShowTags(!showTags)}
                 onMouseDown={(e) => e.stopPropagation()}
                 onDoubleClick={(e) => e.stopPropagation()}
-                title={t('metadata', language)}
+                title={t('tags', language)}
               >
-                <LayoutList size={14} />
+                <Tags size={14} />
               </button>
               <button
                 className={`hover-editor-fm-toggle ${showComments ? 'active' : ''}`}
@@ -1995,15 +2007,15 @@ export const HoverEditorWindow = memo(function HoverEditorWindow({ window: win }
             initialTaskMode={pendingTaskMode}
           />
         )}
-        {showMetadata && vaultPath && !folderPath && (
-          <div className="hover-editor-metadata-panel">
-            <MetadataEditor filePath={win.filePath} vaultPath={vaultPath} />
+        {showTags && vaultPath && !folderPath && (
+          <div className="hover-editor-tag-panel">
+            <TagPanel filePath={win.filePath} vaultPath={vaultPath} />
           </div>
         )}
       </div>
-      {showMetadata && vaultPath && folderPath && (
-        <div className="hover-editor-metadata-section" data-drop-target={`hover-editor-${win.id}`}>
-          <MetadataEditor filePath={win.filePath} vaultPath={vaultPath} />
+      {showTags && vaultPath && folderPath && (
+        <div className="hover-editor-tag-section" data-drop-target={`hover-editor-${win.id}`}>
+          <TagPanel filePath={win.filePath} vaultPath={vaultPath} />
         </div>
       )}
       {folderPath && (

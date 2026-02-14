@@ -1,5 +1,12 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
+import type { NoteMetadata } from '../../types';
+
+// Optimistic note patch: allows instant UI updates before Tantivy indexing completes
+export interface NotePatch {
+  meta: NoteMetadata;
+  timestamp: number;
+}
 
 interface RefreshState {
   // Triggers
@@ -8,11 +15,16 @@ interface RefreshState {
   ontologyRefreshTrigger: number;
   searchReady: boolean;
 
+  // Optimistic patch for instant search list updates
+  lastNotePatch: NotePatch | null;
+
   // Actions
   incrementSearchRefresh: () => void;
   refreshCalendar: () => void;
   incrementOntologyRefresh: () => void;
   setSearchReady: (ready: boolean) => void;
+  batchRefresh: (options: { search?: boolean; calendar?: boolean; ontology?: boolean }) => void;
+  patchNote: (meta: NoteMetadata) => void;
 }
 
 export const useRefreshStore = create<RefreshState>()(
@@ -22,6 +34,7 @@ export const useRefreshStore = create<RefreshState>()(
     calendarRefreshTrigger: 0,
     ontologyRefreshTrigger: 0,
     searchReady: false,
+    lastNotePatch: null,
 
     // Increment search refresh trigger
     incrementSearchRefresh: () => {
@@ -41,6 +54,20 @@ export const useRefreshStore = create<RefreshState>()(
     // Set search ready state
     setSearchReady: (ready: boolean) => {
       set({ searchReady: ready });
+    },
+
+    // Batch refresh: increment multiple triggers in a single set() to reduce re-renders
+    batchRefresh: (options) => {
+      set((state) => ({
+        ...(options.search ? { searchRefreshTrigger: state.searchRefreshTrigger + 1 } : {}),
+        ...(options.calendar ? { calendarRefreshTrigger: state.calendarRefreshTrigger + 1 } : {}),
+        ...(options.ontology ? { ontologyRefreshTrigger: state.ontologyRefreshTrigger + 1 } : {}),
+      }));
+    },
+
+    // Optimistic patch: instantly update a single note's metadata in Search without Tantivy
+    patchNote: (meta) => {
+      set({ lastNotePatch: { meta, timestamp: Date.now() } });
     },
   }))
 );
@@ -68,5 +95,9 @@ export const refreshActions = {
     useRefreshStore.getState().incrementOntologyRefresh(),
   setSearchReady: (ready: boolean) =>
     useRefreshStore.getState().setSearchReady(ready),
+  batchRefresh: (options: { search?: boolean; calendar?: boolean; ontology?: boolean }) =>
+    useRefreshStore.getState().batchRefresh(options),
+  patchNote: (meta: NoteMetadata) =>
+    useRefreshStore.getState().patchNote(meta),
 };
 

@@ -23,7 +23,6 @@ function TitleBar() {
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.titlebar-controls')) return;
-    // Record mouse position for movement detection
     mouseDownPosRef.current = { x: e.clientX, y: e.clientY };
   };
 
@@ -35,7 +34,6 @@ function TitleBar() {
       const dx = Math.abs(e.clientX - mouseDownPosRef.current.x);
       const dy = Math.abs(e.clientY - mouseDownPosRef.current.y);
 
-      // Start dragging if mouse moved more than 5px
       if (dx > 5 || dy > 5) {
         isDraggingRef.current = true;
         mouseDownPosRef.current = null;
@@ -63,10 +61,7 @@ function TitleBar() {
 
   const handleDoubleClick = async (e: React.MouseEvent) => {
     if ((e.target as HTMLElement).closest('.titlebar-controls')) return;
-
-    // Cancel any pending drag
     mouseDownPosRef.current = null;
-
     try {
       await appWindow.toggleMaximize();
     } catch (err) {

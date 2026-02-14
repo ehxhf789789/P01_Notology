@@ -21,7 +21,6 @@ function logBottleneck(tag: string, id: string, message: string, startTime?: num
 }
 
 let nextHoverZ = 1001;
-let hoverCount = 0;
 
 // Cache configuration
 const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes - cached windows older than this are destroyed
@@ -144,10 +143,21 @@ export const useHoverStore = create<HoverState>()(
         // No cache hit - create new window
         log(`[HoverStore] CACHE MISS - creating new window: ${(performance.now() - openStart).toFixed(1)}ms`);
 
-        // Offset new windows
-        const offset = (hoverCount % 10) * 30;
-        hoverCount++;
+        // Offset from the most recently focused visible window (cascade diagonally)
         nextHoverZ++;
+        const visibleWindows = state.hoverFiles.filter(h => !h.cached && !h.minimized);
+        let baseX = 350;
+        let baseY = 120;
+        if (visibleWindows.length > 0) {
+          const topWindow = visibleWindows.reduce((a, b) => a.zIndex > b.zIndex ? a : b);
+          baseX = topWindow.position.x + 30;
+          baseY = topWindow.position.y + 30;
+        }
+        // Clamp to viewport so the window stays visible
+        const maxX = Math.max(200, window.innerWidth - state.defaultWidth - 20);
+        const maxY = Math.max(80, window.innerHeight - 100);
+        if (baseX > maxX) baseX = 350;
+        if (baseY > maxY) baseY = 120;
 
         // Determine file type
         const isUrl = /^https?:\/\//i.test(path);
@@ -160,7 +170,7 @@ export const useHoverStore = create<HoverState>()(
           id: generateHoverId(),
           filePath: path,
           type: fileType,
-          position: { x: 350 + offset, y: 120 + offset },
+          position: { x: baseX, y: baseY },
           size: { width: state.defaultWidth, height: state.defaultHeight },
           zIndex: nextHoverZ,
         };

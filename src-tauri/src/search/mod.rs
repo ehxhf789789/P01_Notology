@@ -1433,19 +1433,43 @@ impl SearchIndex {
         let sort_order = filter.sort_order.as_deref().unwrap_or("desc");
         let ascending = sort_order == "asc";
 
+        // Helper: secondary sort by modified when primary values are equal
+        // This ensures meaningful ordering even when all primary values are identical
+        // (e.g., all notes have same type or all have 0 memos)
         if results.len() > 1000 {
             // Use parallel sort for large result sets
             match filter.sort_by.as_deref() {
                 Some("title") => {
                     results.par_sort_by(|a, b| {
                         let cmp = a.title.cmp(&b.title);
-                        if ascending { cmp } else { cmp.reverse() }
+                        let cmp = if ascending { cmp } else { cmp.reverse() };
+                        if cmp == std::cmp::Ordering::Equal {
+                            b.modified.cmp(&a.modified) // newest first as tiebreaker
+                        } else { cmp }
                     });
                 }
                 Some("created") => {
                     results.par_sort_by(|a, b| {
                         let cmp = a.created.cmp(&b.created);
                         if ascending { cmp } else { cmp.reverse() }
+                    });
+                }
+                Some("type") => {
+                    results.par_sort_by(|a, b| {
+                        let cmp = a.note_type.cmp(&b.note_type);
+                        let cmp = if ascending { cmp } else { cmp.reverse() };
+                        if cmp == std::cmp::Ordering::Equal {
+                            b.modified.cmp(&a.modified)
+                        } else { cmp }
+                    });
+                }
+                Some("memo") => {
+                    results.par_sort_by(|a, b| {
+                        let cmp = a.comment_count.cmp(&b.comment_count);
+                        let cmp = if ascending { cmp } else { cmp.reverse() };
+                        if cmp == std::cmp::Ordering::Equal {
+                            b.modified.cmp(&a.modified)
+                        } else { cmp }
                     });
                 }
                 _ => {
@@ -1461,13 +1485,34 @@ impl SearchIndex {
                 Some("title") => {
                     results.sort_by(|a, b| {
                         let cmp = a.title.cmp(&b.title);
-                        if ascending { cmp } else { cmp.reverse() }
+                        let cmp = if ascending { cmp } else { cmp.reverse() };
+                        if cmp == std::cmp::Ordering::Equal {
+                            b.modified.cmp(&a.modified)
+                        } else { cmp }
                     });
                 }
                 Some("created") => {
                     results.sort_by(|a, b| {
                         let cmp = a.created.cmp(&b.created);
                         if ascending { cmp } else { cmp.reverse() }
+                    });
+                }
+                Some("type") => {
+                    results.sort_by(|a, b| {
+                        let cmp = a.note_type.cmp(&b.note_type);
+                        let cmp = if ascending { cmp } else { cmp.reverse() };
+                        if cmp == std::cmp::Ordering::Equal {
+                            b.modified.cmp(&a.modified)
+                        } else { cmp }
+                    });
+                }
+                Some("memo") => {
+                    results.sort_by(|a, b| {
+                        let cmp = a.comment_count.cmp(&b.comment_count);
+                        let cmp = if ascending { cmp } else { cmp.reverse() };
+                        if cmp == std::cmp::Ordering::Equal {
+                            b.modified.cmp(&a.modified)
+                        } else { cmp }
                     });
                 }
                 _ => {
@@ -1523,9 +1568,8 @@ impl SearchIndex {
         let body = doc.get_first(self.f_body).and_then(|v| v.as_str()).unwrap_or("");
         let has_body = !body.trim().is_empty();
 
-        // Count comments (skip for large queries to improve performance)
-        // Comments are counted lazily when needed
-        let comment_count = 0; // Lazy loading - count on demand
+        // Count comments from note_att/comments.json
+        let comment_count = Self::count_comments(&path);
 
         let metadata = NoteMetadata {
             path: path.clone(),

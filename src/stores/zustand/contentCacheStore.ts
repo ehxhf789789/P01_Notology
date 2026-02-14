@@ -159,11 +159,11 @@ export const useContentCacheStore = create<ContentCacheState>()((set, get) => ({
     // Check if already cached - INSTANT return
     const cached = state.cache.get(filePath);
     if (cached) {
-      log(`[ContentCache] CACHE HIT: ${filePath.split(/[/\\]/).pop()} (${(performance.now() - startTime).toFixed(1)}ms)`);
+      // CACHE HIT — silent (too frequent to log)
       return cached; // Skip LRU update for speed
     }
 
-    log(`[ContentCache] CACHE MISS: ${filePath.split(/[/\\]/).pop()} (cache size: ${state.cache.size})`);
+    // CACHE MISS — silent (logged in bulk during warmup)
 
 
     // Check if already loading (deduplicate concurrent requests)

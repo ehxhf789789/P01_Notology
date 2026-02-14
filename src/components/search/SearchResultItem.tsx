@@ -27,9 +27,11 @@ interface FrontmatterResultRowProps {
   onSelect?: (path: string) => void;
   isMultiSelected?: boolean;
   onMultiClick?: (e: React.MouseEvent, note: NoteMetadata) => boolean;
+  style?: React.CSSProperties; // Virtual list positioning
+  tagSortCategory?: string | null; // Active tag category for highlighting
 }
 
-export function FrontmatterResultRow({
+export const FrontmatterResultRow = React.memo(function FrontmatterResultRow({
   note,
   frontmatterQuery,
   getTemplateCustomColor,
@@ -40,17 +42,17 @@ export function FrontmatterResultRow({
   onSelect,
   isMultiSelected,
   onMultiClick,
+  style,
+  tagSortCategory,
 }: FrontmatterResultRowProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
-  // Display underscores as spaces for better readability
   const displayName = fileName.replace(/_/g, ' ');
   const customColor = getTemplateCustomColor(note.note_type);
   const isContainer = note.note_type?.toUpperCase() === 'CONTAINER';
   const isSelected = selectedPath === note.path;
 
   const handleClick = (e: React.MouseEvent) => {
-    // Check for multi-select first
     if (onMultiClick && onMultiClick(e, note)) return;
     if (isContainer && onSelect) {
       onSelect(note.path);
@@ -61,37 +63,40 @@ export function FrontmatterResultRow({
 
   const handleDoubleClick = () => {
     if (isContainer) {
-      // Folder notes: double click navigates
       onNoteClick(note.path, note.note_type);
     }
   };
 
+  const rowStyle = customColor
+    ? { ...style, '--template-color': customColor } as React.CSSProperties
+    : style;
+
   return (
-    <tr
-      key={note.path}
-      className={`search-row${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}${isMultiSelected ? ' multi-selected' : ''}`}
+    <div
+      className={`search-row search-grid-row${noteType ? ' ' + noteType : ''}${customColor ? ' has-custom-color' : ''}${isSelected ? ' selected' : ''}${isMultiSelected ? ' multi-selected' : ''}`}
       onClick={handleClick}
       onDoubleClick={handleDoubleClick}
       onMouseEnter={() => onNoteHover(note.path)}
       onContextMenu={(e) => onContextMenu(e, note)}
-      style={customColor ? { '--template-color': customColor } as React.CSSProperties : undefined}
+      style={rowStyle}
     >
-      <td className="search-td search-title">{highlightText(displayName, frontmatterQuery)}</td>
-      <td className="search-td search-type">{noteTypeToFullName(note.note_type)}</td>
-      <td className="search-td search-tags">
+      <div className="search-td search-title">{highlightText(displayName, frontmatterQuery)}</div>
+      <div className="search-td search-type">{noteTypeToFullName(note.note_type)}</div>
+      <div className="search-td search-tags">
         {note.tags.length > 0 ? (
           note.tags.map(tag => {
             const categoryClass = getTagCategoryClass(tag);
-            // Parse tag name from tag (format: "namespace/tagName" or "tagName")
             let tagName = tag;
             if (tag.startsWith('domain/')) tagName = tag.substring(7);
             else if (tag.startsWith('who/')) tagName = tag.substring(4);
             else if (tag.startsWith('org/')) tagName = tag.substring(4);
             else if (tag.startsWith('ctx/')) tagName = tag.substring(4);
+            // Dim tags not in the active sort category
+            const isDimmed = tagSortCategory ? !tag.startsWith(tagSortCategory + '/') : false;
             return (
               <span
                 key={tag}
-                className={`search-tag${categoryClass ? ' ' + categoryClass : ''}`}
+                className={`search-tag${categoryClass ? ' ' + categoryClass : ''}${isDimmed ? ' tag-dimmed' : ''}`}
               >
                 {tagName}
               </span>
@@ -100,15 +105,15 @@ export function FrontmatterResultRow({
         ) : (
           <span className="search-tag-empty">-</span>
         )}
-      </td>
-      <td className="search-td search-memo">
+      </div>
+      <div className="search-td search-memo">
         {note.comment_count > 0 ? note.comment_count : '-'}
-      </td>
-      <td className="search-td search-date">{formatDate(note.created)}</td>
-      <td className="search-td search-date">{formatDate(note.modified)}</td>
-    </tr>
+      </div>
+      <div className="search-td search-date">{formatDate(note.created)}</div>
+      <div className="search-td search-date">{formatDate(note.modified)}</div>
+    </div>
   );
-}
+});
 
 // ============================================================================
 // Content search result card
@@ -122,7 +127,7 @@ interface ContentResultCardProps {
   onNoteHover: (path: string) => void;
 }
 
-export function ContentResultCard({
+export const ContentResultCard = React.memo(function ContentResultCard({
   result,
   contentsQuery,
   getTemplateCustomColor,
@@ -156,7 +161,7 @@ export function ContentResultCard({
       <div className="search-content-path">{result.path.split(/[/\\]/).slice(-2).join('/')}</div>
     </div>
   );
-}
+});
 
 // ============================================================================
 // Attachment result row
@@ -171,7 +176,7 @@ interface AttachmentResultRowProps {
   language: LanguageSetting;
 }
 
-export function AttachmentResultRow({
+export const AttachmentResultRow = React.memo(function AttachmentResultRow({
   att,
   attachmentsQuery,
   isSelected,
@@ -197,7 +202,7 @@ export function AttachmentResultRow({
       <td className="search-td search-container">{highlightText(att.container, attachmentsQuery)}</td>
     </tr>
   );
-}
+});
 
 // ============================================================================
 // Details result card
@@ -215,9 +220,10 @@ interface DetailsResultCardProps {
   onSelect?: (path: string) => void;
   isMultiSelected?: boolean;
   onMultiClick?: (e: React.MouseEvent, note: NoteMetadata) => boolean;
+  tagSortCategory?: string | null;
 }
 
-export function DetailsResultCard({
+export const DetailsResultCard = React.memo(function DetailsResultCard({
   note,
   getTemplateCustomColor,
   onNoteClick,
@@ -229,6 +235,7 @@ export function DetailsResultCard({
   onSelect,
   isMultiSelected,
   onMultiClick,
+  tagSortCategory,
 }: DetailsResultCardProps) {
   const noteType = noteTypeToCssClass(note.note_type);
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || note.title;
@@ -284,10 +291,11 @@ export function DetailsResultCard({
             else if (tag.startsWith('who/')) displayTag = tag.substring(4);
             else if (tag.startsWith('org/')) displayTag = tag.substring(4);
             else if (tag.startsWith('ctx/')) displayTag = tag.substring(4);
+            const isDimmed = tagSortCategory ? !tag.startsWith(tagSortCategory + '/') : false;
             return (
               <span
                 key={tag}
-                className={`search-tag${categoryClass ? ' ' + categoryClass : ''}`}
+                className={`search-tag${categoryClass ? ' ' + categoryClass : ''}${isDimmed ? ' tag-dimmed' : ''}`}
                 onClick={e => {
                   e.stopPropagation();
                   onTagClick(tag);
@@ -306,4 +314,4 @@ export function DetailsResultCard({
       )}
     </div>
   );
-}
+});

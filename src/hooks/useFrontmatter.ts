@@ -110,11 +110,12 @@ export function useFrontmatter(filePath: string | null): UseFrontmatterReturn {
       const yaml = await frontmatterToYaml(frontmatter);
       await noteCommands.updateFrontmatter(filePath, yaml);
 
-      // Re-index the note
-      await searchCommands.indexNote(filePath);
-
-      // Trigger search refresh
-      incrementSearchRefresh();
+      // Re-index in background (don't block UI for Tantivy commit)
+      searchCommands.indexNote(filePath).then(() => {
+        incrementSearchRefresh();
+      }).catch((err) => {
+        console.error('Background index failed:', err);
+      });
     } catch (error) {
       console.error('Failed to save frontmatter:', error);
       throw error;

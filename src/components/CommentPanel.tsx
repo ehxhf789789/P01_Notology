@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import type { NoteComment, CanvasSelection } from '../types';
 import { generateCommentId } from '../utils/comments';
+import { getCurrentTimestamp } from '../utils/frontmatter';
 import { useSettingsStore } from '../stores/zustand/settingsStore';
 import { t, tf } from '../utils/i18n';
 
@@ -72,14 +73,14 @@ function CommentPanel({
       return;
     }
 
-    const now = new Date();
+    const localTimestamp = getCurrentTimestamp();
     const comment: NoteComment = {
       id: generateCommentId(),
       content: newContent.trim(),
       position: selectionRange,
       anchorText: selectedText,
-      created: now.toISOString().split('T')[0],
-      createdTime: now.toISOString(),
+      created: localTimestamp.split('T')[0],
+      createdTime: localTimestamp,
       resolved: false,
     };
 
