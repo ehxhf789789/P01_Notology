@@ -153,7 +153,13 @@ export function DobbinSurface() {
           fired,
           trace,
           refs: (msg?.dobbin_refs as unknown[] | undefined)?.length ?? 0,
-          llm: trace.some((t) => String(t).includes('말을 고르는 중')),
+          // 🔴 **정규식 추측을 버렸다** (2026-09-10). 이 한 줄이 「모델 씀/
+          //    안 씀 — 표에서 셈」을 정했는데, 30일 실측 **655턴(7.4%)이
+          //    오답**이었다 (전부 «안 씀» 쪽으로). 서버가 `conversation.lane`
+          //    에 정본을 적으면서도 안 보내던 것을 이제 보낸다.
+          llm: typeof msg?.dobbin_lane === 'string'
+            ? String(msg.dobbin_lane).startsWith('llm')
+            : trace.some((t) => String(t).includes('말을 고르는 중')),
           level: (msg?.dobbin_level as string | undefined) ?? null,
         } }));
       } catch { /* 지도는 덤이다 — 막혀도 대화는 돈다 */ }

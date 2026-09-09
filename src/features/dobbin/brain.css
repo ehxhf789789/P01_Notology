@@ -125,3 +125,21 @@
     filter: drop-shadow(0 0 7px rgba(255,209,102,.9)); }
 }
 @media (prefers-reduced-motion: reduce) { .bm-build { animation: none; } }
+
+/* 이음 범례 — 색이 아니라 **선**이라 네모가 아니라 막대로 그린다 */
+.brainmap__legend--edge { margin-top: 4px; opacity: .85; }
+/* 🔴 위의 `.brainmap__legend i` 가 동그라미(9×9·radius 50%·box-shadow)라
+   그대로 두면 막대가 동그라미가 된다 — 명시로 덮는다. */
+.brainmap__legend--edge i.bm-leg {
+  display: inline-block; width: 18px; height: 0;
+  border-top: 2px solid currentColor; border-radius: 0; box-shadow: none;
+  margin-right: 5px; vertical-align: 3px; background: none !important; }
+.bm-leg--call  { color: rgba(150,190,255,.75); }
+.bm-leg--feed  { color: rgba(160,255,220,.75); border-top-style: dashed; }
+.bm-leg--gate  { color: rgba(214,150,255,.8);  border-top-style: dotted; }
+.bm-leg--act   { color: rgba(120,230,160,.8); }
+.bm-leg--debt  { color: rgba(255,138,196,.85); border-top-style: dashed; }
+.bm-leg--chain { color: rgba(190,210,255,.5); }
+.bm-leg--bad   { color: #f0574a; }
+/* 붉은 칸 수 — 오배선과 다른 것이라 흐리게 */
+.bm-dim { opacity: .6; }

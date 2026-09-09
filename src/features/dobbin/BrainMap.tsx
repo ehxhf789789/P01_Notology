@@ -18,8 +18,10 @@ type Node = {
   id: string; kind: string; sub?: string; region: string; status: string;
   stage?: number; stage_why?: string;
   order?: number; n?: number | null; hit?: number | null;
-  miss?: Record<string, number>; mod?: string; why?: string; label?: string;
+  miss?: Record<string, number>; mod?: string; why?: string;
   수용체?: string[]; 자극?: string[];
+  label?: string; sse?: string | null; rc?: number | null;
+  target?: string; owner?: string; grade?: string; src?: string | null;
 };
 type Edge = { a: string; b: string; kind: string; n?: number };
 type Region = { label: string; cx: number; cy?: number; hue: number; layer?: string | null };
@@ -37,13 +39,10 @@ const W = 980, H = 700;
 /** 뇌가 차지하는 세로 — 아래 나머지는 **장비 띠**다 (뇌가 아니다). */
 const BRAIN_TOP = 24, BRAIN_BOT = 556, EQUIP_TOP = 586;
 
-/** SSE 이름 → 조작 칸 (서버 `MOTOR` 와 같은 표 · 지어낸 이름 없음) */
-const MOTOR_SSE: Record<string, string> = {
-  'search': '검색', 'file-changed': '자료 열기', 'note-changed': '노트 편집',
-  'vault-changed': '보관소', 'inbox-changed': '투입', 'memos-changed': '일정',
-  'shelf-changed': '서가 이동', 'tended': '일과', 'initiate': '선말',
-  'consistency': '일관성', 'lease-changed': '임차',
-};
+/* 🔴 **화면의 조작 표를 버렸다** (2026-09-10). 여기 `MOTOR_SSE` 라는 두 번째
+   표를 들고 있어서, 서버가 이름을 고치자 **4개는 켤 노드가 없고 4개는 영영
+   못 켜지는** 어긋남이 생겼다. 「같은 표를 두 곳에 두지 않는다」— 이제 서버가
+   노드마다 `sse` 를 실어 보내고 화면은 그것으로만 잇는다. */
 
 /** 🔴 **위에서 본 뇌** (한빈 2026-09-09 선택). 앞 판은 좌·우 반구를 두 덩이로
  *  떼어 그렸는데, 한빈이 *"영역이 과도하게 떨어져 있고 테두리가 허접하다"* 고
@@ -76,6 +75,19 @@ const EDGE_CLS: Record<string, string> = {
   '일으킴': 'act', '빚': 'debt',
 };
 
+/** 이음 범례 — 무엇이 무엇인지 화면에 적는다 */
+const EDGE_LEGEND: [string, string][] = [
+  ['부름', '이 모듈이 저 모듈을 부른다 (코드에 있다)'],
+  ['공급', '이 기관이 저 신경에 재료를 준다'],
+  ['검증', '이 관문이 저 모듈을 잰다'],
+  ['걸음', '이 일과에 속한 걸음이다'],
+  ['일함', '이 걸음이 저 모듈을 만진다'],
+  ['일으킴', '이 모듈이 저 자국을 남긴다'],
+  ['빚', '이 할 일이 저 신경에 걸려 있다'],
+  ['사슬', '답을 고르는 차례 — 앞이 이긴다'],
+  ['오배선', '의도한 신경 대신 저 신경이 먹었다'],
+];
+
 const STATUS: Record<string, { c: string; t: string }> = {
   ok:       { c: '#3ecf8e', t: '의도대로 돈다' },
   part:     { c: '#e3b341', t: '일부만' },
@@ -85,7 +97,7 @@ const STATUS: Record<string, { c: string; t: string }> = {
   nomeas:   { c: '#7c8598', t: '재는 자가 없다' },
   unknown:  { c: '#4b5563', t: '모른다 (근거 없음)' },
   todo:     { c: '#8b5cf6', t: '선언만 — 빈칸' },
-  planned:  { c: '#ff8ac4', t: '만들 차례 (아직 없는 신경)' },
+  planned:  { c: '#ff8ac4', t: '차례를 기다리는 할 일' },
   building: { c: '#ffd166', t: '지금 만드는 중' },
 };
 
@@ -154,6 +166,17 @@ export function BrainMap() {
     return () => { dead = true; };
   }, []);
 
+  /** 자국은 이름(`판본`)으로 오고 노드 id 는 이름표가 붙었다(`신경:판본`).
+   *  둘을 잇는다 — 안 이으면 말을 걸어도 아무 데도 안 켜진다. */
+  const byName = useMemo(() => {
+    const o: Record<string, string> = {};
+    (m?.nodes || []).forEach(n => {
+      if (n.label) o[n.label] ??= n.id;
+      o[n.id] = n.id;
+      if (n.sse) o[`sse:${n.sse}`] = n.id;
+    });
+    return o;
+  }, [m]);
   // 말을 걸면 그 턴에 울린 신경이 번쩍인다
   useEffect(() => {
     const on = (e: Event) => {
@@ -162,28 +185,27 @@ export function BrainMap() {
           level?: string | null } | string[] | undefined;
       const ids = Array.isArray(d) ? d : (d?.fired ?? []);
       const trace = Array.isArray(d) ? [] : (d?.trace ?? []);
-      // 🔴 걸음 글에서 **어느 기관이 실제로 일했는지** 읽는다 — 이것이
-      //    «하네스·신경 활용 수준»의 실체다 (지어낸 연출이 아니라 자국).
-      const ORGAN: [RegExp, string][] = [
-        [/서재를 뒤지는 중|대조하는 중/, '읽기'],
-        [/말을 고르는 중/, '말투'],
-        [/확신을 정했다/, '심의 회로'],
-        [/정서 —/, '정서'],
-        [/기억|알려 주신/, '기억 3층'],
-        [/관계|사슬/, '관계 사슬'],
-        [/연상/, '연상망'],
-        [/수단|상황/, '수단 고르기'],
-        [/여몄다/, '존대 여미기'],
-        [/빈 논항/, '한국어'],
-      ];
-      const organs = ORGAN.filter(([re]) => trace.some(t => re.test(String(t))))
-                          .map(([, name]) => name);
-      if (!ids.length && !organs.length) return;
-      setLit([...ids, ...organs]); setPulse(p => p + 1);
+      // 🔴 **기관 추측표를 버렸다** (2026-09-10). 여기 정규식 10줄로 «어느
+      //    기관이 일했나»를 찍고 «지어낸 연출이 아니라 자국» 이라 적어 뒀는데,
+      //    서버의 EVIDENCE 와 **3/10만 일치**했다 — 나머지 7은 화면의 창작이다.
+      //    (`그거`·`관계`·`수단` 같은 흔한 말이 걸리면 초록이 됐다.)
+      //    이제 자국의 «신경 «X» 발화» 를 **서버가 그린 공급 이음**으로 거슬러
+      //    올린다 — 추측이 아니라 서버가 이미 그린 선을 따라가는 것이다.
+      const firedNames = trace.flatMap(t =>
+        [...String(t).matchAll(/신경 «([^»]+)» 발화/g)].map(x => x[1]));
+      const nerveIds = [...new Set([...ids, ...firedNames])]
+        .map(x => byName[x] || x);
+      const organs = [...new Set(nerveIds.flatMap(nid =>
+        (m?.edges || []).filter(e => e.kind === '공급' && e.b === nid)
+          .map(e => e.a)))];
+      if (!nerveIds.length && !organs.length) return;
+      // 🔴 **접는다** — 신경과 기관 이름이 겹치면 「신경 2개」라 적고 1개만
+      //    나열하던 어긋남이 여기서 났다.
+      setLit([...new Set([...nerveIds, ...organs])]); setPulse(p => p + 1);
       setTurn({ trace, refs: (Array.isArray(d) ? 0 : d?.refs ?? 0),
                 llm: Array.isArray(d) ? false : !!d?.llm,
                 level: Array.isArray(d) ? null : (d?.level ?? null),
-                organs, nerves: ids.length });
+                organs, nerves: nerveIds.length });
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => setLit([]), 5200);
     };
@@ -196,27 +218,28 @@ export function BrainMap() {
         const id = ev.nerve
           || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
         if (!id) return;
+        const nid = byName[id] || id;      // `판본` → `신경:판본`
+        setLit(prev => (prev.includes(nid) ? prev : [...prev, nid]));
+        setPulse(p => p + 1);
+        if (timer.current) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setLit([]), 5200);
+      } else if (ev?.kind && byName[`sse:${ev.kind}`]) {
+        // notology 조작 — **서버가 노드에 실어 보낸 `sse`** 로만 잇는다
+        const id = byName[`sse:${ev.kind}`];
         setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
         setPulse(p => p + 1);
         if (timer.current) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setLit([]), 5200);
-      } else if (ev?.kind && MOTOR_SSE[ev.kind]) {
-        // notology 조작 — 검색·열기·편집·투입이 일어나면 그 칸이 켜진다
-        const id = `조작:${MOTOR_SSE[ev.kind]}`;
-        setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
-        setPulse(p => p + 1);
-        if (timer.current) window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setLit([]), 5200);
-      } else if (ev?.kind === 'tending' && ev.step) {
-        setLit(prev => [...prev, `걸음:${ev.step}`]);
-        setPulse(p => p + 1);
       }
+      // 🔴 여기 있던 `tending` 갈래를 지웠다 — **서버가 그 이름을 한 번도 안
+      //    쏜다**(`grep publish\('tending'` → 0곳). 듣는데 아무도 안 쏘는 것은
+      //    죽은 갈래다. 걸음을 켜려면 `tend.py` 가 실제로 쏘아야 한다.
     });
     return () => {
       window.removeEventListener('dobbin:fired', on as EventListener);
       try { off?.(); } catch { /* 구독 해제가 막혀도 화면은 산다 */ }
     };
-  }, []);
+  }, [m, byName]);
 
   const lb = useMemo(() => (m ? lobes(m.nodes, m.regions, m.layers || {}) : {}), [m]);
   const pos = useMemo(() => (m ? place(m.nodes, lb) : {}), [m, lb]);
@@ -227,6 +250,13 @@ export function BrainMap() {
   //    연결로 읽게 만들었다. 선은 서버가 준 것만 그린다.
   if (!m?.nodes?.length) return null;
   const mx = m.matrix || {}, ta = m.tally || {};
+  // 「재는 자 82」와 「관문·재는 자 74」가 한 화면에 8 차이로 있었다 — 갈라 센다
+  const equipN = {
+    gate: m.nodes.filter(n => n.kind === '관문' || n.kind === '잣대').length,
+    todo: m.nodes.filter(n => n.kind === '계획').length,
+  };
+  // 🔴 조작 15개는 **사람이 한 일**이라 성숙도에서 뺐다 — 그렇다고 「장비」도
+  //    아니다. 셋으로 갈라 적는다 (뇌 · 손 · 장비).
   const litSet = new Set(lit);
   const nodeById: Record<string, Node> = {};
   m.nodes.forEach(n => { nodeById[n.id] = n; });
@@ -238,9 +268,14 @@ export function BrainMap() {
       <h3>뇌 지도
         <span className="brainmap__sum">
           뇌 <b>{m.counts?.뇌 ?? m.nodes.length}</b> · 이음 <b>{m.edges.length}</b>
-          {ta.red ? <> · <em className="bm-bad">오배선 {ta.red}</em></> : null}
+          {/* 🔴 여기 `tally.red`(붉은 노드 **전부**)를 「오배선」이라 불렀다.
+              실측 9 중 진짜 오배선은 2이고 나머지 7은 붉은 관문 6 + 기관 1 —
+              **회귀 관문의 실패가 뇌의 오배선으로 둔갑**했다. 서버가 진짜 값
+              (`matrix.오배선`)을 보내는데 안 읽고 있었다. */}
+          {mx.오배선 ? <> · <em className="bm-bad">오배선 {mx.오배선}</em></> : null}
+          {ta.red ? <> · <span className="bm-dim">붉은 칸 {ta.red}</span></> : null}
           {mx.명중 != null ? ` · 반사 ${mx.명중}/${mx.자극}` : ''}
-          <i className="bm-equip-n">장비 {m.counts?.장비 ?? 0}</i>
+          {' '}<i className="bm-equip-n">손 {m.counts?.조작 ?? 0} · 장비 {m.counts?.장비 ?? 0}</i>
         </span>
       </h3>
 
@@ -248,7 +283,11 @@ export function BrainMap() {
         <div className="brainmap__mat" title="위 단계는 아래가 참이어야 준다">
           {m.maturity.단계.map((label, i) => {
             const n = m.maturity!.셈[String(i)] ?? 0;
-            const pct = Math.round((100 * n) / (m.maturity!.합 || 1));
+            // 🔴 따로 반올림하면 합이 101%가 된다 (실측). 가장 큰 칸이 나머지를 먹는다.
+            const all = m.maturity!.단계.map((_, j) =>
+              Math.round((100 * (m.maturity!.셈[String(j)] ?? 0)) / (m.maturity!.합 || 1)));
+            const big = all.indexOf(Math.max(...all));
+            const pct = i === big ? all[i] + (100 - all.reduce((a, b) => a + b, 0)) : all[i];
             return (
               <span key={label} className={`bm-mat bm-mat--${i}`}>
                 <b>{label}</b> {n}<i>({pct}%)</i>
@@ -326,8 +365,7 @@ export function BrainMap() {
           <line x1={40} y1={EQUIP_TOP - 12} x2={W - 40} y2={EQUIP_TOP - 12}
                 className="bm-divider" />
           <text className="bm-equip-lab" x={40} y={EQUIP_TOP + 2}>
-            장비 — 뇌가 아니다 (재는 자 {ta.nomeas != null ? '' : ''}
-            {m.counts?.장비 ?? 0}개)
+            장비 — 뇌가 아니다 (재는 자 {equipN.gate} · 할 일 {equipN.todo})
           </text>
 
           {/* 영역 이름 — 엽 위쪽 가장자리에 (노드와 안 겹친다) */}
@@ -415,12 +453,20 @@ export function BrainMap() {
       {pick && (
         <div className="brainmap__detail">
           <b>{pick.label || pick.id}</b>
-          <span className="bm-kind">{pick.kind}{pick.sub ? ` · ${pick.sub}` : ''}</span>
+          <span className="bm-kind">{pick.kind}{pick.sub ? ` · ${pick.sub}` : ''}
+            {/* 🔴 서버가 「빚/신설」을 갈라 보내는데 화면이 **0번 읽었다** —
+                8개 전부 «빚»(있는 신경을 고치는 일)인데 「아직 없는 신경」으로
+                그려져, 같은 상세칸의 두 줄이 서로 모순됐다. */}
+            {pick.target ? ` · ${pick.target}` : ''}
+            {pick.grade ? ` · ${pick.grade}` : ''}</span>
           {pick.mod ? <code>{pick.mod}</code> : null}
           <div>{(STATUS[pick.status] || STATUS.dark).t}
-            {pick.n ? ` · 반사 ${pick.hit}/${pick.n}` : ''}
-            {pick.n === undefined && pick.n !== null && typeof pick.n === 'number'
-              ? '' : ''}</div>
+            {pick.rc != null ? ` · rc=${pick.rc}` : ''}
+            {/* 🔴 `hit` 은 신경에만 있다. 기관·조작은 `n`(표 건수)만 있어서
+                「반사 undefined/14114」가 17개 노드에 찍혔다 (실측). */}
+            {pick.hit != null && pick.n ? ` · 반사 ${pick.hit}/${pick.n}`
+             : pick.n != null ? ` · 표에 ${pick.n}건` : ''}
+          </div>
           {pick.stage != null ? (
             <div className="bm-stage">성숙도 <b>{pick.stage}</b>
               {' '}({['선언','배선','도는 중','측정됨','관문'][pick.stage]})
@@ -440,6 +486,19 @@ export function BrainMap() {
         {Object.entries(STATUS).map(([k, v]) => (
           <span key={k}><i style={{ background: v.c }} />{v.t}</span>
         ))}
+      </div>
+      {/* 🔴 **이음 범례가 없었다** — 여덟 종을 그려 놓고 무엇이 무엇인지
+          화면 어디에도 안 적혀 있었다 (실측). 세는 것도 함께 보인다. */}
+      <div className="brainmap__legend brainmap__legend--edge">
+        {EDGE_LEGEND.map(([kind, why]) => {
+          const n = m.edges.filter(e => e.kind === kind).length;
+          if (!n) return null;
+          return (
+            <span key={kind} title={why}>
+              <i className={`bm-leg bm-leg--${EDGE_CLS[kind]}`} />{kind} {n}
+            </span>
+          );
+        })}
       </div>
     </section>
   );
