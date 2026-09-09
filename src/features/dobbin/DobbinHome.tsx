@@ -20,7 +20,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CalendarDays, Search as SearchIcon } from 'lucide-react';
 import { PenguinFace, faceOf } from './PenguinFace';
-import { NerveMap } from './NerveMap';
+import { BrainMap } from './BrainMap';
 import { IntakePanel } from './IntakePanel';
 import { ClusterReview } from './ClusterReview';
 import { NoticeList } from './NoticeList';
@@ -171,9 +171,10 @@ export function DobbinHome() {
           {brain && (
             <section className="dhome__report dhome__brain">
               <h2 className="dhome__h2">두뇌</h2>
-              {/* 🔴 신경 지도 — 한빈 2026-09-09 «뇌의 신경을 시각적으로».
-                  서버가 이미 가진 것(등록부·반사 행렬·발화 자국)을 그린다. */}
-              <NerveMap />
+              {/* 🔴 뇌 지도 — 한빈 2026-09-09 «두뇌 형태로 · 동적으로 ·
+                  세부 신경도 모두 · 하네스가 어디까지 구현됐는지».
+                  말을 걸면 그 턴에 울린 신경·기관이 번쩍이고 요약이 뜬다. */}
+              <BrainMap />
               <div className="dbrain">
                 {brain.memory && (
                   <div className="dbrain__col">

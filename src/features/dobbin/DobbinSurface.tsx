@@ -146,9 +146,16 @@ export function DobbinSurface() {
         const fired = ((msg?.dobbin_trace as string[] | undefined) ?? [])
           .map((t) => /신경 «([^»]+)» 발화/.exec(String(t))?.[1])
           .filter(Boolean) as string[];
-        if (fired.length) {
-          window.dispatchEvent(new CustomEvent('dobbin:fired', { detail: fired }));
-        }
+        const trace = (msg?.dobbin_trace as string[] | undefined) ?? [];
+        // 🔴 신경 이름만 넘기면 «하네스가 어디까지 관여했나» 를 못 본다
+        //    (한빈 2026-09-09). 걸음 전문·근거 수·LLM 사용 여부를 함께 준다.
+        window.dispatchEvent(new CustomEvent('dobbin:fired', { detail: {
+          fired,
+          trace,
+          refs: (msg?.dobbin_refs as unknown[] | undefined)?.length ?? 0,
+          llm: trace.some((t) => String(t).includes('말을 고르는 중')),
+          level: (msg?.dobbin_level as string | undefined) ?? null,
+        } }));
       } catch { /* 지도는 덤이다 — 막혀도 대화는 돈다 */ }
       // 🔴 **시킨 도구를 실행한다.** 말로 시킨 일이 말로 끝나면 안 된다.
       if (msg?.dobbin_action) {
