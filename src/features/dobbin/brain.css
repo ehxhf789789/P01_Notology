@@ -8,26 +8,30 @@
 .brainmap__sum { font-weight: 400; font-size: 11px;
   color: var(--text-secondary, rgba(127,127,127,.9)); }
 
-.brainmap__wrap { position: relative; border-radius: 12px; overflow: hidden;
-  border: 1px solid var(--border-color, rgba(127,127,127,.28));
-  background: radial-gradient(120% 90% at 50% 0%,
-              rgba(80,120,255,.10), transparent 60%),
-              var(--bg-tertiary, rgba(127,127,127,.06)); }
+.brainmap__wrap { position: relative; border-radius: 16px; overflow: hidden;
+  border: 1px solid rgba(140,160,220,.20);
+  background:
+    radial-gradient(80% 60% at 28% 18%, rgba(120,90,255,.13), transparent 65%),
+    radial-gradient(80% 60% at 74% 26%, rgba(0,190,190,.11), transparent 65%),
+    radial-gradient(90% 70% at 50% 100%, rgba(60,90,200,.10), transparent 70%),
+    #0b0f1a;
+  box-shadow: inset 0 0 60px rgba(0,0,0,.6); }
 .brainmap__svg { display: block; width: 100%; height: auto; }
 
-.bm-outline { fill: none; stroke: currentColor; stroke-opacity: .45;
-  stroke-width: 2.2; stroke-linejoin: round; }
+.bm-outline { fill: none; stroke: rgba(180,205,255,.34); stroke-width: 1.6;
+  stroke-linejoin: round; stroke-linecap: round;
+  filter: drop-shadow(0 0 6px rgba(120,160,255,.25)); }
 .bm-lobe { stroke-width: 1; }
-.bm-mesh { stroke: currentColor; stroke-opacity: .17; stroke-width: .7; }
+.bm-mesh { stroke: rgba(190,210,255,.16); stroke-width: .6; }
 .bm-mesh--on { stroke: #7cc4ff; stroke-opacity: .5; stroke-width: 1; }
 .bm-outline--stem { stroke-opacity: .16; }
-.bm-region { font-size: 11px; font-weight: 600; opacity: .95;
+.bm-region { font-size: 10.5px; font-weight: 700; opacity: .92;
   letter-spacing: .02em; paint-order: stroke;
   stroke: rgba(0,0,0,.45); stroke-width: 2.5px; }
 
 .bm-edge { stroke: currentColor; }
-.bm-edge--chain { stroke-opacity: .10; stroke-width: .7; }
-.bm-edge--feed  { stroke-opacity: .16; stroke-width: .7;
+.bm-edge--chain { stroke: rgba(190,210,255,.13); stroke-width: .7; }
+.bm-edge--feed  { stroke: rgba(160,255,220,.20); stroke-width: .7;
   stroke-dasharray: 2 3; }
 .bm-edge--bad   { stroke: #f0574a; stroke-opacity: .55; stroke-width: 1.2; }
 .bm-edge--on    { stroke: #7cc4ff; stroke-opacity: .85; stroke-width: 1.6;
@@ -44,7 +48,7 @@
   25%  { filter: drop-shadow(0 0 8px rgba(255,255,255,.95)); }
   100% { filter: drop-shadow(0 0 0 rgba(255,255,255,0)); }
 }
-.bm-tag { font-size: 9px; fill: currentColor; opacity: .8;
+.bm-tag { font-size: 9.5px; fill: #e8eeff; opacity: .95;
   pointer-events: none; paint-order: stroke;
   stroke: rgba(0,0,0,.5); stroke-width: 2.2px; }
 
@@ -74,3 +78,32 @@
 @media (prefers-reduced-motion: reduce) {
   .bm-edge--on, .bm-node--fire circle { animation: none; }
 }
+
+/* 좌·우 반구 이름 */
+.bm-hemi { font-size: 12px; font-weight: 700; fill: #cfe0ff; opacity: .55;
+  letter-spacing: .04em; }
+/* 뇌량 — 좌우를 건너는 이음 */
+.bm-edge--cross { stroke: #9b7cff; stroke-opacity: .35; stroke-width: 1.1; }
+.bm-edge--cross.bm-edge--on { stroke: #c8b6ff; stroke-opacity: .95; stroke-width: 2; }
+/* 성숙도 막대 — 「자라는 것」이 수로 보인다 */
+.brainmap__mat { display: flex; flex-wrap: wrap; gap: 12px; margin: 2px 0 8px;
+  font-size: 11.5px; color: var(--text-secondary, inherit); }
+.bm-mat b { font-weight: 600; margin-right: 4px; }
+.bm-mat i { opacity: .6; font-style: normal; margin-left: 3px; }
+.bm-mat--0 b { color: #8b5cf6; } .bm-mat--1 b { color: #6b7280; }
+.bm-mat--2 b { color: #e3b341; } .bm-mat--3 b { color: #3ecf8e; }
+.bm-mat--4 b { color: #7cc4ff; }
+
+/* 노드 — 참조 그림의 «발광하는 뉴런» */
+.bm-node circle { transition: r .16s ease, opacity .16s ease, filter .16s ease; }
+.bm-node:hover circle { opacity: 1; r: 7; }
+.brainmap__svg { background: transparent; }
+.brainmap__legend i { box-shadow: 0 0 6px currentColor; }
+
+/* 만드는 중 — 맥박 (지금 갈래가 돌고 있다) */
+.bm-build { animation: bmbuild 1.8s ease-in-out infinite; }
+@keyframes bmbuild {
+  0%,100% { opacity: .55; } 50% { opacity: 1;
+    filter: drop-shadow(0 0 7px rgba(255,209,102,.9)); }
+}
+@media (prefers-reduced-motion: reduce) { .bm-build { animation: none; } }

@@ -11,42 +11,62 @@
  *    말을 걸면 그 턴에 울린 신경이 **번쩍이고 신호가 사슬을 타고 흐른다**.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { onLive } from '../../web/liveSync';
 import './brain.css';
 
 type Node = {
   id: string; kind: string; sub?: string; region: string; status: string;
+  stage?: number; stage_why?: string;
   order?: number; n?: number | null; hit?: number | null;
   miss?: Record<string, number>; mod?: string; why?: string; label?: string;
   수용체?: string[]; 자극?: string[];
 };
 type Edge = { a: string; b: string; kind: string; n?: number };
-type Region = { label: string; cx: number; cy: number; hue: number };
+type Region = { label: string; cx: number; cy: number; hue: number; hemi?: string };
 type Map = {
   regions: Record<string, Region>; nodes: Node[]; edges: Edge[];
+  maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number };
   tally?: Record<string, number>;
 };
 
-const W = 900, H = 540;
+const W = 980, H = 580;
+
+/** SSE 이름 → 조작 칸 (서버 `MOTOR` 와 같은 표 · 지어낸 이름 없음) */
+const MOTOR_SSE: Record<string, string> = {
+  'search': '검색', 'file-changed': '자료 열기', 'note-changed': '노트 편집',
+  'vault-changed': '보관소', 'inbox-changed': '투입', 'memos-changed': '일정',
+  'shelf-changed': '서가 이동', 'tended': '일과', 'initiate': '선말',
+  'consistency': '일관성', 'lease-changed': '임차',
+};
 
 /** 뇌 옆모습 — 겉선 하나로 충분하다 (그림 파일을 안 쓴다). */
-const BRAIN = 'M138,296 C112,176 214,72 386,62 C506,55 616,84 694,142 '
-  + 'C782,208 818,300 776,378 C740,446 664,478 556,486 C508,516 424,520 376,489 '
-  + 'C282,483 188,438 156,376 C140,348 134,320 138,296 Z';
-const STEM = 'M392,486 C396,512 406,528 420,538';
-/** 엽(葉) — 참조 그림처럼 색으로 갈린다. 자리는 REGIONS 의 중심에서 온다. */
+/** 좌·우 반구 — 이랑(gyri)이 물결지는 겉선. 그림 파일을 안 쓴다. */
+const HEMI_L = 'M474,58 C420,44 360,44 312,58 C250,52 196,84 164,132 '
+  + 'C112,158 88,214 96,272 C74,318 88,378 130,414 C150,462 200,494 262,502 '
+  + 'C312,528 396,532 452,510 C468,506 474,498 474,486 Z';
+const HEMI_R = 'M506,58 C560,44 620,44 668,58 C730,52 784,84 816,132 '
+  + 'C868,158 892,214 884,272 C906,318 892,378 850,414 C830,462 780,494 718,502 '
+  + 'C668,528 584,532 528,510 C512,506 506,498 506,486 Z';
+const STEM = 'M490,510 C492,534 500,550 514,560';
 const LOBE_R: Record<string, [number, number]> = {
-  harness: [168, 40], parietal: [104, 64], front: [96, 74],
-  occipital: [78, 62], broca: [128, 82], temporal: [92, 62],
-  cerebellum: [96, 64], stem: [84, 44],
+  harness: [124, 58], front: [84, 58], broca: [104, 72], stem: [66, 40],
+  motor: [62, 40],
+  parietal: [98, 56], occipital: [80, 54], temporal: [90, 58],
+  cerebellum: [94, 58],
 };
 
 const STATUS: Record<string, { c: string; t: string }> = {
-  ok:   { c: '#3ecf8e', t: '의도대로 돈다' },
-  part: { c: '#e3b341', t: '일부만' },
-  red:  { c: '#f0574a', t: '오배선' },
-  dark: { c: '#6b7280', t: '아직 못 잼' },
-  todo: { c: '#8b5cf6', t: '선언만 — 빈칸' },
+  ok:       { c: '#3ecf8e', t: '의도대로 돈다' },
+  part:     { c: '#e3b341', t: '일부만' },
+  red:      { c: '#f0574a', t: '오배선 — 고칠 것' },
+  dark:     { c: '#6b7280', t: '아직 못 잼' },
+  idle:     { c: '#586074', t: '요즘 안 돌았다' },
+  nomeas:   { c: '#7c8598', t: '재는 자가 없다' },
+  unknown:  { c: '#4b5563', t: '모른다 (근거 없음)' },
+  todo:     { c: '#8b5cf6', t: '선언만 — 빈칸' },
+  planned:  { c: '#ff8ac4', t: '만들 차례 (아직 없는 신경)' },
+  building: { c: '#ffd166', t: '지금 만드는 중' },
 };
 
 /** 영역 중심에 결정론으로 흩는다 (같은 지도를 다시 열어도 같은 자리). */
@@ -57,12 +77,15 @@ function place(nodes: Node[], regions: Record<string, Region>) {
   Object.entries(byR).forEach(([r, list]) => {
     const reg = regions[r]; if (!reg) return;
     const cx = reg.cx * W, cy = reg.cy * H;
-    // 나선으로 앉힌다 — 겹치지 않고, 수가 늘어도 모양이 안 깨진다
-    const rad = Math.min(96, 26 + Math.sqrt(list.length) * 12);
+    // 🔴 **엽 안에 묶는다** — 앞 판은 배치 반지름이 엽 크기를 안 봐서 노드가
+    //    반구 겉선 밖으로 흘렀다 (실측 그림). 나선은 그대로 두고 반지름만
+    //    그 엽의 크기에서 받는다.
+    const [lrx, lry] = LOBE_R[r] || [100, 70];
     list.forEach((n, i) => {
       const a = i * 2.399963;                       // 황금각
-      const rr = rad * Math.sqrt((i + 0.5) / list.length);
-      pos[n.id] = { x: cx + rr * Math.cos(a), y: cy + rr * Math.sin(a) * 0.78 };
+      const t = Math.sqrt((i + 0.5) / list.length);
+      pos[n.id] = { x: cx + lrx * 0.84 * t * Math.cos(a),
+                    y: cy + lry * 0.82 * t * Math.sin(a) };
     });
   });
   return pos;
@@ -71,6 +94,7 @@ function place(nodes: Node[], regions: Record<string, Region>) {
 export function BrainMap() {
   const [m, setM] = useState<Map | null>(null);
   const [pick, setPick] = useState<Node | null>(null);
+  const [hover, setHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
   // 🔴 **꺼지는 빛에 기대지 않는다.** 앞 판은 요약의 「신경 N개」를 번쩍임
   //    상태(lit)에서 셌는데, 5초 뒤 빛이 꺼지면 «0개»로 바뀌었다 (실측).
@@ -123,7 +147,34 @@ export function BrainMap() {
       timer.current = window.setTimeout(() => setLit([]), 5200);
     };
     window.addEventListener('dobbin:fired', on as EventListener);
-    return () => window.removeEventListener('dobbin:fired', on as EventListener);
+    // 🔴 **실시간** (v11 D1 · 한빈 «대화하거나 판단할 때 실시간으로»).
+    //    답이 끝난 뒤가 아니라 **생각하는 도중** 켠다 — SSE 의 `thinking`
+    //    걸음이 0.4초 안에 온다. 대화가 아닐 때(자율 걸음)도 같은 통로다.
+    const off = onLive((ev: any) => {
+      if (ev?.kind === 'thinking') {
+        const id = ev.nerve
+          || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
+        if (!id) return;
+        setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
+        setPulse(p => p + 1);
+        if (timer.current) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setLit([]), 5200);
+      } else if (ev?.kind && MOTOR_SSE[ev.kind]) {
+        // notology 조작 — 검색·열기·편집·투입이 일어나면 그 칸이 켜진다
+        const id = `조작:${MOTOR_SSE[ev.kind]}`;
+        setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
+        setPulse(p => p + 1);
+        if (timer.current) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setLit([]), 5200);
+      } else if (ev?.kind === 'tending' && ev.step) {
+        setLit(prev => [...prev, `걸음:${ev.step}`]);
+        setPulse(p => p + 1);
+      }
+    });
+    return () => {
+      window.removeEventListener('dobbin:fired', on as EventListener);
+      try { off?.(); } catch { /* 구독 해제가 막혀도 화면은 산다 */ }
+    };
   }, []);
 
   const pos = useMemo(() => (m ? place(m.nodes, m.regions) : {}), [m]);
@@ -158,33 +209,68 @@ export function BrainMap() {
           {m.nodes.length}개 · 의도대로 {ta.ok ?? 0} · 일부 {ta.part ?? 0} ·
           오배선 {ta.red ?? 0} · 못 잼 {ta.dark ?? 0} · 빈칸 {ta.todo ?? 0}
           {mx.명중 != null ? ` · 반사 ${mx.명중}/${mx.자극}` : ''}
+          {ta.building ? ` · 🔨 지금 만드는 중 ${ta.building}` : ''}
+          {ta.planned ? ` · 만들 차례 ${ta.planned}` : ''}
         </span>
       </h3>
 
+      {m.maturity && (
+        <div className="brainmap__mat" title="위 단계는 아래가 참이어야 준다">
+          {m.maturity.단계.map((label, i) => {
+            const n = m.maturity!.셈[String(i)] ?? 0;
+            const pct = Math.round((100 * n) / (m.maturity!.합 || 1));
+            return (
+              <span key={label} className={`bm-mat bm-mat--${i}`}>
+                <b>{label}</b> {n}<i>({pct}%)</i>
+              </span>
+            );
+          })}
+        </div>
+      )}
       <div className="brainmap__wrap">
         <svg viewBox={`0 0 ${W} ${H}`} className="brainmap__svg" role="img"
              aria-label="dobbin 의 뇌 지도">
           <defs>
+            <filter id="bmsoft" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="16" />
+            </filter>
+            <filter id="bmlit" x="-120%" y="-120%" width="340%" height="340%">
+              <feGaussianBlur stdDeviation="4.5" result="b" />
+              <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <radialGradient id="bmbg">
+              <stop offset="0%" stopColor="#1b2440" stopOpacity=".55" />
+              <stop offset="100%" stopColor="#070a12" stopOpacity="0" />
+            </radialGradient>
+            {/* 🔴 반구 밖으로 삐져나오지 않게 잘라 낸다 (엽이 겉선을 넘던 것) */}
+            <clipPath id="bmL"><path d={HEMI_L} /></clipPath>
+            <clipPath id="bmR"><path d={HEMI_R} /></clipPath>
             <radialGradient id="bmglow">
               <stop offset="0%" stopColor="#fff" stopOpacity=".85" />
               <stop offset="100%" stopColor="#fff" stopOpacity="0" />
             </radialGradient>
           </defs>
 
-          {/* 엽 — 색으로 갈린 영역 (참조 그림의 그 느낌) */}
+          <rect x="0" y="0" width={W} height={H} fill="url(#bmbg)" />
+          {/* 좌·우 반구 겉선 */}
+          <path d={HEMI_L} className="bm-outline" />
+          <path d={HEMI_R} className="bm-outline" />
+          <path d={STEM} className="bm-outline bm-outline--stem" />
+          <text className="bm-hemi" x={285} y={30} textAnchor="middle">
+            좌 · 규칙이 정하는 쪽</text>
+          <text className="bm-hemi" x={695} y={30} textAnchor="middle">
+            우 · 재료가 정하는 쪽</text>
+          {/* 엽 — 색으로 갈린 영역 */}
           {Object.entries(m.regions).map(([k, r]) => {
             const [rx, ry] = LOBE_R[k] || [110, 80];
             return (
               <ellipse key={`lobe-${k}`} cx={r.cx * W} cy={r.cy * H} rx={rx} ry={ry}
-                       className="bm-lobe"
-                       style={{ fill: `hsl(${r.hue} 80% 55% / .085)`,
-                                stroke: `hsl(${r.hue} 80% 62% / .30)` }} />
+                       className="bm-lobe" filter="url(#bmsoft)"
+                       clipPath={`url(#bm${r.hemi === 'R' ? 'R' : 'L'})`}
+                       style={{ fill: `hsl(${r.hue} 80% 55% / .10)`,
+                                stroke: `hsl(${r.hue} 80% 62% / .34)` }} />
             );
           })}
-
-          {/* 겉선 — 뇌 옆모습 */}
-          <path d={BRAIN} className="bm-outline" />
-          <path d={STEM} className="bm-outline bm-outline--stem" />
 
           {/* 이웃 그물 — 촘촘하게, 아주 옅게 */}
           {mesh.map(([a, b], i) => {
@@ -212,11 +298,18 @@ export function BrainMap() {
             const a = pos[e.a], b = pos[e.b];
             if (!a || !b) return null;
             const on = litSet.has(e.a) || litSet.has(e.b);
-            return (
-              <line key={i} x1={a.x} y1={a.y} x2={b.x} y2={b.y}
-                    className={`bm-edge bm-edge--${e.kind === '오배선' ? 'bad'
-                      : e.kind === '공급' ? 'feed' : 'chain'}${on ? ' bm-edge--on' : ''}`} />
-            );
+            const na = nodeById[e.a], nb = nodeById[e.b];
+            const cross = na && nb
+              && m.regions[na.region]?.hemi !== m.regions[nb.region]?.hemi;
+            const cls = `bm-edge bm-edge--${e.kind === '오배선' ? 'bad'
+              : e.kind === '공급' ? 'feed' : 'chain'}`
+              + (cross ? ' bm-edge--cross' : '') + (on ? ' bm-edge--on' : '');
+            // 좌우를 건너는 이음은 가운데(뇌량)로 휘어 지난다
+            const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
+            const d = cross
+              ? `M${a.x},${a.y} Q${W / 2},${my2} ${b.x},${b.y}`
+              : `M${a.x},${a.y} Q${mx2},${my2 - 12} ${b.x},${b.y}`;
+            return <path key={i} d={d} className={cls} fill="none" />;
           })}
 
           {/* 노드 */}
@@ -225,17 +318,29 @@ export function BrainMap() {
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
             const r = n.kind === '신경' ? (on ? 7.5 : 5)
-                    : n.kind === '기관' ? 8 : 4;
+                    : n.kind === '기관' ? 8
+                    : n.kind === '계획' ? (n.status === 'building' ? 6.5 : 4.5)
+                    : 4;
+            const ghost = n.kind === '계획';
             return (
               <g key={n.id} className={`bm-node bm-node--${n.kind}${on ? ' bm-node--fire' : ''}`}
-                 onClick={() => setPick(pick?.id === n.id ? null : n)}>
-                {on && <circle cx={p.x} cy={p.y} r={20} fill="url(#bmglow)" />}
-                <circle cx={p.x} cy={p.y} r={r} fill={s.c}
-                        stroke={pick?.id === n.id ? '#fff' : 'none'} strokeWidth={1.6}
-                        opacity={n.status === 'dark' ? 0.45 : 0.95}>
+                 onClick={() => setPick(pick?.id === n.id ? null : n)}
+                 onMouseEnter={() => setHover(n.id)}
+                 onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
+                {on && <circle cx={p.x} cy={p.y} r={22} fill="url(#bmglow)" />}
+                <circle cx={p.x} cy={p.y} r={r}
+                        className={n.status === 'building' ? 'bm-build' : undefined}
+                        strokeDasharray={ghost ? '2 2' : undefined}
+                        fill={ghost ? 'none'
+                              : `hsl(${m.regions[n.region]?.hue ?? 210} 75% 60%)`}
+                        stroke={pick?.id === n.id ? '#fff' : s.c}
+                        strokeWidth={pick?.id === n.id ? 2 : 1.8}
+                        filter={on ? 'url(#bmlit)' : undefined}
+                        opacity={n.status === 'dark' || n.status === 'idle'
+                                 ? 0.34 : 0.94}>
                   <title>{`${n.label || n.id} · ${s.t}`}</title>
                 </circle>
-                {(n.kind === '기관' || on) && (
+                {(on || hover === n.id || pick?.id === n.id) && (
                   <text className="bm-tag" x={p.x}
                         y={p.y + (n.kind === '기관' ? 15 : -11)} textAnchor="middle">
                     {n.label || n.id}
@@ -273,6 +378,10 @@ export function BrainMap() {
             {pick.n ? ` · 반사 ${pick.hit}/${pick.n}` : ''}
             {pick.n === undefined && pick.n !== null && typeof pick.n === 'number'
               ? '' : ''}</div>
+          {pick.stage != null ? (
+            <div className="bm-stage">성숙도 <b>{pick.stage}</b>
+              {' '}({['선언','배선','도는 중','측정됨','관문'][pick.stage]})
+              {pick.stage_why ? ` — ${pick.stage_why}` : ''}</div>) : null}
           {pick.why ? <div>{pick.why}</div> : null}
           {pick.수용체?.length ? <div>수용체: {pick.수용체.join(' · ')}</div> : null}
           {pick.자극?.length ? <div>이런 말에 울린다: 「{pick.자극[0]}」</div> : null}
