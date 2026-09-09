@@ -38,11 +38,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useDobbinStore, dobbinActions } from './dobbinStore';
 import './presence.css';
 
-export type Mood = 'idle' | 'reading' | 'thinking' | 'found' | 'alert';
+// 🔴 `sorry` 를 여기에도 넣는다 — 표는 `PenguinFace` 가 갖고 이 파일이 그
+//    표를 쓰는데, 두 union 이 어긋나 **사과 표정이 타입에서 막혀 있었다.**
+export type Mood = 'idle' | 'reading' | 'thinking' | 'found' | 'alert' | 'sorry';
 
 // 🔴 얼굴을 **펭귄**으로 바꿨다 (사용자, 2026-08-11). 상태가 곧 움직임이라는
 //    규율은 그대로다 (2-14-2-2) — 장식용 움직임은 없다.
-import { PenguinFace } from './PenguinFace';
+import { PenguinFace, faceOf } from './PenguinFace';
 import './penguin.css';
 
 const Face = PenguinFace;
@@ -62,13 +64,21 @@ export function DobbinPresence() {
   // 🔴 «기권인데 폴짝»(상태 거짓말 ①)은 상위에서 온다: found 는 서버 정서
   //    (dobbin_mood=뿌듯)일 때만 — dobbinStore 가 lastMood 를 실어 주면 그걸
   //    본다. 없으면(옛 화면·오류) 튀지 않는 쪽이 정직하다.
+  // 🔴 **표는 v7 에 만들어 두고 상시 얼굴에는 «뿌듯» 하나만 걸려 있었다**
+  //    (2026-09-09 실측). 서버는 매 턴 7정서를 재서 `dobbin_mood` 로 보내고
+  //    `faceOf` 가 그 표인데 여기서는 「뿌듯이면 폴짝」 한 줄만 썼다 —
+  //    **미안(사과)·걱정(기한)이 얼굴에 닿지 못했다.** 홈 카드만 그 표를 썼다.
+  //    2층 규율은 그대로다: 반응은 잠깐 보이고 **바탕으로 되돌아온다.**
+  //    빈손·차분·안도는 `faceOf` 가 idle 로 주므로 **튀지 않는다** (정직).
   const lastMood = useDobbinStore((s: any) => s.lastMood ?? null);
   useEffect(() => {
     if (busy) { setMood('thinking'); return; }
-    setMood((m) => (m === 'thinking' && lastMood === '뿌듯' ? 'found'
-                    : m === 'thinking' ? ambient.current : m));
+    const react = faceOf(lastMood);            // 모르면 idle — 조용한 쪽
+    setMood((m) => (m === 'thinking'
+                    ? (react === 'idle' ? ambient.current : react) : m));
     const t = setTimeout(
-      () => setMood((m) => (m === 'found' ? ambient.current : m)), 900);
+      () => setMood((m) => (m === 'found' || m === 'sorry' || m === 'alert'
+                            ? ambient.current : m)), 1400);
     return () => clearTimeout(t);
   }, [busy, lastMood]);
 
