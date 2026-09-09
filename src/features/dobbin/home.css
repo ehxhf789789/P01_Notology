@@ -36,31 +36,75 @@
 }
 .dhome__aside:hover { background: var(--bg-hover); color: var(--tx-1); }
 
-/* 브리핑 한 줄 */
+/* 브리핑 — 🔴 **`nowrap` 을 걷었다.** 서버가 네 줄 432자를 보내는데 한 줄
+   27자만 보이고 나머지 405자가 숨어 있었다 (실측 93.75%). 두 줄까지 펴 두고
+   누르면 전부 보인다. */
 .dhome__brief {
   flex-shrink: 0; width: 100%; padding: 9px 16px; font-size: 12.5px;
   line-height: 1.55; color: var(--tx-2); background: var(--bg-elev-3);
   border: none; border-bottom: 0.5px solid var(--sep-l);
-  text-align: left; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-align: left; cursor: pointer; white-space: pre-wrap;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .dhome__brief:hover { background: var(--bg-hover); }
-.dhome__brief.is-open { white-space: pre-wrap; max-height: 30vh; overflow-y: auto; }
+.dhome__brief.is-open {
+  display: block; -webkit-line-clamp: unset; max-height: 34vh; overflow-y: auto;
+}
 
-/* 몸통 — 왼쪽은 일감, 오른쪽은 대화 */
-.dhome__body { display: flex; flex: 1 1 auto; min-height: 0; }
-.dhome__main { flex: 1 1 auto; min-width: 0; overflow-y: auto; }
+/* 몸통 — 🔴 **뇌가 무대, 대화가 오른쪽** (한빈 2026-09-09).
+   전 판의 자리 배분은 일감 48% · 대화 20.6% · 묻는 자리 1.6% 였다. */
+.dhome__body { display: flex; flex: 1 1 auto; min-height: 0; gap: 0; }
+.dhome__stage {
+  flex: 1 1 auto; min-width: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
+}
 .dhome__chat {
-  flex: 0 0 clamp(320px, 30%, 420px);
+  flex: 0 0 clamp(360px, 38%, 520px);
   display: flex; flex-direction: column; min-height: 0; min-width: 0;
   border-left: 0.5px solid var(--sep-l);
   background: var(--bg-base);
 }
 
+/* 계기판 — 접이. 첫 화면의 정보 덩어리를 줄이는 것이 과녁이다 (42 → ≤20) */
+.dhome__gauge { border: 0.5px solid var(--bdr-1); border-radius: 10px; }
+.dhome__gauge > summary {
+  padding: 8px 12px; font-size: 12px; color: var(--tx-3); cursor: pointer;
+  list-style: none; user-select: none;
+}
+.dhome__gauge > summary::-webkit-details-marker { display: none; }
+.dhome__gauge > summary::before { content: '▸ '; }
+.dhome__gauge[open] > summary::before { content: '▾ '; }
+.dhome__gauge > summary:hover { color: var(--tx-1); }
+
+/* 서랍 — 받은 것·알림. 무대를 뺏지 않되 한 번에 열린다 */
+.dhome__drawer {
+  flex: none; border-top: 0.5px solid var(--sep-l); background: var(--bg-elev-3);
+  max-height: 46vh; overflow-y: auto;
+}
+.dhome__drawer > summary {
+  position: sticky; top: 0; z-index: 1; background: var(--bg-elev-3);
+  padding: 9px 16px; font-size: 12px; color: var(--tx-2); cursor: pointer;
+  list-style: none; user-select: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.dhome__drawer > summary::-webkit-details-marker { display: none; }
+.dhome__drawer > summary::before { content: '▸'; color: var(--tx-3); }
+.dhome__drawer[open] > summary::before { content: '▾'; }
+.dhome__drawer > summary:hover { color: var(--tx-1); }
+.dhome__drawer-n {
+  min-width: 17px; padding: 0 5px; border-radius: 9px; font-size: 11px;
+  background: var(--bg-sel); color: var(--c-accent); text-align: center;
+}
+.dhome__drawer-body { padding-bottom: 12px; }
+
+/* 대화 머리 — 얼굴과 이름이 여기 산다 (전엔 회색 12px 「대화」뿐이었다) */
+.dhome__chat-face { display: inline-flex; align-items: center; flex: none; }
+
 /* 좁으면 세로로 접는다 (ResizeObserver 가 붙이는 클래스) */
 .dhome.is-narrow .dhome__body { flex-direction: column; }
 .dhome.is-narrow .dhome__chat {
-  flex: 0 0 46%; border-left: none; border-top: 0.5px solid var(--sep-l);
+  flex: 0 0 52%; border-left: none; border-top: 0.5px solid var(--sep-l);
 }
 
 /* 🔴 자료 넣기를 **넓게** 놓는다 — 카드가 폭에 따라 열을 늘린다.
@@ -125,7 +169,12 @@
 .dhome__report .ntc__row:last-child { border-bottom: none; }
 
 /* ── v7 2단계 — 브리핑 승격(배지·단추) + 두뇌 계기판 ───────────── */
-.dhome__badges { display: flex; gap: 6px; margin-left: auto; align-self: center; }
+/* 🔴 오른쪽 위 달력 탭(z-index 30)이 배지의 숫자를 18×18 덮고 있었다 —
+   실측에서 「투입구」만 보이고 「4」가 안 보였다. 탭 폭(34px)만큼 비켜난다. */
+.dhome__badges {
+  display: flex; gap: 6px; margin-left: auto; align-self: center;
+  margin-right: 40px;
+}
 .dhome__badge {
   font-size: 11px; padding: 3px 9px; border-radius: 999px;
   color: var(--text-secondary, #9aa0ab);

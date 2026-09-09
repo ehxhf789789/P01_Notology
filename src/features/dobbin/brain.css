@@ -18,21 +18,45 @@
   box-shadow: inset 0 0 60px rgba(0,0,0,.6); }
 .brainmap__svg { display: block; width: 100%; height: auto; }
 
-.bm-outline { fill: none; stroke: rgba(180,205,255,.34); stroke-width: 1.6;
+/* 🔴 겉선을 **두 겹**으로 준다 (한빈: «뇌의 형상 프레임 테두리가 너무 허접»).
+   안쪽 채움 + 바깥 테 + 은은한 빛. 한 줄짜리 선은 도형처럼 보인다. */
+.bm-fill { fill: rgba(126,158,220,.075); stroke: none; }
+.bm-rim {
+  fill: none; stroke: url(#bmrim); stroke-width: 4;
   stroke-linejoin: round; stroke-linecap: round;
-  filter: drop-shadow(0 0 6px rgba(120,160,255,.25)); }
+  filter: drop-shadow(0 0 16px rgba(120,160,255,.45));
+}
+/* 안쪽으로 한 겹 더 — 두께가 있어야 «덩어리»로 읽힌다 */
+.bm-rim-in { fill: none; stroke: rgba(200,220,255,.20); stroke-width: 1.2; }
+.bm-fissure { fill: none; stroke: rgba(198,218,255,.52); stroke-width: 3;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 5px rgba(150,190,255,.35)); }
+.bm-gyrus { fill: none; stroke: rgba(178,202,255,.30); stroke-width: 2.2;
+  stroke-linecap: round; }
+.bm-layer { pointer-events: none; }
+.bm-layer-lab { font-size: 11px; font-weight: 700; letter-spacing: .04em;
+  opacity: .85; paint-order: stroke;
+  stroke: rgba(0,0,0,.5); stroke-width: 3px; }
+.bm-divider { stroke: rgba(190,210,255,.16); stroke-width: 1;
+  stroke-dasharray: 4 5; }
+.bm-equip-lab { font-size: 10.5px; fill: rgba(200,214,240,.5); }
 .bm-lobe { stroke-width: 1; }
-.bm-mesh { stroke: rgba(190,210,255,.16); stroke-width: .6; }
-.bm-mesh--on { stroke: #7cc4ff; stroke-opacity: .5; stroke-width: 1; }
-.bm-outline--stem { stroke-opacity: .16; }
 .bm-region { font-size: 10.5px; font-weight: 700; opacity: .92;
   letter-spacing: .02em; paint-order: stroke;
   stroke: rgba(0,0,0,.45); stroke-width: 2.5px; }
+.bm-region-n { font-weight: 500; opacity: .6; }
 
 .bm-edge { stroke: currentColor; }
-.bm-edge--chain { stroke: rgba(190,210,255,.13); stroke-width: .7; }
+.bm-edge--chain { stroke: rgba(190,210,255,.10); stroke-width: .6; }
 .bm-edge--feed  { stroke: rgba(160,255,220,.20); stroke-width: .7;
   stroke-dasharray: 2 3; }
+/* 부름·검증·일으킴·빚 — 이번에 **처음 그리는** 진짜 이음들 */
+.bm-edge--call  { stroke: rgba(150,190,255,.22); stroke-width: .8; }
+.bm-edge--gate  { stroke: rgba(214,150,255,.24); stroke-width: .8;
+  stroke-dasharray: 1 4; }
+.bm-edge--act   { stroke: rgba(120,230,160,.26); stroke-width: .9; }
+.bm-edge--debt  { stroke: rgba(255,138,196,.30); stroke-width: 1;
+  stroke-dasharray: 3 3; }
 .bm-edge--bad   { stroke: #f0574a; stroke-opacity: .55; stroke-width: 1.2; }
 .bm-edge--on    { stroke: #7cc4ff; stroke-opacity: .85; stroke-width: 1.6;
   filter: drop-shadow(0 0 3px rgba(124,196,255,.8));
@@ -79,10 +103,9 @@
   .bm-edge--on, .bm-node--fire circle { animation: none; }
 }
 
-/* 좌·우 반구 이름 */
-.bm-hemi { font-size: 12px; font-weight: 700; fill: #cfe0ff; opacity: .55;
-  letter-spacing: .04em; }
-/* 뇌량 — 좌우를 건너는 이음 */
+/* 좌·우 반구 이름표는 걷었다 — 그 가름이 코드에 근거가 없었다 (서버 LAYERS). */
+.bm-hemi { display: none; }
+/* 층을 건너는 이음 — 자료가 들어와 답으로 나가는 길 */
 .bm-edge--cross { stroke: #9b7cff; stroke-opacity: .35; stroke-width: 1.1; }
 .bm-edge--cross.bm-edge--on { stroke: #c8b6ff; stroke-opacity: .95; stroke-width: 2; }
 /* 성숙도 막대 — 「자라는 것」이 수로 보인다 */

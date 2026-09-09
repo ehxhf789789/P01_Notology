@@ -22,15 +22,20 @@ type Node = {
   수용체?: string[]; 자극?: string[];
 };
 type Edge = { a: string; b: string; kind: string; n?: number };
-type Region = { label: string; cx: number; cy: number; hue: number; hemi?: string };
+type Region = { label: string; cx: number; cy?: number; hue: number; layer?: string | null };
+type Layer = { label: string; cy: number; hue: number; why?: string };
 type Map = {
-  regions: Record<string, Region>; nodes: Node[]; edges: Edge[];
+  regions: Record<string, Region>; layers?: Record<string, Layer>;
+  nodes: Node[]; edges: Edge[];
   maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number };
+  counts?: { 뇌?: number; 장비?: number; 전체?: number };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number };
   tally?: Record<string, number>;
 };
 
-const W = 980, H = 580;
+const W = 980, H = 700;
+/** 뇌가 차지하는 세로 — 아래 나머지는 **장비 띠**다 (뇌가 아니다). */
+const BRAIN_TOP = 24, BRAIN_BOT = 556, EQUIP_TOP = 586;
 
 /** SSE 이름 → 조작 칸 (서버 `MOTOR` 와 같은 표 · 지어낸 이름 없음) */
 const MOTOR_SSE: Record<string, string> = {
@@ -40,20 +45,42 @@ const MOTOR_SSE: Record<string, string> = {
   'consistency': '일관성', 'lease-changed': '임차',
 };
 
-/** 뇌 옆모습 — 겉선 하나로 충분하다 (그림 파일을 안 쓴다). */
-/** 좌·우 반구 — 이랑(gyri)이 물결지는 겉선. 그림 파일을 안 쓴다. */
-const HEMI_L = 'M474,58 C420,44 360,44 312,58 C250,52 196,84 164,132 '
-  + 'C112,158 88,214 96,272 C74,318 88,378 130,414 C150,462 200,494 262,502 '
-  + 'C312,528 396,532 452,510 C468,506 474,498 474,486 Z';
-const HEMI_R = 'M506,58 C560,44 620,44 668,58 C730,52 784,84 816,132 '
-  + 'C868,158 892,214 884,272 C906,318 892,378 850,414 C830,462 780,494 718,502 '
-  + 'C668,528 584,532 528,510 C512,506 506,498 506,486 Z';
-const STEM = 'M490,510 C492,534 500,550 514,560';
-const LOBE_R: Record<string, [number, number]> = {
-  harness: [124, 58], front: [84, 58], broca: [104, 72], stem: [66, 40],
-  motor: [62, 40],
-  parietal: [98, 56], occipital: [80, 54], temporal: [90, 58],
-  cerebellum: [94, 58],
+/** 🔴 **위에서 본 뇌** (한빈 2026-09-09 선택). 앞 판은 좌·우 반구를 두 덩이로
+ *  떼어 그렸는데, 한빈이 *"영역이 과도하게 떨어져 있고 테두리가 허접하다"* 고
+ *  했고 — 게다가 그 좌/우 가름은 **코드에 근거가 없었다**(서버 주석 LAYERS 참조).
+ *  이제 한 덩어리다: 앞(위)에서 뒤(아래)로 길고, 가운데 세로 틈(대뇌 종렬)이
+ *  둘로 나누며, 겉선은 이랑(gyri)이 물결진다. 그림 파일은 안 쓴다. */
+const BRAIN =
+  'M490,26 C580,26 664,54 722,110 C796,166 842,250 844,318 '
+  + 'C846,398 806,470 730,516 C666,554 582,572 490,572 '
+  + 'C398,572 314,554 250,516 C174,470 134,398 136,318 '
+  + 'C138,250 184,166 258,110 C316,54 400,26 490,26 Z';
+/** 대뇌 종렬 — 좌우를 가르는 가운데 틈. 살짝 흔들려야 그림처럼 안 보인다. */
+const FISSURE = 'M490,32 C482,120 496,190 486,278 C476,368 494,458 489,566';
+/** 이랑 — 겉선 안쪽으로 접히는 결. 좌/우 대칭. */
+const GYRI = [
+  'M268,140 C332,172 356,232 322,288 C290,342 312,402 372,432',
+  'M198,246 C256,268 280,318 252,368 C228,410 246,462 296,488',
+  'M712,140 C648,172 624,232 658,288 C690,342 668,402 608,432',
+  'M782,246 C724,268 700,318 728,368 C752,410 734,462 684,488',
+  'M392,66 C438,92 448,134 422,172',
+  'M588,66 C542,92 532,134 558,172',
+  'M340,520 C398,540 448,548 490,548',
+  'M640,520 C582,540 532,548 490,548',
+];
+
+/** 영역이 차지하는 반지름 — **식구 수에서 받는다**. 손으로 적어 두면 신경이
+ *  늘 때마다 겉선 밖으로 흐른다 (앞 판이 그랬다). */
+function lobeR(n: number): [number, number] {
+  const k = Math.sqrt(Math.max(n, 1));
+  return [Math.min(122, 22 + k * 11), Math.min(80, 17 + k * 7.5)];
+}
+
+/** 이음 종류 → 그릴 꼴. 서버가 여덟 가지를 보낸다 (앞 판은 셋만 알았다). */
+const EDGE_CLS: Record<string, string> = {
+  '오배선': 'bad', '공급': 'feed', '사슬': 'chain',
+  '부름': 'call', '검증': 'gate', '걸음': 'feed', '일함': 'call',
+  '일으킴': 'act', '빚': 'debt',
 };
 
 const STATUS: Record<string, { c: string; t: string }> = {
@@ -69,23 +96,44 @@ const STATUS: Record<string, { c: string; t: string }> = {
   building: { c: '#ffd166', t: '지금 만드는 중' },
 };
 
+/** 영역의 자리와 크기 — 층이 세로를, `cx` 가 가로를, 식구 수가 크기를 정한다. */
+function lobes(nodes: Node[], regions: Record<string, Region>,
+               layers: Record<string, Layer>) {
+  const byR: Record<string, Node[]> = {};
+  nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
+  const out: Record<string, { cx: number; cy: number; rx: number; ry: number;
+                              hue: number; label: string; n: number;
+                              equip: boolean }> = {};
+  Object.entries(byR).forEach(([r, list]) => {
+    const reg = regions[r]; if (!reg) return;
+    const [rx, ry] = lobeR(list.length);
+    const equip = !reg.layer;
+    // 🔴 층은 **띠로 보이는 것**이고 자리는 갈래마다 따로 받는다. 층 하나에
+    //    여섯 갈래를 한 줄로 앉히면 「언어 50개」가 이웃을 덮는다 (실측).
+    const cy = equip ? EQUIP_TOP + 44
+                     : BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * (reg.cy ?? 0.5);
+    // 뇌 안쪽으로 모은다 — 겉선에 붙지 않게 가로 폭을 좁힌다
+    const cx = equip ? (0.10 + 0.80 * reg.cx) * W
+                     : (0.20 + 0.60 * reg.cx) * W;
+    out[r] = { cx, cy, rx: equip ? Math.min(rx * 1.8, 250) : rx,
+               ry: equip ? 34 : ry, hue: reg.hue, label: reg.label,
+               n: list.length, equip };
+  });
+  return out;
+}
+
 /** 영역 중심에 결정론으로 흩는다 (같은 지도를 다시 열어도 같은 자리). */
-function place(nodes: Node[], regions: Record<string, Region>) {
+function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
   const pos: Record<string, { x: number; y: number }> = {};
   const byR: Record<string, Node[]> = {};
   nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
   Object.entries(byR).forEach(([r, list]) => {
-    const reg = regions[r]; if (!reg) return;
-    const cx = reg.cx * W, cy = reg.cy * H;
-    // 🔴 **엽 안에 묶는다** — 앞 판은 배치 반지름이 엽 크기를 안 봐서 노드가
-    //    반구 겉선 밖으로 흘렀다 (실측 그림). 나선은 그대로 두고 반지름만
-    //    그 엽의 크기에서 받는다.
-    const [lrx, lry] = LOBE_R[r] || [100, 70];
+    const L = lb[r]; if (!L) return;
     list.forEach((n, i) => {
       const a = i * 2.399963;                       // 황금각
       const t = Math.sqrt((i + 0.5) / list.length);
-      pos[n.id] = { x: cx + lrx * 0.84 * t * Math.cos(a),
-                    y: cy + lry * 0.82 * t * Math.sin(a) };
+      pos[n.id] = { x: L.cx + L.rx * 0.84 * t * Math.cos(a),
+                    y: L.cy + L.ry * 0.82 * t * Math.sin(a) };
     });
   });
   return pos;
@@ -177,25 +225,13 @@ export function BrainMap() {
     };
   }, []);
 
-  const pos = useMemo(() => (m ? place(m.nodes, m.regions) : {}), [m]);
-  /** 같은 엽 안에서 가까운 둘을 잇는다 — 그물처럼 보이게 (뜻은 «이웃»). */
-  const mesh = useMemo(() => {
-    if (!m) return [] as [string, string][];
-    const out: [string, string][] = [];
-    const byR: Record<string, Node[]> = {};
-    m.nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
-    Object.values(byR).forEach(list => {
-      list.forEach(a => {
-        const pa = pos[a.id]; if (!pa) return;
-        const near = list
-          .filter(b => b.id !== a.id && pos[b.id])
-          .map(b => ({ b, d: (pos[b.id].x - pa.x) ** 2 + (pos[b.id].y - pa.y) ** 2 }))
-          .sort((x, y) => x.d - y.d).slice(0, 2);
-        near.forEach(({ b }) => { if (a.id < b.id) out.push([a.id, b.id]); });
-      });
-    });
-    return out;
-  }, [m, pos]);
+  const lb = useMemo(() => (m ? lobes(m.nodes, m.regions, m.layers || {}) : {}), [m]);
+  const pos = useMemo(() => (m ? place(m.nodes, lb) : {}), [m, lb]);
+  // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
+  //    같은 엽 안에서 «가까이 찍힌» 둘을 이어 321개를 그렸는데, 서버가 보낸
+  //    진짜 이음 107개와 **겹치는 것이 하나도 없었다**. 사람이 본 428선 중
+  //    뜻이 있는 것은 55개(12.9%)뿐이었고, 나머지는 자리 배치의 부산물을
+  //    연결로 읽게 만들었다. 선은 서버가 준 것만 그린다.
   if (!m?.nodes?.length) return null;
   const mx = m.matrix || {}, ta = m.tally || {};
   const litSet = new Set(lit);
@@ -204,13 +240,14 @@ export function BrainMap() {
 
   return (
     <section className="brainmap">
+      {/* 🔴 한 호흡에 못 읽는 숫자 아홉을 늘어놓지 않는다 (한빈: «글자가 잘
+          보여야 함»). 뇌와 장비를 먼저 가르고, 나머지는 아래 범례가 맡는다. */}
       <h3>뇌 지도
         <span className="brainmap__sum">
-          {m.nodes.length}개 · 의도대로 {ta.ok ?? 0} · 일부 {ta.part ?? 0} ·
-          오배선 {ta.red ?? 0} · 못 잼 {ta.dark ?? 0} · 빈칸 {ta.todo ?? 0}
+          뇌 <b>{m.counts?.뇌 ?? m.nodes.length}</b> · 이음 <b>{m.edges.length}</b>
+          {ta.red ? <> · <em className="bm-bad">오배선 {ta.red}</em></> : null}
           {mx.명중 != null ? ` · 반사 ${mx.명중}/${mx.자극}` : ''}
-          {ta.building ? ` · 🔨 지금 만드는 중 ${ta.building}` : ''}
-          {ta.planned ? ` · 만들 차례 ${ta.planned}` : ''}
+          <i className="bm-equip-n">장비 {m.counts?.장비 ?? 0}</i>
         </span>
       </h3>
 
@@ -242,56 +279,77 @@ export function BrainMap() {
               <stop offset="0%" stopColor="#1b2440" stopOpacity=".55" />
               <stop offset="100%" stopColor="#070a12" stopOpacity="0" />
             </radialGradient>
-            {/* 🔴 반구 밖으로 삐져나오지 않게 잘라 낸다 (엽이 겉선을 넘던 것) */}
-            <clipPath id="bmL"><path d={HEMI_L} /></clipPath>
-            <clipPath id="bmR"><path d={HEMI_R} /></clipPath>
+            {/* 겉선 밖으로 삐져나오지 않게 잘라 낸다 */}
+            <clipPath id="bmBrain"><path d={BRAIN} /></clipPath>
             <radialGradient id="bmglow">
               <stop offset="0%" stopColor="#fff" stopOpacity=".85" />
               <stop offset="100%" stopColor="#fff" stopOpacity="0" />
             </radialGradient>
+            {/* 겉선 — 두 겹으로 두께를 준다 (한빈: «테두리가 너무 허접») */}
+            <linearGradient id="bmrim" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#8fa6d8" stopOpacity=".85" />
+              <stop offset="100%" stopColor="#5b6c96" stopOpacity=".55" />
+            </linearGradient>
           </defs>
 
           <rect x="0" y="0" width={W} height={H} fill="url(#bmbg)" />
-          {/* 좌·우 반구 겉선 */}
-          <path d={HEMI_L} className="bm-outline" />
-          <path d={HEMI_R} className="bm-outline" />
-          <path d={STEM} className="bm-outline bm-outline--stem" />
-          <text className="bm-hemi" x={285} y={H - 8} textAnchor="middle">
-            좌 · 규칙이 정하는 쪽</text>
-          <text className="bm-hemi" x={695} y={H - 8} textAnchor="middle">
-            우 · 재료가 정하는 쪽</text>
-          {/* 엽 — 색으로 갈린 영역 */}
-          {Object.entries(m.regions).map(([k, r]) => {
-            const [rx, ry] = LOBE_R[k] || [110, 80];
-            return (
-              <ellipse key={`lobe-${k}`} cx={r.cx * W} cy={r.cy * H} rx={rx} ry={ry}
+
+          {/* ── 뇌 (위에서 본 한 덩어리) */}
+          <g clipPath="url(#bmBrain)">
+            <path d={BRAIN} className="bm-fill" />
+            {/* 층 띠 — 구심(위) → 연합(가운데) → 원심(아래) */}
+            {Object.entries(m.layers || {}).map(([k, L]) => {
+              const cy = BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * L.cy;
+              const h = (BRAIN_BOT - BRAIN_TOP) * 0.30;
+              return (
+                <rect key={`lay-${k}`} x={0} y={cy - h / 2} width={W} height={h}
+                      className="bm-layer"
+                      style={{ fill: `hsl(${L.hue} 70% 50% / .07)` }} />
+              );
+            })}
+            {GYRI.map((d, i) => <path key={`gy${i}`} d={d} className="bm-gyrus" />)}
+            <path d={FISSURE} className="bm-fissure" />
+            {/* 엽 — 색으로 갈린 영역 (뇌 안쪽만) */}
+            {Object.entries(lb).filter(([, L]) => !L.equip).map(([k, L]) => (
+              <ellipse key={`lobe-${k}`} cx={L.cx} cy={L.cy} rx={L.rx} ry={L.ry}
                        className="bm-lobe" filter="url(#bmsoft)"
-                       clipPath={`url(#bm${r.hemi === 'R' ? 'R' : 'L'})`}
-                       style={{ fill: `hsl(${r.hue} 80% 55% / .10)`,
-                                stroke: `hsl(${r.hue} 80% 62% / .34)` }} />
-            );
-          })}
+                       style={{ fill: `hsl(${L.hue} 80% 55% / .13)`,
+                                stroke: `hsl(${L.hue} 80% 62% / .34)` }} />
+            ))}
+            {/* 안쪽 테 — 겉선과 살짝 떨어뜨려 두께를 만든다 */}
+            <path d={BRAIN} className="bm-rim-in"
+                  transform="translate(490,299) scale(0.955) translate(-490,-299)" />
+          </g>
+          <path d={BRAIN} className="bm-rim" />
 
-          {/* 이웃 그물 — 촘촘하게, 아주 옅게 */}
-          {mesh.map(([a, b], i) => {
-            const pa = pos[a], pb = pos[b];
-            if (!pa || !pb) return null;
-            const on = litSet.has(a) || litSet.has(b);
-            return <line key={`mesh${i}`} x1={pa.x} y1={pa.y} x2={pb.x} y2={pb.y}
-                         className={`bm-mesh${on ? ' bm-mesh--on' : ''}`} />;
-          })}
-
-          {/* 영역 이름 — 엽 위쪽 가장자리에 칩으로 (노드와 안 겹친다) */}
-          {Object.entries(m.regions).map(([k, r]) => {
-            const [, ry] = LOBE_R[k] || [110, 80];
-            const y = r.cy * H - ry * 0.72;
+          {/* 층 이름 — 왼쪽 가장자리에 세로로 */}
+          {Object.entries(m.layers || {}).map(([k, L]) => {
+            const cy = BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * L.cy;
             return (
-              <g key={`lab-${k}`}>
-                <text className="bm-region" x={r.cx * W} y={y} textAnchor="middle"
-                      style={{ fill: `hsl(${r.hue} 70% 68%)` }}>{r.label}</text>
-              </g>
+              <text key={`layl-${k}`} className="bm-layer-lab" x={16} y={cy}
+                    style={{ fill: `hsl(${L.hue} 60% 66%)` }}>
+                <title>{L.why}</title>{L.label}
+              </text>
             );
           })}
+
+          {/* ── 장비 띠 — 🔴 **뇌가 아니다.** 전 판은 관문 74 + 할 일 94 를
+              뇌 안에 그려 노드의 51%가 개발 장비였다. 선을 긋고 밖에 둔다. */}
+          <line x1={40} y1={EQUIP_TOP - 12} x2={W - 40} y2={EQUIP_TOP - 12}
+                className="bm-divider" />
+          <text className="bm-equip-lab" x={40} y={EQUIP_TOP + 2}>
+            장비 — 뇌가 아니다 (재는 자 {ta.nomeas != null ? '' : ''}
+            {m.counts?.장비 ?? 0}개)
+          </text>
+
+          {/* 영역 이름 — 엽 위쪽 가장자리에 (노드와 안 겹친다) */}
+          {Object.entries(lb).map(([k, L]) => (
+            <text key={`lab-${k}`} className="bm-region" x={L.cx}
+                  y={L.cy - L.ry - 5} textAnchor="middle"
+                  style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
+              {L.label} <tspan className="bm-region-n">{L.n}</tspan>
+            </text>
+          ))}
 
           {/* 이음 — 사슬(옅게) · 공급(가늘게) · 오배선(붉게) */}
           {m.edges.map((e, i) => {
@@ -299,16 +357,13 @@ export function BrainMap() {
             if (!a || !b) return null;
             const on = litSet.has(e.a) || litSet.has(e.b);
             const na = nodeById[e.a], nb = nodeById[e.b];
+            // 층을 건너는 이음 — 자료가 들어와 답으로 나가는 길이다
             const cross = na && nb
-              && m.regions[na.region]?.hemi !== m.regions[nb.region]?.hemi;
-            const cls = `bm-edge bm-edge--${e.kind === '오배선' ? 'bad'
-              : e.kind === '공급' ? 'feed' : 'chain'}`
+              && m.regions[na.region]?.layer !== m.regions[nb.region]?.layer;
+            const cls = `bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'}`
               + (cross ? ' bm-edge--cross' : '') + (on ? ' bm-edge--on' : '');
-            // 좌우를 건너는 이음은 가운데(뇌량)로 휘어 지난다
             const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
-            const d = cross
-              ? `M${a.x},${a.y} Q${W / 2},${my2} ${b.x},${b.y}`
-              : `M${a.x},${a.y} Q${mx2},${my2 - 12} ${b.x},${b.y}`;
+            const d = `M${a.x},${a.y} Q${mx2},${my2 - (cross ? 26 : 12)} ${b.x},${b.y}`;
             return <path key={i} d={d} className={cls} fill="none" />;
           })}
 

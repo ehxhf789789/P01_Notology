@@ -135,11 +135,16 @@ export function DobbinHome() {
       {/* 브리핑 — 할 말이 있을 때만 (2-10-1: 빈 인사는 하지 않는다).
           🔴 죽은 줄이었다: 잘려 보이는데 눌러도 아무 일이 없었다.
              누르면 펼친다 — 잘린 글을 보는 것이 사람이 원한 일이다. */}
+      {/* 🔴 **93.75%가 숨어 있었다.** 서버가 보내는 say 는 네 줄 432자인데
+          `white-space: nowrap` + ellipsis 로 **27자 한 줄**만 보였다. 그리고
+          숨은 405자가 하필 «인격체» 대목이었다 — *"제가 한 일 중 미심쩍은
+          것 — 제 판정 17건 중 6건은 다시 잴 수 없다…"*. 두 줄까지 펴 두고,
+          누르면 전부 보인다. */}
       {say && (
         <button className={`dhome__brief${briefOpen ? ' is-open' : ''}`}
                 title={briefOpen ? '접기' : '전부 보기'}
                 onClick={() => setBriefOpen(v => !v)}>
-          {briefOpen ? say : say.split('\n')[0]}
+          {say}
         </button>
       )}
       {/* 브리핑이 주는 단추 — 누르면 그 말이 대화로 들어간다 (v7 2단계) */}
@@ -156,25 +161,16 @@ export function DobbinHome() {
       )}
 
       <div className="dhome__body">
-        <div className="dhome__main">
-          {/* 🔴 알림은 홈 안에 산다 (2026-08-27) — 탭의 벨은 걷었다.
-              «확인할 것»은 바로 아래 카드가 맡으므로 여기서는 뺀다 —
-              같은 말을 두 번 하지 않는다. */}
-          {report.length > 0 && (
-            <section className="dhome__report">
-              <h2 className="dhome__h2">알림</h2>
-              <NoticeList list={report} />
-            </section>
-          )}
-          {/* v7 2단계 — 두뇌 계기판: 전부 서버가 잰 값이다 (/api/brain).
-              기억 3층·오늘 일과가 한 일·관문 수치. 옛 서버면 카드가 없다. */}
+        {/* 🔴 **뇌가 무대다** (한빈 2026-09-09 선택). 전 판은 왼쪽 48%가
+            알림·투입이고 대화가 20.6%, 묻는 자리가 **1.6%** 였다 — 가장 자주
+            할 일이 가장 작은 자리에 있었다. 알림은 아래 서랍으로 내린다. */}
+        <div className="dhome__stage">
+          <BrainMap />
+          {/* 계기판은 지도 아래 — 접었다 폈다 (기본 접힘: 첫 화면의 정보
+              덩어리를 42개에서 줄이는 것이 이번 재설계의 과녁이다) */}
           {brain && (
-            <section className="dhome__report dhome__brain">
-              <h2 className="dhome__h2">두뇌</h2>
-              {/* 🔴 뇌 지도 — 한빈 2026-09-09 «두뇌 형태로 · 동적으로 ·
-                  세부 신경도 모두 · 하네스가 어디까지 구현됐는지».
-                  말을 걸면 그 턴에 울린 신경·기관이 번쩍이고 요약이 뜬다. */}
-              <BrainMap />
+            <details className="dhome__gauge">
+              <summary>계기판 — 기억 · 오늘 일과 · 관문</summary>
               <div className="dbrain">
                 {brain.memory && (
                   <div className="dbrain__col">
@@ -219,18 +215,20 @@ export function DobbinHome() {
                   </div>
                 )}
               </div>
-            </section>
+            </details>
           )}
-          <ClusterReview />
-          <IntakePanel variant="home" />
         </div>
+
         <div className="dhome__chat">
-          {/* 🔴 **만들어 둔 것을 버리지 않는다** (2026-08-27 사용자 지적).
-              대화 달력·대화 검색은 DobbinSurface 안에 그대로 살아 있는데,
-              패널 머리를 걷으면서 **여는 단추만** 사라졌었다. 여기 단다 —
-              대화를 쓰는 자리에 붙는 것이 제자리이기도 하다. */}
+          {/* 🔴 **여기가 dobbin 이다.** 전 판의 제목은 회색 12px 「대화」였고
+              말풍선에는 얼굴도 이름도 없었다 — 화면 어디에도 «누가 말하는가»
+              가 없으니 도구로 읽혔다. 얼굴과 이름을 말하는 자리에 붙인다. */}
           <div className="dhome__chat-head">
-            <span className="dhome__chat-title">대화</span>
+            <span className="dhome__chat-face" aria-hidden="true"
+                  title={brief?.mood?.cause || undefined}>
+              <PenguinFace mood={faceOf(brief?.mood?.mood)} size={22} />
+            </span>
+            <span className="dhome__chat-title">dobbin</span>
             <button className={`dhome__chat-btn${calOn ? ' is-on' : ''}`}
                     title="날짜로 대화 찾기"
                     onClick={() => rightActions.view('cal')}>
@@ -245,6 +243,26 @@ export function DobbinHome() {
           <DobbinSurface />
         </div>
       </div>
+
+      {/* 🔴 **서랍** — 알림·검수·받은 자료. 전 판은 이 셋이 첫 화면의 48%를
+          먹었고(알림만 33%), 그 33%가 ✓/? 시스템 아이콘이라 창 전체가
+          로그처럼 보였다. 볼 수는 있되 무대를 뺏지 않는다. */}
+      <details className="dhome__drawer" open={false}>
+        <summary>
+          받은 것과 알림
+          {report.length > 0 && <b className="dhome__drawer-n">{report.length}</b>}
+        </summary>
+        <div className="dhome__drawer-body">
+          {report.length > 0 && (
+            <section className="dhome__report">
+              <h2 className="dhome__h2">알림</h2>
+              <NoticeList list={report} />
+            </section>
+          )}
+          <ClusterReview />
+          <IntakePanel variant="home" />
+        </div>
+      </details>
     </div>
   );
 }
