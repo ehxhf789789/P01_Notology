@@ -147,16 +147,24 @@ export function DobbinHome() {
           {say}
         </button>
       )}
-      {/* 브리핑이 주는 단추 — 누르면 그 말이 대화로 들어간다 (v7 2단계) */}
+      {/* 🔴 **무엇을 묻는 단추인지 말한다** (한빈 2026-09-09: *"상단에 있는
+          버튼 및 UI가 뭔가? 나보고 입력을 하라고 있는건가?"*). 전 판은 라벨만
+          늘어놓아서 — 게다가 가운데가 잘려서 — 「맞다 · 수요 조사: 다음 주에
+          양…」이 무엇에 «맞다» 인지 알 수 없었다. 묻는 말을 앞에 세우고, 누가
+          묻는지(dobbin)를 밝히고, 라벨은 안 자른다. */}
       {!!brief?.choices?.length && (
-        <div className="dhome__brief-picks">
-          {brief.choices.map(c => (
-            <button key={c.label} className="dhome__brief-pick"
-                    onClick={() => window.dispatchEvent(
-                      new CustomEvent('dobbin:ask', { detail: c.send || c.label }))}>
-              {c.label}
-            </button>
-          ))}
+        <div className="dhome__ask">
+          <span className="dhome__ask-q">dobbin 이 묻습니다 — 한 번만 눌러 주십시오</span>
+          <div className="dhome__brief-picks">
+            {brief.choices.map(c => (
+              <button key={c.label} className="dhome__brief-pick"
+                      title={c.send || c.label}
+                      onClick={() => window.dispatchEvent(
+                        new CustomEvent('dobbin:ask', { detail: c.send || c.label }))}>
+                {c.label}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

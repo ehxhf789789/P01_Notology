@@ -20,19 +20,14 @@
 
 /* 🔴 겉선을 **두 겹**으로 준다 (한빈: «뇌의 형상 프레임 테두리가 너무 허접»).
    안쪽 채움 + 바깥 테 + 은은한 빛. 한 줄짜리 선은 도형처럼 보인다. */
-.bm-fill { fill: rgba(126,158,220,.075); stroke: none; }
+/* 겉선 하나 — 이랑·종렬 밑그림은 걷었다 (한빈 09-09: «허접하면 제거해라»).
+   뜻을 말하지 않는 선은 읽기만 방해한다. 남는 것은 「여기까지가 뇌다」뿐. */
+.bm-fill { fill: rgba(126,158,220,.055); stroke: none; }
 .bm-rim {
-  fill: none; stroke: url(#bmrim); stroke-width: 4;
+  fill: none; stroke: url(#bmrim); stroke-width: 2.2;
   stroke-linejoin: round; stroke-linecap: round;
-  filter: drop-shadow(0 0 16px rgba(120,160,255,.45));
+  filter: drop-shadow(0 0 14px rgba(120,160,255,.28));
 }
-/* 안쪽으로 한 겹 더 — 두께가 있어야 «덩어리»로 읽힌다 */
-.bm-rim-in { fill: none; stroke: rgba(200,220,255,.20); stroke-width: 1.2; }
-.bm-fissure { fill: none; stroke: rgba(198,218,255,.52); stroke-width: 3;
-  stroke-linecap: round;
-  filter: drop-shadow(0 0 5px rgba(150,190,255,.35)); }
-.bm-gyrus { fill: none; stroke: rgba(178,202,255,.30); stroke-width: 2.2;
-  stroke-linecap: round; }
 .bm-layer { pointer-events: none; }
 .bm-layer-lab { font-size: 11px; font-weight: 700; letter-spacing: .04em;
   opacity: .85; paint-order: stroke;
