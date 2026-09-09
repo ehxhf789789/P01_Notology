@@ -140,6 +140,16 @@ export function DobbinSurface() {
         trace: (msg?.dobbin_trace as string[] | undefined)
                ?? (stepsRef.current.length ? [...stepsRef.current] : undefined) });
       dobbinActions.setMood(msg?.dobbin_mood?.mood ?? null);
+      // 🔴 이 턴에 **울린 신경**을 지도에 알린다 (v10 ㅈ) — 서버 trace 의
+      //    «신경 «X» 발화» 걸음이 곧 그 자국이다. 지도가 그 칸을 깜빡인다.
+      try {
+        const fired = ((msg?.dobbin_trace as string[] | undefined) ?? [])
+          .map((t) => /신경 «([^»]+)» 발화/.exec(String(t))?.[1])
+          .filter(Boolean) as string[];
+        if (fired.length) {
+          window.dispatchEvent(new CustomEvent('dobbin:fired', { detail: fired }));
+        }
+      } catch { /* 지도는 덤이다 — 막혀도 대화는 돈다 */ }
       // 🔴 **시킨 도구를 실행한다.** 말로 시킨 일이 말로 끝나면 안 된다.
       if (msg?.dobbin_action) {
         runTool(msg.dobbin_action,
