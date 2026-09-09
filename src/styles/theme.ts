@@ -107,6 +107,16 @@ ${buildColorVars('light')}
 ${shared}
 }
 
+/* index.html bakes an inline color/background on <html> from the OS preference
+   so the first paint does not flash. That guess goes stale the moment the app
+   applies a saved theme that disagrees with the OS, and an inline style beats
+   every rule below — so injectThemeCSS() strips it and these two lines take
+   over. They follow the vars, which the [data-theme] blocks redefine. */
+html {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-primary);
+}
+
 [data-theme="dark"] {
 ${buildColorVars('dark')}
 }
@@ -131,5 +141,7 @@ export function injectThemeCSS(): void {
   style.id = id;
   style.textContent = buildCSS();
   document.head.appendChild(style);
+  document.documentElement.style.removeProperty('color');
+  document.documentElement.style.removeProperty('background-color');
   injected = true;
 }
