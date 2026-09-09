@@ -52,7 +52,7 @@
   pointer-events: none; paint-order: stroke;
   stroke: rgba(0,0,0,.5); stroke-width: 2.2px; }
 
-.brainmap__live { position: absolute; right: 10px; top: 10px; max-width: 46%;
+.brainmap__live { position: absolute; right: 12px; bottom: 12px; max-width: 52%;
   font-size: 11px; padding: 4px 9px; border-radius: 999px;
   background: rgba(20,24,34,.72); color: #dbe7ff;
   border: 1px solid rgba(124,196,255,.45);

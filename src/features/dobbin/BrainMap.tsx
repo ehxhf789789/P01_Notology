@@ -256,9 +256,9 @@ export function BrainMap() {
           <path d={HEMI_L} className="bm-outline" />
           <path d={HEMI_R} className="bm-outline" />
           <path d={STEM} className="bm-outline bm-outline--stem" />
-          <text className="bm-hemi" x={285} y={30} textAnchor="middle">
+          <text className="bm-hemi" x={285} y={H - 8} textAnchor="middle">
             좌 · 규칙이 정하는 쪽</text>
-          <text className="bm-hemi" x={695} y={30} textAnchor="middle">
+          <text className="bm-hemi" x={695} y={H - 8} textAnchor="middle">
             우 · 재료가 정하는 쪽</text>
           {/* 엽 — 색으로 갈린 영역 */}
           {Object.entries(m.regions).map(([k, r]) => {
@@ -284,7 +284,7 @@ export function BrainMap() {
           {/* 영역 이름 — 엽 위쪽 가장자리에 칩으로 (노드와 안 겹친다) */}
           {Object.entries(m.regions).map(([k, r]) => {
             const [, ry] = LOBE_R[k] || [110, 80];
-            const y = r.cy * H - ry - 6;
+            const y = r.cy * H - ry * 0.72;
             return (
               <g key={`lab-${k}`}>
                 <text className="bm-region" x={r.cx * W} y={y} textAnchor="middle"
