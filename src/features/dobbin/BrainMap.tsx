@@ -31,7 +31,8 @@ type Map = {
   nodes: Node[]; edges: Edge[];
   maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number };
   counts?: { 뇌?: number; 장비?: number; 전체?: number };
-  matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number };
+  matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
+             잰때?: string | null; 출처?: string };
   tally?: Record<string, number>;
 };
 
@@ -158,12 +159,36 @@ export function BrainMap() {
   const [pulse, setPulse] = useState(0);
   const timer = useRef<number | null>(null);
 
+  // 🔴 **지도가 실시간이 아니었다** (2026-09-10 적대적 검토). 여기 의존성이
+  //    빈 배열이라 **창을 열 때 한 번** 읽고 끝이었다 — 다시 읽는 길이 코드에
+  //    하나도 없었다. 관문이 붉어져도, 신경을 달아도, 일과가 돌아도 새로고침
+  //    전엔 화면이 그대로였고, 살아 있는 것은 번쩍임뿐이었다.
+  //    한빈이 이 화면에 요구한 첫 항목이 *"실시간 개발 현황 파악"* 이다.
+  const [at, setAt] = useState<string | null>(null);
   useEffect(() => {
     let dead = false;
-    fetch('/api/brainmap').then(r => (r.ok ? r.json() : null))
-      .then(j => { if (!dead && j) setM(j as Map); })
+    const pull = () => fetch('/api/brainmap')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (dead || !j) return;
+        setM(j as Map);
+        setAt(new Date().toLocaleTimeString('ko-KR',
+          { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      })
       .catch(() => { /* 옛 서버면 지도가 없다 */ });
-    return () => { dead = true; };
+    pull();
+    // 서버가 «지도가 바뀌었다» 고 쏘면 그때 다시 읽는다
+    const off = onLive((ev: any) => {
+      if (ev?.kind === 'brainmap-changed') pull();
+    });
+    // 🔴 **느린 심박** — 쏘는 자가 놓친 변화(장부가 자란 것 따위)를 위해.
+    //    60초는 사람이 화면을 보는 동안 한두 번 도는 값이다.
+    const beat = window.setInterval(pull, 60000);
+    return () => {
+      dead = true;
+      window.clearInterval(beat);
+      try { off?.(); } catch { /* 해제가 막혀도 화면은 산다 */ }
+    };
   }, []);
 
   /** 자국은 이름(`판본`)으로 오고 노드 id 는 이름표가 붙었다(`신경:판본`).
@@ -230,10 +255,17 @@ export function BrainMap() {
         setPulse(p => p + 1);
         if (timer.current) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setLit([]), 5200);
+      } else if (ev?.kind === 'tending' && ev.step) {
+        // 🔴 **이제 서버가 실제로 쏜다** (`tend.run_once` · 2026-09-10). 전에는
+        //    이 갈래가 듣기만 하고 쏘는 자가 0곳이라 **걸음 51개가 영영 안
+        //    켜졌다**. 그리고 여기 `timer` 를 안 걸어 두어, 켜졌더라도 빛이
+        //    영영 안 꺼졌을 것이다 — 그것도 함께 고친다.
+        const id = byName[ev.step] || `걸음:${ev.step}`;
+        setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
+        setPulse(p => p + 1);
+        if (timer.current) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setLit([]), 5200);
       }
-      // 🔴 여기 있던 `tending` 갈래를 지웠다 — **서버가 그 이름을 한 번도 안
-      //    쏜다**(`grep publish\('tending'` → 0곳). 듣는데 아무도 안 쏘는 것은
-      //    죽은 갈래다. 걸음을 켜려면 `tend.py` 가 실제로 쏘아야 한다.
     });
     return () => {
       window.removeEventListener('dobbin:fired', on as EventListener);
@@ -274,8 +306,17 @@ export function BrainMap() {
               (`matrix.오배선`)을 보내는데 안 읽고 있었다. */}
           {mx.오배선 ? <> · <em className="bm-bad">오배선 {mx.오배선}</em></> : null}
           {ta.red ? <> · <span className="bm-dim">붉은 칸 {ta.red}</span></> : null}
-          {mx.명중 != null ? ` · 반사 ${mx.명중}/${mx.자극}` : ''}
+          {mx.명중 != null
+            ? <span title={`신경 ${mx.측정}개 · ${mx.잰때 || '언제인지 모름'}`
+                           + ` · 출처 ${mx.출처}`}>
+                {' · '}반사 {mx.명중}/{mx.자극}
+                {mx.잰때 ? <i className="bm-at">({mx.잰때.slice(5)})</i> : null}
+              </span>
+            : null}
           {' '}<i className="bm-equip-n">손 {m.counts?.조작 ?? 0} · 장비 {m.counts?.장비 ?? 0}</i>
+          {/* 🔴 **갱신 시각을 적는다.** 「반사 49/51」이 17시간 낡았는데 화면에
+              아무 표시가 없었다 — 낡은 수를 지금 수처럼 보이게 하면 안 된다. */}
+          {at ? <i className="bm-at" title="이 지도를 마지막으로 읽은 때">· {at}</i> : null}
         </span>
       </h3>
 

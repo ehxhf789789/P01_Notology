@@ -143,3 +143,5 @@
 .bm-leg--bad   { color: #f0574a; }
 /* 붉은 칸 수 — 오배선과 다른 것이라 흐리게 */
 .bm-dim { opacity: .6; }
+/* 갱신 시각 — 낡은 수를 지금 수처럼 보이게 하지 않는다 */
+.bm-at { font-style: normal; opacity: .5; margin-left: 6px; }
