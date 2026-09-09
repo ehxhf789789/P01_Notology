@@ -145,3 +145,16 @@
 .bm-dim { opacity: .6; }
 /* 갱신 시각 — 낡은 수를 지금 수처럼 보이게 하지 않는다 */
 .bm-at { font-style: normal; opacity: .5; margin-left: 6px; }
+
+/* 영역 인구조사 — 「왜 적은가 · 어디까지 됐나」 */
+.bm-region--btn { cursor: pointer; }
+.bm-region--btn:hover { opacity: 1; text-decoration: underline; }
+.brainmap__census .bm-why { margin-top: 2px; }
+.bm-why--진짜적음 { color: #e3b341; }
+.bm-why--규칙좁음 { color: #7cc4ff; }
+.bm-why--이름표없음 { color: #9b7cff; }
+.bm-cen-mat span { margin-right: 10px; }
+.bm-cen-mat b { font-weight: 600; }
+.bm-cen-gap { color: #7cc4ff; }
+.bm-cen-big { opacity: .65; font-size: 11px; }
+.bm-outside { border-color: rgba(240,87,74,.4); }

@@ -34,6 +34,12 @@ type Map = {
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
              잰때?: string | null; 출처?: string };
   tally?: Record<string, number>;
+  census?: Record<string, {
+    칸: number; 그린모듈: number; 규칙모듈: number; 줄수: number;
+    성숙도: Record<string, number>; 왜: string; 갈래: string;
+    큰것: [number, string][];
+    수?: number;
+  }>;
 };
 
 const W = 980, H = 700;
@@ -148,6 +154,7 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
 export function BrainMap() {
   const [m, setM] = useState<Map | null>(null);
   const [pick, setPick] = useState<Node | null>(null);
+  const [reg, setReg] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
   // 🔴 **꺼지는 빛에 기대지 않는다.** 앞 판은 요약의 「신경 N개」를 번쩍임
@@ -409,14 +416,19 @@ export function BrainMap() {
             장비 — 뇌가 아니다 (재는 자 {equipN.gate} · 할 일 {equipN.todo})
           </text>
 
-          {/* 영역 이름 — 엽 위쪽 가장자리에 (노드와 안 겹친다) */}
-          {Object.entries(lb).map(([k, L]) => (
-            <text key={`lab-${k}`} className="bm-region" x={L.cx}
-                  y={L.cy - L.ry - 5} textAnchor="middle"
-                  style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
-              {L.label} <tspan className="bm-region-n">{L.n}</tspan>
-            </text>
-          ))}
+          {/* 영역 이름 — 누르면 아래에 「왜 적은가 · 어디까지 됐나」가 뜬다 */}
+          {Object.entries(lb).map(([k, L]) => {
+            const c = m.census?.[k];
+            return (
+              <text key={`lab-${k}`} className="bm-region bm-region--btn" x={L.cx}
+                    y={L.cy - L.ry - 5} textAnchor="middle"
+                    onClick={() => setReg(reg === k ? null : k)}
+                    style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
+                {L.label} <tspan className="bm-region-n">
+                  {L.n}{c && c.규칙모듈 ? ` · 모듈 ${c.규칙모듈}` : ''}</tspan>
+              </text>
+            );
+          })}
 
           {/* 이음 — 사슬(옅게) · 공급(가늘게) · 오배선(붉게) */}
           {m.edges.map((e, i) => {
@@ -489,6 +501,49 @@ export function BrainMap() {
           <span>근거 <b>{turn.refs}</b>건</span>
           {turn.level ? <span>확신 <b>{turn.level}</b></span> : null}
           <span>걸음 <b>{turn.trace.length}</b></span>
+        </div>
+      )}
+      {/* 🔴 **영역마다 「왜 적은가 · 어디까지 됐나」** (한빈 2026-09-10).
+          전에는 뇌 전체 성숙도 한 줄뿐이라 *기억은 다 됐는데 지각이 비었다*
+          를 읽을 수 없었다. 「적다」의 까닭은 셋으로 갈리고 처방이 다르다. */}
+      {reg && m.census?.[reg] && (() => {
+        const c = m.census![reg]!;
+        const R = m.regions[reg];
+        const 단계 = m.maturity?.단계 || [];
+        return (
+          <div className="brainmap__detail brainmap__census">
+            <b style={{ color: `hsl(${R?.hue ?? 210} 70% 68%)` }}>
+              {R?.label || reg}</b>
+            <span className="bm-kind">
+              {c.칸}칸 · 모듈 {c.규칙모듈} · {c.줄수.toLocaleString()}줄</span>
+            <div className={`bm-why bm-why--${c.갈래}`}>왜 이만큼인가 — {c.왜}</div>
+            <div className="bm-cen-mat">
+              어디까지 됐나:{' '}
+              {단계.map((label, i) => (
+                <span key={label}>{label} <b>{c.성숙도[String(i)] ?? 0}</b></span>
+              ))}
+            </div>
+            {c.그린모듈 < c.규칙모듈 ? (
+              <div className="bm-cen-gap">
+                덮음 {c.그린모듈}/{c.규칙모듈} — {c.규칙모듈 - c.그린모듈}개가
+                규칙 안에 있는데 아직 안 그려졌다
+              </div>
+            ) : null}
+            {c.큰것?.length ? (
+              <div className="bm-cen-big">
+                큰 것: {c.큰것.map(([n, mo]) => `${mo} ${n.toLocaleString()}줄`).join(' · ')}
+              </div>
+            ) : null}
+          </div>
+        );
+      })()}
+      {/* 지도 밖 — 🔴 0으로 숨기지 않는다. 여기 쌓인 것이 곧 다음 과녁이다 */}
+      {m.census?._밖 && (m.census._밖.수 ?? 0) > 0 && (
+        <div className="brainmap__detail bm-outside">
+          🔴 아직 지도 밖: <b>{m.census._밖.수}개 모듈</b>
+          {' · '}{(m.census._밖.줄수 ?? 0).toLocaleString()}줄 —
+          {' '}{(m.census._밖.큰것 || []).slice(0, 5)
+                .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
         </div>
       )}
       {pick && (
