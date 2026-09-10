@@ -28,6 +28,7 @@ import { useNotices, markAllSeen } from './noticeStore';
 import { DobbinSurface } from './DobbinSurface';
 import { uiActions } from '../../core/stores/uiStore';
 import { rightActions, useDobbinView } from '../../core/stores/rightTabStore';
+import { onLive } from '../../web/liveSync';
 import './home.css';
 
 /** 좁아지면 세로로 접는다. 🔴 미디어쿼리로는 못 잰다 — 이 영역의 폭은
@@ -84,17 +85,35 @@ export function DobbinHome() {
   const calOn = dview === 'cal';
   const findOn = dview === 'search';
 
+  // 🔴 **브리핑도 창 열 때 한 번 읽고 굳었다** (한빈 2026-09-10: *"아니 이
+  //    질문이 여전히 dobbin 상단 창에 있다니까?"*). 서버는 이미 고쳐서 단추를
+  //    0개로 주는데 화면이 **열었을 때의 답을 붙들고** 있었다 — 뇌 지도에서
+  //    고친 것과 **같은 결함**이 여기 그대로 있었다 (`useEffect(…, [])`).
+  //    dobbin 이 일하면 브리핑도 바뀐다 — 그때 다시 읽는다.
   useEffect(() => {
     let dead = false;
-    fetch('/api/briefing')
-      .then(r => r.json())
-      .then(j => { if (!dead && j) setBrief(j as Brief); })
-      .catch(() => { /* 브리핑이 없으면 그 줄은 없다 — 빈 인사를 만들지 않는다 */ });
-    fetch('/api/brain')
-      .then(r => (r.ok ? r.json() : null))
-      .then(j => { if (!dead && j) setBrain(j as Brain); })
-      .catch(() => { /* 두뇌 계기판은 덤이다 — 옛 서버면 카드가 없다 */ });
-    return () => { dead = true; };
+    const pull = () => {
+      fetch('/api/briefing')
+        .then(r => r.json())
+        .then(j => { if (!dead && j) setBrief(j as Brief); })
+        .catch(() => { /* 브리핑이 없으면 그 줄은 없다 — 빈 인사를 만들지 않는다 */ });
+      fetch('/api/brain')
+        .then(r => (r.ok ? r.json() : null))
+        .then(j => { if (!dead && j) setBrain(j as Brain); })
+        .catch(() => { /* 두뇌 계기판은 덤이다 — 옛 서버면 카드가 없다 */ });
+    };
+    pull();
+    const off = onLive((ev: any) => {
+      // 브리핑이 말하는 것들이 바뀌면 다시 읽는다
+      if (['tended', 'memos-changed', 'inbox-changed', 'initiate',
+           'brainmap-changed'].includes(ev?.kind)) pull();
+    });
+    const beat = window.setInterval(pull, 60000);
+    return () => {
+      dead = true;
+      window.clearInterval(beat);
+      try { off?.(); } catch { /* 해제가 막혀도 화면은 산다 */ }
+    };
   }, []);
   const say = (brief?.say || '').trim() || null;
   const badges: { k: string; n: number; tone: string }[] = [
