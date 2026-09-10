@@ -33,6 +33,7 @@ import './surface.css';
 
 type Msg = { role: string; content: string; at: string;
              choices?: { label: string; send: string }[];
+             next?: { label: string; send: string }[];
              refs?: DobbinRef[];
              trace?: string[] };
 const DAY = ['일', '월', '화', '수', '목', '금', '토'];
@@ -134,6 +135,11 @@ export function DobbinSurface() {
         content: msg?.content ?? '(답이 비었습니다)',
         // 🔴 되물으면 누를 것을 함께 받는다 (서버 choices.py)
         choices: msg?.dobbin_choices ?? undefined,
+        // 🔴 **다음 걸음** (한빈 2026-09-10: *"대화가 이어지지 않음"*).
+        //    `choices` 는 dobbin 이 **이미 물었을 때만** 붙는다 — 실측 사람과의
+        //    답 158건 중 87건(55%)이 아무것도 없이 끝났다. 이쪽은 그 55%를 위한
+        //    것이고, 짚는 말은 전부 이미 있는 신경이 받는다(`next_gate` 가 증명).
+        next: msg?.dobbin_next ?? undefined,
         // 🔴 짚은 자료 — 누르면 창이 열린다 (refs.tsx)
         refs: msg?.dobbin_refs ?? undefined,
         // 🔴 생각 걸음 — 서버 것이 우선, 없으면 SSE 로 들은 것 (v7 1단계)
@@ -315,6 +321,20 @@ export function DobbinSurface() {
                     <button key={c.label} className="dsurf__pick"
                             onClick={() => c.send ? send(c.send)
                                                   : inputRef.current?.focus()}>
+                      {c.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {/* 다음 걸음 — 🔴 **되묻기가 있으면 안 그린다.** 물음이 둘이면
+                  사람이 무엇에 답할지 모른다 (`nextstep.offer` 도 같은 규율). */}
+              {!mine && !m.choices?.length && !!m.next?.length
+               && i === shown.length - 1 && !busy && (
+                <div className="dsurf__picks dsurf__picks--next">
+                  <span className="dsurf__next-q">이어서</span>
+                  {m.next.map((c) => (
+                    <button key={c.label} className="dsurf__pick"
+                            onClick={() => send(c.send)}>
                       {c.label}
                     </button>
                   ))}
