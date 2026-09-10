@@ -169,3 +169,11 @@
   background: rgba(139, 92, 246, .16); color: #b79bff;
 }
 .bm-mat--cov b { color: #f0883e; }
+
+/* 「지도 밖 0」은 좋은 소식이라 붉게 안 적는다 (2026-09-10) */
+.bm-outside--ok { opacity: .72; }
+.bm-outside__rule { opacity: .8; }
+.bm-cen-how { opacity: .78; font-size: .88em; margin-top: 2px; }
+.bm-why--서비스 { color: #7cc4ff; }
+.bm-cov { font-style: normal; opacity: .78; }
+.bm-leg__gone { font-style: normal; opacity: .62; margin-left: 2px; }

@@ -34,13 +34,14 @@ type Map = {
                손CLI?: number; 덮음?: { 기관: number; 전체: number } };
   counts?: { 뇌?: number; 장비?: number; 전체?: number };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
-             잰때?: string | null; 출처?: string };
+             신경전체?: number; 잰때?: string | null; 출처?: string };
   tally?: Record<string, number>;
   census?: Record<string, {
-    칸: number; 그린모듈: number; 규칙모듈: number; 줄수: number;
+    칸: number; 그린모듈: number; 모듈: number; 딴데?: number; 줄수: number;
     성숙도: Record<string, number>; 왜: string; 갈래: string;
+    판정?: Record<string, number>;
     큰것: [number, string][];
-    수?: number;
+    수?: number; 이름밖?: number; 이름밖그림?: number;
   }>;
 };
 
@@ -306,12 +307,16 @@ export function BrainMap() {
       out.push(...rest);
       if (organs.length <= K || open.has(r)) { out.push(...organs); return; }
       const rank = (n: Node) => (n.줄수 || 0) + (n.부름받음 || 0) * 300;
-      const top = [...organs].sort((a, b) => rank(b) - rank(a)).slice(0, K);
+      // 🔴 **한 번만 줄 세우고 그 꼬리를 쓴다** (2026-09-10). 전에는 `top` 은
+      //    정렬해 놓고 접힘의 「줄수」는 **정렬 전** `organs.slice(K)` 를 더해
+      //    서로 다른 집합을 셌다 — 실측 오차 −2,131줄.
+      const sorted = [...organs].sort((a, b) => rank(b) - rank(a));
+      const top = sorted.slice(0, K), tail = sorted.slice(K);
       out.push(...top);
       out.push({ id: `접힘:${r}`, kind: '접힘', region: r, status: 'fold',
-                 label: `+${organs.length - K}`,
-                 why: `${organs.length - K}개가 접혀 있다 — 눌러서 편다`,
-                 줄수: organs.slice(K).reduce((a, b) => a + (b.줄수 || 0), 0) } as Node);
+                 label: `+${tail.length}`,
+                 why: `${tail.length}개가 접혀 있다 — 눌러서 편다`,
+                 줄수: tail.reduce((a, b) => a + (b.줄수 || 0), 0) } as Node);
     });
     return out;
   }, [m, open]);
@@ -354,6 +359,14 @@ export function BrainMap() {
             ? <span title={`신경 ${mx.측정}개 · ${mx.잰때 || '언제인지 모름'}`
                            + ` · 출처 ${mx.출처}`}>
                 {' · '}반사 {mx.명중}/{mx.자극}
+                {/* 🔴 「43/45」는 96%로 읽히지만 그 45는 *신경 수*가 아니라
+                    **벤치가 볼 수 있는 자극 수**다. 실제 덮음은 38/56 (68%) —
+                    18개는 한 번도 안 쟀다. 두 수를 나란히 적는다. */}
+                {mx.신경전체
+                  ? <i className="bm-cov" title="반사 벤치가 한 번이라도 잰 신경 / 등록부의 신경 전체">
+                      {' '}· 신경 {mx.측정}/{mx.신경전체}
+                    </i>
+                  : null}
                 {mx.잰때 ? <i className="bm-at">({mx.잰때.slice(5)})</i> : null}
               </span>
             : null}
@@ -584,7 +597,7 @@ export function BrainMap() {
             <b style={{ color: `hsl(${R?.hue ?? 210} 70% 68%)` }}>
               {R?.label || reg}</b>
             <span className="bm-kind">
-              {c.칸}칸 · 모듈 {c.규칙모듈} · {c.줄수.toLocaleString()}줄</span>
+              {c.칸}칸 · 모듈 {c.모듈} · {c.줄수.toLocaleString()}줄</span>
             <div className={`bm-why bm-why--${c.갈래}`}>왜 이만큼인가 — {c.왜}</div>
             <div className="bm-cen-mat">
               어디까지 됐나:{' '}
@@ -592,10 +605,23 @@ export function BrainMap() {
                 <span key={label}>{label} <b>{c.성숙도[String(i)] ?? 0}</b></span>
               ))}
             </div>
-            {c.그린모듈 < c.규칙모듈 ? (
+            {c.그린모듈 < c.모듈 ? (
               <div className="bm-cen-gap">
-                덮음 {c.그린모듈}/{c.규칙모듈} — {c.규칙모듈 - c.그린모듈}개가
-                규칙 안에 있는데 아직 안 그려졌다
+                덮음 {c.그린모듈}/{c.모듈} — {c.모듈 - c.그린모듈}개가
+                이름표 안에 있는데 아직 이 영역에 안 그려졌다
+                {c.딴데 ? ` (${c.딴데}개는 다른 영역에 그려져 있다)` : ''}
+              </div>
+            ) : null}
+            {/* 🔴 **추정을 규칙인 척하지 않는다** (2026-09-10). 칸 이름이
+                `규칙모듈` 이었는데 실제로는 77%가 꾸러미·이웃 추정이었다.
+                무엇으로 가렸는지를 그대로 적는다 — 「이웃」이 많으면 그
+                영역의 이름표가 약하다는 뜻이고, 그것이 다음 할 일이다. */}
+            {c.판정 && Object.keys(c.판정).length ? (
+              <div className="bm-cen-how">
+                무엇으로 가렸나 —{' '}
+                {Object.entries(c.판정)
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([k, v]) => `${k} ${v}`).join(' · ')}
               </div>
             ) : null}
             {c.큰것?.length ? (
@@ -606,13 +632,28 @@ export function BrainMap() {
           </div>
         );
       })()}
-      {/* 지도 밖 — 🔴 0으로 숨기지 않는다. 여기 쌓인 것이 곧 다음 과녁이다 */}
-      {m.census?._밖 && (m.census._밖.수 ?? 0) > 0 && (
-        <div className="brainmap__detail bm-outside">
-          🔴 아직 지도 밖: <b>{m.census._밖.수}개 모듈</b>
-          {' · '}{(m.census._밖.줄수 ?? 0).toLocaleString()}줄 —
-          {' '}{(m.census._밖.큰것 || []).slice(0, 5)
-                .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
+      {/* 🔴 **「지도 밖」과 「이름 규칙 밖」은 다른 말이다** (2026-09-10).
+          전에는 «아직 지도 밖 22개 · 20,098줄» 이라 적었는데 **22개가 전부
+          이미 그려져 있었다** — 이름 규칙이 못 가렸을 뿐 자리는 이웃으로
+          잡혀 있었다. 「안 그렸다」로 읽히면 없는 할 일이 생긴다.
+          두 수를 갈라 적고, 0이어도 숨기지 않는다. */}
+      {m.census?._밖 && (
+        <div className={`brainmap__detail bm-outside${
+          (m.census._밖.수 ?? 0) > 0 ? '' : ' bm-outside--ok'}`}>
+          {(m.census._밖.수 ?? 0) > 0 ? (
+            <>🔴 아직 지도 밖: <b>{m.census._밖.수}개 모듈</b>
+              {' · '}{(m.census._밖.줄수 ?? 0).toLocaleString()}줄 —
+              {' '}{(m.census._밖.큰것 || []).slice(0, 5)
+                    .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
+            </>
+          ) : <>지도 밖 <b>0</b> — 모듈이 모두 어딘가에 그려져 있다</>}
+          {(m.census._밖.이름밖 ?? 0) > 0 && (
+            <span className="bm-outside__rule" title="이름 규칙·꾸러미가 못 가려 이웃으로 자리를 잡은 것 — 그려는 져 있다">
+              {' · '}이름 규칙 밖 <b>{m.census._밖.이름밖}</b>
+              {(m.census._밖.이름밖그림 ?? 0) > 0
+                ? ` (그중 ${m.census._밖.이름밖그림}개는 이웃으로 자리를 잡아 그려져 있다)` : ''}
+            </span>
+          )}
         </div>
       )}
       {pick && (
@@ -656,17 +697,25 @@ export function BrainMap() {
           화면 어디에도 안 적혀 있었다 (실측). 세는 것도 함께 보인다. */}
       <div className="brainmap__legend brainmap__legend--edge">
         {EDGE_LEGEND.map(([kind, why]) => {
-          const n = m.edges.filter(e => e.kind === kind).length;
+          const mine = m.edges.filter(e => e.kind === kind);
+          const n = mine.length;
           if (!n) return null;
           const foldable = kind === '부름' || kind === '사슬';
           const off = foldable && !showCall;
+          // 🔴 **끝점이 접혀 사라진 선을 아무 데도 안 적었다** (2026-09-10).
+          //    「이음 936」인데 화면엔 358줄이고, `부름`·`사슬` 519는 범례가
+          //    밝히는데 **나머지 59개**(일함 50 중 28)는 조용히 없어졌다.
+          //    「접는 것과 없애는 것은 다르다」를 이음 **끝점**에도 지킨다.
+          const gone = off ? 0
+            : mine.filter(e => !shownIds.has(e.a) || !shownIds.has(e.b)).length;
           return (
-            <span key={kind} title={why + (foldable ? ' · 눌러서 켜고 끈다' : '')}
+            <span key={kind} title={why + (foldable ? ' · 눌러서 켜고 끈다' : '')
+                    + (gone ? ` · ${gone}개는 끝점이 접혀 안 보인다 (영역을 펴면 나타난다)` : '')}
                   className={foldable ? 'bm-leg-btn' : undefined}
                   style={off ? { opacity: .45 } : undefined}
                   onClick={foldable ? () => setShowCall(v => !v) : undefined}>
               <i className={`bm-leg bm-leg--${EDGE_CLS[kind]}`} />{kind} {n}
-              {off ? ' (접힘)' : ''}
+              {off ? ' (접힘)' : gone ? <em className="bm-leg__gone">−{gone}</em> : ''}
             </span>
           );
         })}
