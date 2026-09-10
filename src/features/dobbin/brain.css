@@ -158,3 +158,7 @@
 .bm-cen-gap { color: #7cc4ff; }
 .bm-cen-big { opacity: .65; font-size: 11px; }
 .bm-outside { border-color: rgba(240,87,74,.4); }
+/* 위계 — 갈래(부모)에서 신경으로 내려가는 선 */
+.bm-edge--tree { stroke: rgba(255,214,140,.30); stroke-width: 1.1; }
+.bm-leg--tree  { color: rgba(255,214,140,.85); }
+.bm-node--갈래 circle { stroke-width: 2.4; }

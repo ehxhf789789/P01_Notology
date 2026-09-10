@@ -79,7 +79,7 @@ function lobeR(n: number): [number, number] {
 const EDGE_CLS: Record<string, string> = {
   '오배선': 'bad', '공급': 'feed', '사슬': 'chain',
   '부름': 'call', '검증': 'gate', '걸음': 'feed', '일함': 'call',
-  '일으킴': 'act', '빚': 'debt',
+  '일으킴': 'act', '빚': 'debt', '위계': 'tree',
 };
 
 /** 이음 범례 — 무엇이 무엇인지 화면에 적는다 */
@@ -91,6 +91,7 @@ const EDGE_LEGEND: [string, string][] = [
   ['일함', '이 걸음이 저 모듈을 만진다'],
   ['일으킴', '이 모듈이 저 자국을 남긴다'],
   ['빚', '이 할 일이 저 신경에 걸려 있다'],
+  ['위계', '이 갈래에 속한 신경이다'],
   ['사슬', '답을 고르는 차례 — 앞이 이긴다'],
   ['오배선', '의도한 신경 대신 저 신경이 먹었다'],
 ];
@@ -451,7 +452,8 @@ export function BrainMap() {
             const p = pos[n.id]; if (!p) return null;
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
-            const r = n.kind === '신경' ? (on ? 7.5 : 5)
+            const r = n.kind === '갈래' ? 10
+                    : n.kind === '신경' ? (on ? 7.5 : 5)
                     : n.kind === '기관' ? 8
                     : n.kind === '계획' ? (n.status === 'building' ? 6.5 : 4.5)
                     : 4;
@@ -474,7 +476,7 @@ export function BrainMap() {
                                  ? 0.34 : 0.94}>
                   <title>{`${n.label || n.id} · ${s.t}`}</title>
                 </circle>
-                {(on || hover === n.id || pick?.id === n.id) && (
+                {(n.kind === '갈래' || on || hover === n.id || pick?.id === n.id) && (
                   <text className="bm-tag" x={p.x}
                         y={p.y + (n.kind === '기관' ? 15 : -11)} textAnchor="middle">
                     {n.label || n.id}
