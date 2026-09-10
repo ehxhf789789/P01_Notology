@@ -30,7 +30,8 @@ type Layer = { label: string; cy: number; hue: number; why?: string };
 type Map = {
   regions: Record<string, Region>; layers?: Record<string, Layer>;
   nodes: Node[]; edges: Edge[];
-  maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number };
+  maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number;
+               손CLI?: number; 덮음?: { 기관: number; 전체: number } };
   counts?: { 뇌?: number; 장비?: number; 전체?: number };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
              잰때?: string | null; 출처?: string };
@@ -52,22 +53,6 @@ const BRAIN_TOP = 24, BRAIN_BOT = 556, EQUIP_TOP = 586;
    못 켜지는** 어긋남이 생겼다. 「같은 표를 두 곳에 두지 않는다」— 이제 서버가
    노드마다 `sse` 를 실어 보내고 화면은 그것으로만 잇는다. */
 
-/** 🔴 **위에서 본 뇌** (한빈 2026-09-09 선택). 앞 판은 좌·우 반구를 두 덩이로
- *  떼어 그렸는데, 한빈이 *"영역이 과도하게 떨어져 있고 테두리가 허접하다"* 고
- *  했고 — 게다가 그 좌/우 가름은 **코드에 근거가 없었다**(서버 주석 LAYERS 참조).
- *  이제 한 덩어리다: 앞(위)에서 뒤(아래)로 길고, 가운데 세로 틈(대뇌 종렬)이
- *  둘로 나누며, 겉선은 이랑(gyri)이 물결진다. 그림 파일은 안 쓴다. */
-const BRAIN =
-  'M490,26 C580,26 664,54 722,110 C796,166 842,250 844,318 '
-  + 'C846,398 806,470 730,516 C666,554 582,572 490,572 '
-  + 'C398,572 314,554 250,516 C174,470 134,398 136,318 '
-  + 'C138,250 184,166 258,110 C316,54 400,26 490,26 Z';
-/* 🔴 **밑그림을 걷었다** (한빈 2026-09-09: *"뇌 밑 그림 디자인이 너무 허접하다.
-   더 이쁘게 수정이 안 될 거 같으면 밑그림 디자인을 제거해라."*).
-   이랑(gyri) 여덟 줄과 대뇌 종렬을 그렸는데, 실제로는 **뜻 없는 곡선이 노드
-   위를 가로지르는** 그림이 됐다 — 해부학 흉내는 자료를 하나도 안 말하면서
-   읽기만 방해한다. 남는 것은 겉선 하나와 층 띠뿐이고, 그 둘은 각각 「여기까지가
-   뇌다」와 「자료가 어디로 흐르나」를 말한다. */
 
 /** 영역이 차지하는 반지름 — **식구 수에서 받는다**. 손으로 적어 두면 신경이
  *  늘 때마다 겉선 밖으로 흐른다 (앞 판이 그랬다). */
@@ -177,7 +162,16 @@ export function BrainMap() {
   const [at, setAt] = useState<string | null>(null);
   useEffect(() => {
     let dead = false;
-    const pull = () => fetch('/api/brainmap')
+    // 🔴 **몰아치기 막이 + 도는 중 막이** (2026-09-10). 신호마다 곧바로 읽었더니
+    //    회귀 한 판(그때 76번 쏘던 것)에 4초짜리 요청이 쌓여 **서버를 때렸다**.
+    //    ① 1.5초 안에 겹쳐 오는 신호는 한 번으로 접고
+    //    ② 앞 요청이 도는 중이면 **또 부르지 않는다**.
+    let inflight = false;
+    let timer: number | null = null;
+    const raw = () => {
+      if (inflight) return;
+      inflight = true;
+      return fetch('/api/brainmap')
       .then(r => (r.ok ? r.json() : null))
       .then(j => {
         if (dead || !j) return;
@@ -185,18 +179,25 @@ export function BrainMap() {
         setAt(new Date().toLocaleTimeString('ko-KR',
           { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       })
-      .catch(() => { /* 옛 서버면 지도가 없다 */ });
-    pull();
+        .catch(() => { /* 옛 서버면 지도가 없다 */ })
+        .finally(() => { inflight = false; });
+    };
+    const pull = () => {
+      if (timer) window.clearTimeout(timer);
+      timer = window.setTimeout(raw, 1500);
+    };
+    raw();
     // 서버가 «지도가 바뀌었다» 고 쏘면 그때 다시 읽는다
     const off = onLive((ev: any) => {
       if (ev?.kind === 'brainmap-changed') pull();
     });
     // 🔴 **느린 심박** — 쏘는 자가 놓친 변화(장부가 자란 것 따위)를 위해.
     //    60초는 사람이 화면을 보는 동안 한두 번 도는 값이다.
-    const beat = window.setInterval(pull, 60000);
+    const beat = window.setInterval(raw, 60000);
     return () => {
       dead = true;
       window.clearInterval(beat);
+      if (timer) window.clearTimeout(timer);
       try { off?.(); } catch { /* 해제가 막혀도 화면은 산다 */ }
     };
   }, []);
@@ -372,12 +373,34 @@ export function BrainMap() {
               Math.round((100 * (m.maturity!.셈[String(j)] ?? 0)) / (m.maturity!.합 || 1)));
             const big = all.indexOf(Math.max(...all));
             const pct = i === big ? all[i] + (100 - all.reduce((a, b) => a + b, 0)) : all[i];
+            // 🔴 **셈만 보이면 화면이 거짓을 말한다** (2026-09-10 적대 검토).
+            //    「선언 63」을 한빈은 «안 지은 뇌가 63개» 로 읽는데, 실측은
+            //    59개가 **일회성 CLI**(부르는 자가 없는 게 정상인 물건)이고
+            //    진짜 미착수는 **4개**다. 「배선」도 «안 돈다» 로 읽혔는데
+            //    92%가 지금 돌고 있고 **재는 자**만 없다. 단계마다 그 한 줄을
+            //    붙인다 — 수만 보이는 것은 절반의 진실이다.
+            const cli = m.maturity!.손CLI ?? 0;
+            const note = i === 0 && cli
+              ? `그중 ${cli}개는 일회성 CLI — 손으로 돌린다. 진짜 미착수는 ${n - cli}개`
+              : i === 1 ? '부르는 자는 있다 — 아직 재는 자가 없다'
+              : i === 3 ? '전용 잣대가 돌아 초록이다'
+              : i === 4 ? '관문이 rc 로 문다' : '';
             return (
-              <span key={label} className={`bm-mat bm-mat--${i}`}>
+              <span key={label} className={`bm-mat bm-mat--${i}`} title={note}>
                 <b>{label}</b> {n}<i>({pct}%)</i>
+                {i === 0 && cli ? <em className="bm-mat__note">진짜 {n - cli}</em> : null}
               </span>
             );
           })}
+          {/* 🔴 「모른다 53%」의 **까닭**을 같은 줄에 적는다 — 기관 223개 중
+              계측 규칙이 있는 것이 15개뿐이라 나머지가 unknown 이다. 상태가
+              나쁜 게 아니라 **재는 자가 없는** 것이다. */}
+          {m.maturity.덮음 && (
+            <span className="bm-mat bm-mat--cov"
+                  title="EVIDENCE 에 계측 규칙이 있는 기관 수 — 나머지는 «모른다» 로 그려진다">
+              <b>계측 덮음</b> {m.maturity.덮음.기관}/{m.maturity.덮음.전체}
+            </span>
+          )}
         </div>
       )}
       <div className="brainmap__wrap">
@@ -395,24 +418,24 @@ export function BrainMap() {
               <stop offset="0%" stopColor="#1b2440" stopOpacity=".55" />
               <stop offset="100%" stopColor="#070a12" stopOpacity="0" />
             </radialGradient>
-            {/* 겉선 밖으로 삐져나오지 않게 잘라 낸다 */}
-            <clipPath id="bmBrain"><path d={BRAIN} /></clipPath>
             <radialGradient id="bmglow">
               <stop offset="0%" stopColor="#fff" stopOpacity=".85" />
               <stop offset="100%" stopColor="#fff" stopOpacity="0" />
             </radialGradient>
-            {/* 겉선 — 두 겹으로 두께를 준다 (한빈: «테두리가 너무 허접») */}
-            <linearGradient id="bmrim" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8fa6d8" stopOpacity=".85" />
-              <stop offset="100%" stopColor="#5b6c96" stopOpacity=".55" />
-            </linearGradient>
           </defs>
 
           <rect x="0" y="0" width={W} height={H} fill="url(#bmbg)" />
 
-          {/* ── 뇌 (위에서 본 한 덩어리) */}
-          <g clipPath="url(#bmBrain)">
-            <path d={BRAIN} className="bm-fill" />
+          {/* 🔴 **밑그림(동그라미)을 걷었다** (한빈 2026-09-10: *"밑배경 뇌
+              그림이 상당히 별로다. 그냥 제거해. 전혀 뇌로 보이지 않고 오히려
+              허접해 보인다."*).
+              어제 이랑·종렬을 걷고 겉선만 남겼는데, 남은 것이 **아무 뜻도 없는
+              타원 하나**였다 — 자료를 하나도 안 말하면서 자리만 먹는다.
+              남는 것은 **층 띠**(구심/연합/원심)와 **영역 색면**뿐이고,
+              그 둘은 각각 「자료가 어디로 흐르나」와 「무엇이 어디 사나」를 말한다.
+              ⚠️ `lobes()`·`place()` 의 자리 계산은 **안 건드렸다** — 어제 겉선을
+                 고치며 배치까지 만졌다가 노드가 흩어진 적이 있다. */}
+          <g>
             {/* 층 띠 — 구심(위) → 연합(가운데) → 원심(아래) */}
             {Object.entries(m.layers || {}).map(([k, L]) => {
               const cy = BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * L.cy;
@@ -431,7 +454,6 @@ export function BrainMap() {
                                 stroke: `hsl(${L.hue} 80% 62% / .34)` }} />
             ))}
           </g>
-          <path d={BRAIN} className="bm-rim" />
 
           {/* 층 이름 — 왼쪽 가장자리에 세로로 */}
           {Object.entries(m.layers || {}).map(([k, L]) => {

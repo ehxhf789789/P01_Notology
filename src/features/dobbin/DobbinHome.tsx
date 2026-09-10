@@ -105,8 +105,10 @@ export function DobbinHome() {
     pull();
     const off = onLive((ev: any) => {
       // 브리핑이 말하는 것들이 바뀌면 다시 읽는다
-      if (['tended', 'memos-changed', 'inbox-changed', 'initiate',
-           'brainmap-changed'].includes(ev?.kind)) pull();
+      // 🔴 `brainmap-changed` 를 뺐다 — 뇌 지도가 바뀐 것은 **브리핑과 무관**
+      //    한데, 관문 한 판마다 3.5초짜리 `/api/briefing` 을 덩달아 읽었다.
+      if (['tended', 'memos-changed', 'inbox-changed',
+           'initiate'].includes(ev?.kind)) pull();
     });
     const beat = window.setInterval(pull, 60000);
     return () => {

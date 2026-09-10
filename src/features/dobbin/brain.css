@@ -20,14 +20,10 @@
 
 /* 🔴 겉선을 **두 겹**으로 준다 (한빈: «뇌의 형상 프레임 테두리가 너무 허접»).
    안쪽 채움 + 바깥 테 + 은은한 빛. 한 줄짜리 선은 도형처럼 보인다. */
-/* 겉선 하나 — 이랑·종렬 밑그림은 걷었다 (한빈 09-09: «허접하면 제거해라»).
-   뜻을 말하지 않는 선은 읽기만 방해한다. 남는 것은 「여기까지가 뇌다」뿐. */
-.bm-fill { fill: rgba(126,158,220,.055); stroke: none; }
-.bm-rim {
-  fill: none; stroke: url(#bmrim); stroke-width: 2.2;
-  stroke-linejoin: round; stroke-linecap: round;
-  filter: drop-shadow(0 0 14px rgba(120,160,255,.28));
-}
+/* 🔴 겉선(동그라미)마저 걷었다 (한빈 2026-09-10: «전혀 뇌로 보이지 않고
+   오히려 허접해 보인다. 그냥 제거해»). 어제 이랑·종렬을 걷고 남은 것이
+   **아무 뜻도 없는 타원 하나**였다 — 자료를 하나도 안 말하면서 자리만 먹었다.
+   남는 것은 층 띠와 영역 색면뿐이고 그 둘은 각각 뜻이 있다. */
 .bm-layer { pointer-events: none; }
 .bm-layer-lab { font-size: 11px; font-weight: 700; letter-spacing: .04em;
   opacity: .85; paint-order: stroke;
@@ -164,3 +160,12 @@
 .bm-node--갈래 circle { stroke-width: 2.4; }
 .bm-leg-btn { cursor: pointer; }
 .bm-leg-btn:hover { opacity: 1 !important; text-decoration: underline; }
+
+/* 🔴 「선언 63」이 «안 지은 뇌 63» 으로 읽혀서 붙인 꼬리표 — 실측은
+   59개가 일회성 CLI 이고 진짜 미착수는 4개다 (2026-09-10). */
+.bm-mat__note {
+  font-style: normal; font-size: .82em; margin-left: 5px;
+  padding: 0 5px; border-radius: 7px;
+  background: rgba(139, 92, 246, .16); color: #b79bff;
+}
+.bm-mat--cov b { color: #f0883e; }
