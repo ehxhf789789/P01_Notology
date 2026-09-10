@@ -177,3 +177,26 @@
 .bm-why--서비스 { color: #7cc4ff; }
 .bm-cov { font-style: normal; opacity: .78; }
 .bm-leg__gone { font-style: normal; opacity: .62; margin-left: 2px; }
+
+/* 🔴 자국 띠 — 「실시간」이 곧 「휘발」이던 것을 고친다 (2026-09-10) */
+.brainmap__trace {
+  margin-top: 8px; padding: 7px 10px; border-radius: 9px;
+  background: rgba(255, 255, 255, .035);
+  border: 1px solid rgba(255, 255, 255, .07);
+  font-size: .84rem; line-height: 1.65;
+}
+.brainmap__trace > b { display: block; margin-bottom: 3px; opacity: .82; }
+.brainmap__trace ol { list-style: none; margin: 0; padding: 0;
+  max-height: 132px; overflow-y: auto; }
+.bm-tr { display: flex; gap: 7px; align-items: baseline; }
+.bm-tr i { font-style: normal; opacity: .5; font-variant-numeric: tabular-nums; }
+.bm-tr em {
+  font-style: normal; font-size: .84em; padding: 0 5px; border-radius: 6px;
+  background: rgba(255, 255, 255, .07); flex: none;
+}
+.bm-tr--개발 em { background: rgba(124, 196, 255, .18); color: #7cc4ff; }
+.bm-tr--편집 em { background: rgba(62, 207, 142, .18); color: #3ecf8e; }
+.bm-tr--수정 em { background: rgba(227, 179, 65, .18); color: #e3b341; }
+.bm-tr--활동 em { background: rgba(139, 92, 246, .18); color: #b79bff; }
+.bm-tr-empty { opacity: .6; }
+.bm-equip-real { font-style: normal; opacity: .6; margin-left: 3px; font-size: .9em; }

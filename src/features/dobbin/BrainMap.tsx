@@ -32,7 +32,8 @@ type Map = {
   nodes: Node[]; edges: Edge[];
   maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number;
                손CLI?: number; 덮음?: { 기관: number; 전체: number } };
-  counts?: { 뇌?: number; 장비?: number; 전체?: number };
+  counts?: { 뇌?: number; 조작?: number; 장비?: number; 전체?: number;
+              장비파일?: number; 장비줄?: number; 탐침?: number };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
              신경전체?: number; 잰때?: string | null; 출처?: string };
   tally?: Record<string, number>;
@@ -44,6 +45,32 @@ type Map = {
     수?: number; 이름밖?: number; 이름밖그림?: number;
   }>;
 };
+
+/** 🔴 **자국 띠** — 한빈 2026-09-10: *"개발/편집/수정/활동신호 등을 **실시간**
+ *  으로 안정성 있게 보여줘야 한다."*
+ *
+ *  지금까지 실시간은 **5.2초 번쩍임**뿐이었다. 화면을 안 보고 있었으면 그
+ *  일은 **일어나지 않은 것과 같다** — 「실시간」이 곧 「휘발」이었다.
+ *  SSE 를 시각과 함께 쌓아, 자리를 비웠다 와도 무슨 일이 있었는지 읽는다.
+ *
+ *  네 갈래는 한빈이 말한 그대로 가른다. 갈래를 못 정하는 kind 는 **버리지
+ *  않고** 「활동」으로 둔다 — 안 보이는 것보다 갈래가 거친 것이 낫다. */
+const TRACE_KIND: Record<string, [string, string]> = {
+  'file-changed':  ['편집', '사람이 노트를 고쳤다'],
+  'note-changed':  ['편집', '노트가 바뀌었다'],
+  'vault-changed': ['수정', '보관소가 바뀌었다'],
+  'shelf-changed': ['수정', '서가를 옮겼다'],
+  'inbox-changed': ['활동', '투입구에 자료가 들어왔다'],
+  'memos-changed': ['활동', '메모·일정이 바뀌었다'],
+  'tending':       ['활동', '일과가 도는 중'],
+  'tended':        ['활동', '일과가 한 걸음 끝냈다'],
+  'thinking':      ['활동', 'dobbin 이 생각하는 중'],
+  'consistency':   ['수정', '일관성 검사'],
+  'initiate':      ['활동', 'dobbin 이 먼저 말했다'],
+  'lease-changed': ['활동', '편집 잠금'],
+  'brainmap-changed': ['개발', '뇌 지도가 다시 지어졌다'],
+};
+type Trace = { at: string; lane: string; kind: string; what: string };
 
 const W = 980, H = 700;
 /** 뇌가 차지하는 세로 — 아래 나머지는 **장비 띠**다 (뇌가 아니다). */
@@ -146,6 +173,8 @@ export function BrainMap() {
   const [reg, setReg] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
+  /** 자국 띠 — 위 `TRACE_KIND` 주석 참고 (한빈 2026-09-10) */
+  const [trace, setTrace] = useState<Trace[]>([]);
   // 🔴 **꺼지는 빛에 기대지 않는다.** 앞 판은 요약의 「신경 N개」를 번쩍임
   //    상태(lit)에서 셌는데, 5초 뒤 빛이 꺼지면 «0개»로 바뀌었다 (실측).
   //    그 턴에 울린 수는 **그때 붙잡아** 둔다.
@@ -251,6 +280,15 @@ export function BrainMap() {
     //    답이 끝난 뒤가 아니라 **생각하는 도중** 켠다 — SSE 의 `thinking`
     //    걸음이 0.4초 안에 온다. 대화가 아닐 때(자율 걸음)도 같은 통로다.
     const off = onLive((ev: any) => {
+      // 🔴 **자국부터 남기고** 불을 켠다 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다.
+      if (ev?.kind) {
+        const [lane, why] = TRACE_KIND[ev.kind] || ['활동', ev.kind];
+        const what = ev.step || ev.nerve || ev.path || ev.name || why;
+        setTrace(prev => [{
+          at: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
+          lane, kind: ev.kind, what: String(what).slice(0, 60),
+        }, ...prev].slice(0, 40));
+      }
       if (ev?.kind === 'thinking') {
         const id = ev.nerve
           || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
@@ -370,7 +408,21 @@ export function BrainMap() {
                 {mx.잰때 ? <i className="bm-at">({mx.잰때.slice(5)})</i> : null}
               </span>
             : null}
-          {' '}<i className="bm-equip-n">손 {m.counts?.조작 ?? 0} · 장비 {m.counts?.장비 ?? 0}</i>
+          {/* 🔴 **장비를 2배 적게 그리고 있었다** — 노드로는 76개인데
+              `src/eval` 은 168파일·81,444줄이다 (2026-09-10). */}
+          {' '}<i className="bm-equip-n"
+                  title={m.counts?.장비파일
+                    ? `재는 자 실물: src/eval ${m.counts.장비파일}파일 · `
+                      + `${(m.counts.장비줄 ?? 0).toLocaleString()}줄 · `
+                      + `탐침 ${m.counts.탐침}개`
+                    : undefined}>
+            손 {m.counts?.조작 ?? 0} · 장비 {m.counts?.장비 ?? 0}
+            {m.counts?.장비파일
+              ? <em className="bm-equip-real">
+                  ({m.counts.장비파일}파일 · {Math.round((m.counts.장비줄 ?? 0) / 1000)}k줄)
+                </em>
+              : null}
+          </i>
           {/* 🔴 **갱신 시각을 적는다.** 「반사 49/51」이 17시간 낡았는데 화면에
               아무 표시가 없었다 — 낡은 수를 지금 수처럼 보이게 하면 안 된다. */}
           {at ? <i className="bm-at" title="이 지도를 마지막으로 읽은 때">· {at}</i> : null}
@@ -496,7 +548,7 @@ export function BrainMap() {
                     onClick={() => setReg(reg === k ? null : k)}
                     style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
                 {L.label} <tspan className="bm-region-n">
-                  {L.n}{c && c.규칙모듈 ? ` · 모듈 ${c.규칙모듈}` : ''}</tspan>
+                  {L.n}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
               </text>
             );
           })}
@@ -693,6 +745,27 @@ export function BrainMap() {
           <span key={k}><i style={{ background: v.c }} />{v.t}</span>
         ))}
       </div>
+      {/* 🔴 **자국 띠** — 한빈 2026-09-10 ③. 실시간이 5.2초 번쩍임뿐이라
+          자리를 비우면 **일어나지 않은 것과 같았다.** 시각과 함께 쌓는다.
+          ⚠️ 비어 있어도 칸을 지우지 않는다 — 「아직 아무 일도 없다」와
+             「이 기능이 없다」를 사람이 구별할 수 있어야 한다. */}
+      <div className="brainmap__trace">
+        <b>방금 일어난 일</b>
+        {trace.length ? (
+          <ol>
+            {trace.slice(0, 12).map((t, i) => (
+              <li key={`${t.at}-${i}`} className={`bm-tr bm-tr--${t.lane}`}
+                  title={`${t.kind} · ${t.what}`}>
+                <i>{t.at}</i><em>{t.lane}</em>{t.what}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <span className="bm-tr-empty">
+            아직 조용하다 — 노트를 고치거나 dobbin 에게 말을 걸면 여기 쌓인다
+          </span>
+        )}
+      </div>
       {/* 🔴 **이음 범례가 없었다** — 여덟 종을 그려 놓고 무엇이 무엇인지
           화면 어디에도 안 적혀 있었다 (실측). 세는 것도 함께 보인다. */}
       <div className="brainmap__legend brainmap__legend--edge">
@@ -723,3 +796,5 @@ export function BrainMap() {
     </section>
   );
 }
+
+
