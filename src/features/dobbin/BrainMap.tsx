@@ -21,6 +21,7 @@ type Node = {
   miss?: Record<string, number>; mod?: string; why?: string;
   수용체?: string[]; 자극?: string[];
   label?: string; sse?: string | null; rc?: number | null;
+  줄수?: number; 부름받음?: number; 부모?: string | null;
   target?: string; owner?: string; grade?: string; src?: string | null;
 };
 type Edge = { a: string; b: string; kind: string; n?: number };
@@ -107,6 +108,7 @@ const STATUS: Record<string, { c: string; t: string }> = {
   todo:     { c: '#8b5cf6', t: '선언만 — 빈칸' },
   planned:  { c: '#ff8ac4', t: '차례를 기다리는 할 일' },
   building: { c: '#ffd166', t: '지금 만드는 중' },
+  fold:     { c: '#8fa6d8', t: '접혀 있다 — 눌러서 편다' },
 };
 
 /** 영역의 자리와 크기 — 층이 세로를, `cx` 가 가로를, 식구 수가 크기를 정한다. */
@@ -281,8 +283,41 @@ export function BrainMap() {
     };
   }, [m, byName]);
 
-  const lb = useMemo(() => (m ? lobes(m.nodes, m.regions, m.layers || {}) : {}), [m]);
-  const pos = useMemo(() => (m ? place(m.nodes, lb) : {}), [m, lb]);
+  // 🔴 **접는다** (2026-09-10). 제품 모듈 220개를 다 올리니 노드가 439다 —
+  //    다 그리면 못 읽고, 안 그리면 거짓말이다(45/158 만 그리던 자리).
+  //    영역마다 **큰 것 K개**만 펴고 나머지는 「+N」 한 점으로 접는다.
+  //    잣대는 지어낸 중요도가 아니라 **줄 수 + 부르는 자 수**다.
+  const [open, setOpen] = useState<Set<string>>(new Set());
+  // 🔴 **이음도 접는다** (2026-09-10). 모듈을 다 올리자 이음이 933이 되었고
+  //    화면이 실뭉치가 됐다. `부름`(464)은 «코드에 있다»일 뿐 그 턴에 무슨
+  //    일이 있었나를 말하지 않는다 — 기본으로 접고, 켜면 보인다.
+  //    ⚠️ 접는 것과 **없애는 것**은 다르다. 수는 범례에 그대로 적힌다.
+  const [showCall, setShowCall] = useState(false);
+  const shownNodes = useMemo(() => {
+    if (!m) return [] as Node[];
+    const K = 9;
+    const byR: Record<string, Node[]> = {};
+    m.nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
+    const out: Node[] = [];
+    Object.entries(byR).forEach(([r, list]) => {
+      const organs = list.filter(n => n.kind === '기관');
+      const rest = list.filter(n => n.kind !== '기관');
+      out.push(...rest);
+      if (organs.length <= K || open.has(r)) { out.push(...organs); return; }
+      const rank = (n: Node) => (n.줄수 || 0) + (n.부름받음 || 0) * 300;
+      const top = [...organs].sort((a, b) => rank(b) - rank(a)).slice(0, K);
+      out.push(...top);
+      out.push({ id: `접힘:${r}`, kind: '접힘', region: r, status: 'fold',
+                 label: `+${organs.length - K}`,
+                 why: `${organs.length - K}개가 접혀 있다 — 눌러서 편다`,
+                 줄수: organs.slice(K).reduce((a, b) => a + (b.줄수 || 0), 0) } as Node);
+    });
+    return out;
+  }, [m, open]);
+  const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
+  const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, m.layers || {}) : {}),
+                     [m, shownNodes]);
+  const pos = useMemo(() => (m ? place(shownNodes, lb) : {}), [shownNodes, lb]);
   // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
   //    같은 엽 안에서 «가까이 찍힌» 둘을 이어 321개를 그렸는데, 서버가 보낸
   //    진짜 이음 107개와 **겹치는 것이 하나도 없었다**. 사람이 본 428선 중
@@ -433,6 +468,8 @@ export function BrainMap() {
 
           {/* 이음 — 사슬(옅게) · 공급(가늘게) · 오배선(붉게) */}
           {m.edges.map((e, i) => {
+            if (!showCall && (e.kind === '부름' || e.kind === '사슬')) return null;
+            if (!shownIds.has(e.a) || !shownIds.has(e.b)) return null;
             const a = pos[e.a], b = pos[e.b];
             if (!a || !b) return null;
             const on = litSet.has(e.a) || litSet.has(e.b);
@@ -448,11 +485,12 @@ export function BrainMap() {
           })}
 
           {/* 노드 */}
-          {m.nodes.map(n => {
+          {shownNodes.map(n => {
             const p = pos[n.id]; if (!p) return null;
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
-            const r = n.kind === '갈래' ? 10
+            const r = n.kind === '접힘' ? 9
+                    : n.kind === '갈래' ? 10
                     : n.kind === '신경' ? (on ? 7.5 : 5)
                     : n.kind === '기관' ? 8
                     : n.kind === '계획' ? (n.status === 'building' ? 6.5 : 4.5)
@@ -460,7 +498,13 @@ export function BrainMap() {
             const ghost = n.kind === '계획';
             return (
               <g key={n.id} className={`bm-node bm-node--${n.kind}${on ? ' bm-node--fire' : ''}`}
-                 onClick={() => setPick(pick?.id === n.id ? null : n)}
+                 onClick={() => {
+                   if (n.kind === '접힘') {
+                     setOpen(o => { const x = new Set(o); x.add(n.region); return x; });
+                     return;
+                   }
+                   setPick(pick?.id === n.id ? null : n);
+                 }}
                  onMouseEnter={() => setHover(n.id)}
                  onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
                 {on && <circle cx={p.x} cy={p.y} r={22} fill="url(#bmglow)" />}
@@ -476,7 +520,8 @@ export function BrainMap() {
                                  ? 0.34 : 0.94}>
                   <title>{`${n.label || n.id} · ${s.t}`}</title>
                 </circle>
-                {(n.kind === '갈래' || on || hover === n.id || pick?.id === n.id) && (
+                {(n.kind === '갈래' || n.kind === '접힘' || on
+                  || hover === n.id || pick?.id === n.id) && (
                   <text className="bm-tag" x={p.x}
                         y={p.y + (n.kind === '기관' ? 15 : -11)} textAnchor="middle">
                     {n.label || n.id}
@@ -591,9 +636,15 @@ export function BrainMap() {
         {EDGE_LEGEND.map(([kind, why]) => {
           const n = m.edges.filter(e => e.kind === kind).length;
           if (!n) return null;
+          const foldable = kind === '부름' || kind === '사슬';
+          const off = foldable && !showCall;
           return (
-            <span key={kind} title={why}>
+            <span key={kind} title={why + (foldable ? ' · 눌러서 켜고 끈다' : '')}
+                  className={foldable ? 'bm-leg-btn' : undefined}
+                  style={off ? { opacity: .45 } : undefined}
+                  onClick={foldable ? () => setShowCall(v => !v) : undefined}>
               <i className={`bm-leg bm-leg--${EDGE_CLS[kind]}`} />{kind} {n}
+              {off ? ' (접힘)' : ''}
             </span>
           );
         })}

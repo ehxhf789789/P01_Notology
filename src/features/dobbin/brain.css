@@ -162,3 +162,5 @@
 .bm-edge--tree { stroke: rgba(255,214,140,.30); stroke-width: 1.1; }
 .bm-leg--tree  { color: rgba(255,214,140,.85); }
 .bm-node--갈래 circle { stroke-width: 2.4; }
+.bm-leg-btn { cursor: pointer; }
+.bm-leg-btn:hover { opacity: 1 !important; text-decoration: underline; }
