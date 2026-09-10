@@ -200,3 +200,5 @@
 .bm-tr--활동 em { background: rgba(139, 92, 246, .18); color: #b79bff; }
 .bm-tr-empty { opacity: .6; }
 .bm-equip-real { font-style: normal; opacity: .6; margin-left: 3px; font-size: .9em; }
+.bm-gap { font-style: normal; opacity: .8; }
+.bm-gap em { font-style: normal; color: #e3b341; opacity: .9; margin-left: 3px; }

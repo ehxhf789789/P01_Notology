@@ -35,7 +35,8 @@ type Map = {
   counts?: { 뇌?: number; 조작?: number; 장비?: number; 전체?: number;
               장비파일?: number; 장비줄?: number; 탐침?: number };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
-             신경전체?: number; 잰때?: string | null; 출처?: string };
+             신경전체?: number; 문?: number; 문표시?: number;
+             잰때?: string | null; 출처?: string };
   tally?: Record<string, number>;
   census?: Record<string, {
     칸: number; 그린모듈: number; 모듈: number; 딴데?: number; 줄수: number;
@@ -403,6 +404,20 @@ export function BrainMap() {
                 {mx.신경전체
                   ? <i className="bm-cov" title="반사 벤치가 한 번이라도 잰 신경 / 등록부의 신경 전체">
                       {' '}· 신경 {mx.측정}/{mx.신경전체}
+                    </i>
+                  : null}
+                {/* 🔴 **덮지 않은 것을 덮은 척하지 않는다** (2026-09-10).
+                    `_answer_core` 에 값을 돌려주는 문이 62개인데 표시가
+                    붙은 것은 13개다 — 나머지 49개로 나간 답은 뇌 지도에
+                    **한 칸도 안 켜진다.** 사람이 보기엔 dobbin 이 아무
+                    생각 없이 답한 것처럼 보인다. 그 수를 적는다. */}
+                {mx.문
+                  ? <i className="bm-gap"
+                       title="답이 나가는 자리 중 「신경 «X» 발화」 표시가 붙은 것 — 나머지로 나간 답은 지도에 안 켜진다">
+                      {' '}· 문 {mx.문표시}/{mx.문}
+                      {(mx.문 ?? 0) - (mx.문표시 ?? 0) > 0
+                        ? <em>({(mx.문 ?? 0) - (mx.문표시 ?? 0)}개 계측 밖)</em>
+                        : null}
                     </i>
                   : null}
                 {mx.잰때 ? <i className="bm-at">({mx.잰때.slice(5)})</i> : null}
