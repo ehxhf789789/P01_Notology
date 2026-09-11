@@ -294,3 +294,8 @@
 }
 .bm-region .bm-region-n { opacity: 0; transition: opacity .15s; }
 .bm-region:hover .bm-region-n, .bm-region.is-on .bm-region-n { opacity: .85; }
+
+/* 영역 hover — 구획이 밝아지고 그때만 이름이 뜬다 (수치 포함) */
+.bm-lobe { cursor: pointer; transition: fill .15s, stroke .15s; }
+.bm-lobe--hov { filter: drop-shadow(0 0 7px hsl(210 80% 60% / .35)); }
+.bm-region.is-on .bm-region-n { opacity: .85; }

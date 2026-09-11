@@ -254,6 +254,10 @@ export function BrainMap() {
   const [pickId, setPickId] = useState<string | null>(null);
   const [reg, setReg] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
+  /** 영역(호 구획) hover — 노드 hover 와 **별개 축**이다 (한빈 2026-09-11:
+   *  *"타이틀도 영역에 hover 하면 보이도록. 노드 hover 랑 영역 hover 랑
+   *  별도로."*). 평시엔 이름을 안 그려 겹침이 0이 된다. */
+  const [regHover, setRegHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
   /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
   const [trace, setTrace] = useState<Trace[]>([]);
@@ -700,11 +704,15 @@ export function BrainMap() {
             {Object.entries(lb).filter(([, L]) => L.arc).map(([k, L]) => {
               const { a0, a1, r0, r1 } = L.arc!;
               const on = lit.some(id => nodeById[id]?.region === k);
+              const hov = regHover === k;
               return (
                 <path key={`lobe-${k}`} d={arcPath(a0, a1, r0, r1)}
-                      className={`bm-lobe${on ? ' bm-lobe--on' : ''}`}
-                      style={{ fill: `hsl(${L.hue} 80% 55% / .12)`,
-                               stroke: `hsl(${L.hue} 80% 62% / .38)` }} />
+                      className={`bm-lobe${on ? ' bm-lobe--on' : ''}${hov ? ' bm-lobe--hov' : ''}`}
+                      onMouseEnter={() => setRegHover(k)}
+                      onMouseLeave={() => setRegHover(h => (h === k ? null : h))}
+                      onClick={() => setReg(reg === k ? null : k)}
+                      style={{ fill: `hsl(${L.hue} 80% 55% / ${hov ? '.2' : '.12'})`,
+                               stroke: `hsl(${L.hue} 80% 62% / ${hov ? '.6' : '.38'})` }} />
               );
             })}
           </g>
@@ -743,15 +751,17 @@ export function BrainMap() {
               const rr = L.arc.r1 + 10;
               x = CX + rr * Math.cos(mid); y = CY + rr * Math.sin(mid);
             }
-            const dim = reg === k;
+            // 🔴 **평시엔 이름을 안 그린다** — 상시 라벨은 서로 겹쳤다
+            //    (「보관소조작」으로 뭉개진 실측 스크린샷). 영역 hover 또는
+            //    선택 때만, 그때는 수치까지 함께.
+            if (regHover !== k && reg !== k) return null;
             return (
               <text key={`lab-${k}`}
-                    className={`bm-region bm-region--btn${dim ? ' is-on' : ''}`}
+                    className={`bm-region bm-region--btn is-on`}
                     x={x} y={y} textAnchor="middle"
+                    onMouseEnter={() => setRegHover(k)}
                     onClick={() => setReg(reg === k ? null : k)}
-                    style={{ fill: `hsl(${L.hue} 70% 72%)` }}>
-                <title>{`${L.label} — 칸 ${c?.칸 ?? L.n}`
-                        + (c?.모듈 ? ` · 모듈 ${c.모듈}` : '')}</title>
+                    style={{ fill: `hsl(${L.hue} 70% 74%)` }}>
                 {/* L.n 은 접힘 뒤 수 — census 전체 수가 정답 (A2) */}
                 {L.label}<tspan className="bm-region-n">
                   {` ${c?.칸 ?? L.n}`}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
