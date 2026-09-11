@@ -202,3 +202,7 @@
 .bm-equip-real { font-style: normal; opacity: .6; margin-left: 3px; font-size: .9em; }
 .bm-gap { font-style: normal; opacity: .8; }
 .bm-gap em { font-style: normal; color: #e3b341; opacity: .9; margin-left: 3px; }
+
+/* "static" 이음 = 코드에 있다(정적 분석) — 실측된 이음보다 흐리게 (2026-09-11) */
+.bm-edge--static { opacity: .55; }
+.bm-src, .bm-ord { font-style: normal; opacity: .7; }

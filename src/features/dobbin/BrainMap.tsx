@@ -5,8 +5,8 @@
  * 움직이고 반응하는지 동적으로. 깊이·구조가 너무 얕다 — 세부 신경도 모두.
  * 하네스와 dobbin 의 두뇌가 어디까지 구현됐는지 시각적으로."*
  *
- * 🔴 그리는 값은 전부 **서버가 잰 것**이다 (`/api/brainmap`): 대화 신경 53 +
- *    기관(기억·연상·심의·관계·지각·말) + 일과 걸음 25 + 하네스 관문 24.
+ * 🔴 그리는 값은 전부 **서버가 잰 것**이다 (`/api/brainmap`) — 수는 서버
+ *    등록부가 정본이므로 여기 적지 않는다 (적으면 낡는다 · 2026-09-11).
  *    색=상태 · 자리=영역(뇌간·전두·측두·두정·후두·언어·소뇌·겉질).
  *    말을 걸면 그 턴에 울린 신경이 **번쩍이고 신호가 사슬을 타고 흐른다**.
  */
@@ -23,8 +23,12 @@ type Node = {
   label?: string; sse?: string | null; rc?: number | null;
   줄수?: number; 부름받음?: number; 부모?: string | null;
   target?: string; owner?: string; grade?: string; src?: string | null;
+  // 🔴 서버가 이미 보내는데 화면이 **다시 계산**하던 칸 (2026-09-11 전수 대조)
+  layer?: string | null; equip?: boolean; aim?: string;
 };
-type Edge = { a: string; b: string; kind: string; n?: number };
+type Edge = { a: string; b: string; kind: string; n?: number;
+  /** "static" = 코드에 있다(정적 분석) — 실측된 이음과 다르다 */
+  grade?: string };
 type Region = { label: string; cx: number; cy?: number; hue: number; layer?: string | null };
 type Layer = { label: string; cy: number; hue: number; why?: string };
 type Map = {
@@ -34,6 +38,12 @@ type Map = {
                손CLI?: number; 덮음?: { 기관: number; 전체: number } };
   counts?: { 뇌?: number; 조작?: number; 장비?: number; 전체?: number;
               장비파일?: number; 장비줄?: number; 탐침?: number };
+  /** kind → [갈래, 설명] — 자국 띠의 정본 (서버 TRACE_LANES) */
+  trace_lanes?: Record<string, [string, string]>;
+  /** 🔴 `_밖` 은 영역이 아니라서 census Record 에서 분리됐다 (2026-09-11) */
+  outside?: { 수?: number; 줄수?: number; 큰것?: [number, string][];
+              이름밖?: number; 이름밖그림?: number;
+              이름밖큰것?: [number, string][]; 왜?: string };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
              신경전체?: number; 문?: number; 문표시?: number;
              잰때?: string | null; 출처?: string };
@@ -43,7 +53,6 @@ type Map = {
     성숙도: Record<string, number>; 왜: string; 갈래: string;
     판정?: Record<string, number>;
     큰것: [number, string][];
-    수?: number; 이름밖?: number; 이름밖그림?: number;
   }>;
 };
 
@@ -56,21 +65,11 @@ type Map = {
  *
  *  네 갈래는 한빈이 말한 그대로 가른다. 갈래를 못 정하는 kind 는 **버리지
  *  않고** 「활동」으로 둔다 — 안 보이는 것보다 갈래가 거친 것이 낫다. */
-const TRACE_KIND: Record<string, [string, string]> = {
-  'file-changed':  ['편집', '사람이 노트를 고쳤다'],
-  'note-changed':  ['편집', '노트가 바뀌었다'],
-  'vault-changed': ['수정', '보관소가 바뀌었다'],
-  'shelf-changed': ['수정', '서가를 옮겼다'],
-  'inbox-changed': ['활동', '투입구에 자료가 들어왔다'],
-  'memos-changed': ['활동', '메모·일정이 바뀌었다'],
-  'tending':       ['활동', '일과가 도는 중'],
-  'tended':        ['활동', '일과가 한 걸음 끝냈다'],
-  'thinking':      ['활동', 'dobbin 이 생각하는 중'],
-  'consistency':   ['수정', '일관성 검사'],
-  'initiate':      ['활동', 'dobbin 이 먼저 말했다'],
-  'lease-changed': ['활동', '편집 잠금'],
-  'brainmap-changed': ['개발', '뇌 지도가 다시 지어졌다'],
-};
+// 🔴 **갈래 표의 정본은 서버다** (`graph()["trace_lanes"]` · 2026-09-11).
+// 전에는 여기 제 표를 들었다 — 없앤 `MOTOR_SSE` 와 같은 병: 서버가 새 kind 를
+// 쏘면 화면은 모른 채 「활동」으로 뭉갠다. 받은 표가 없을 때의 마지막 물러섬만
+// 남긴다 (첫 fetch 전 SSE 가 먼저 올 수 있다).
+const LANE_FALLBACK: [string, string] = ['활동', ''];
 type Trace = { at: string; lane: string; kind: string; what: string };
 
 const W = 980, H = 700;
@@ -136,7 +135,9 @@ function lobes(nodes: Node[], regions: Record<string, Region>,
   Object.entries(byR).forEach(([r, list]) => {
     const reg = regions[r]; if (!reg) return;
     const [rx, ry] = lobeR(list.length);
-    const equip = !reg.layer;
+    // 🔴 서버가 노드마다 `equip`/`layer` 를 이미 보낸다 — 화면이 영역
+    //    layer 로 **다시 계산**하던 것을 서버 값 우선으로 (두 벌 금지).
+    const equip = list[0]?.equip ?? !reg.layer;
     // 🔴 층은 **띠로 보이는 것**이고 자리는 갈래마다 따로 받는다. 층 하나에
     //    여섯 갈래를 한 줄로 앉히면 「언어 50개」가 이웃을 덮는다 (실측).
     const cy = equip ? EQUIP_TOP + 44
@@ -174,7 +175,7 @@ export function BrainMap() {
   const [reg, setReg] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
-  /** 자국 띠 — 위 `TRACE_KIND` 주석 참고 (한빈 2026-09-10) */
+  /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
   const [trace, setTrace] = useState<Trace[]>([]);
   // 🔴 **꺼지는 빛에 기대지 않는다.** 앞 판은 요약의 「신경 N개」를 번쩍임
   //    상태(lit)에서 셌는데, 5초 뒤 빛이 꺼지면 «0개»로 바뀌었다 (실측).
@@ -283,7 +284,8 @@ export function BrainMap() {
     const off = onLive((ev: any) => {
       // 🔴 **자국부터 남기고** 불을 켠다 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다.
       if (ev?.kind) {
-        const [lane, why] = TRACE_KIND[ev.kind] || ['활동', ev.kind];
+        const [lane, why] = m?.trace_lanes?.[ev.kind]
+          || [LANE_FALLBACK[0], ev.kind];
         const what = ev.step || ev.nerve || ev.path || ev.name || why;
         setTrace(prev => [{
           at: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
@@ -299,19 +301,21 @@ export function BrainMap() {
         setPulse(p => p + 1);
         if (timer.current) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setLit([]), 5200);
-      } else if (ev?.kind && byName[`sse:${ev.kind}`]) {
-        // notology 조작 — **서버가 노드에 실어 보낸 `sse`** 로만 잇는다
-        const id = byName[`sse:${ev.kind}`];
+      } else if (ev?.kind === 'tending' && ev.step) {
+        // 🔴 **이 분기가 `sse` 분기보다 앞이어야 한다** (2026-09-11 전수 대조).
+        //    뒤에 두면, 서버 MOTOR 표에 누가 `sse="tending"` 을 붙이는 순간
+        //    앞 분기가 먹어 **걸음 51개 점등이 통째로 죽는다** — 순서가 곧
+        //    계약인데 어디에도 안 적혀 있었다.
+        //    (역사: 전에는 쏘는 자가 0곳이라 걸음이 영영 안 켜졌고, timer 도
+        //    없어 켜졌더라도 안 꺼졌을 것이다 — 2026-09-10 에 고쳤다.)
+        const id = byName[ev.step] || `걸음:${ev.step}`;
         setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
         setPulse(p => p + 1);
         if (timer.current) window.clearTimeout(timer.current);
         timer.current = window.setTimeout(() => setLit([]), 5200);
-      } else if (ev?.kind === 'tending' && ev.step) {
-        // 🔴 **이제 서버가 실제로 쏜다** (`tend.run_once` · 2026-09-10). 전에는
-        //    이 갈래가 듣기만 하고 쏘는 자가 0곳이라 **걸음 51개가 영영 안
-        //    켜졌다**. 그리고 여기 `timer` 를 안 걸어 두어, 켜졌더라도 빛이
-        //    영영 안 꺼졌을 것이다 — 그것도 함께 고친다.
-        const id = byName[ev.step] || `걸음:${ev.step}`;
+      } else if (ev?.kind && byName[`sse:${ev.kind}`]) {
+        // notology 조작·사람 손(`act:*`) — **서버가 노드에 실어 보낸 `sse`** 로만
+        const id = byName[`sse:${ev.kind}`];
         setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
         setPulse(p => p + 1);
         if (timer.current) window.clearTimeout(timer.current);
@@ -577,10 +581,13 @@ export function BrainMap() {
             const on = litSet.has(e.a) || litSet.has(e.b);
             const na = nodeById[e.a], nb = nodeById[e.b];
             // 층을 건너는 이음 — 자료가 들어와 답으로 나가는 길이다
-            const cross = na && nb
-              && m.regions[na.region]?.layer !== m.regions[nb.region]?.layer;
+            // 서버가 노드마다 layer 를 보낸다 — 재계산 대신 그 값 (두 벌 금지)
+            const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
+              !== (nb.layer ?? m.regions[nb.region]?.layer);
             const cls = `bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'}`
-              + (cross ? ' bm-edge--cross' : '') + (on ? ' bm-edge--on' : '');
+              + (cross ? ' bm-edge--cross' : '') + (on ? ' bm-edge--on' : '')
+              // 🔴 "static" = 코드에 있다(정적 분석) — 실측 이음과 굵기로 가른다
+              + (e.grade === 'static' ? ' bm-edge--static' : '');
             const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
             const d = `M${a.x},${a.y} Q${mx2},${my2 - (cross ? 26 : 12)} ${b.x},${b.y}`;
             return <path key={i} d={d} className={cls} fill="none" />;
@@ -704,21 +711,21 @@ export function BrainMap() {
           이미 그려져 있었다** — 이름 규칙이 못 가렸을 뿐 자리는 이웃으로
           잡혀 있었다. 「안 그렸다」로 읽히면 없는 할 일이 생긴다.
           두 수를 갈라 적고, 0이어도 숨기지 않는다. */}
-      {m.census?._밖 && (
+      {m.outside && (
         <div className={`brainmap__detail bm-outside${
-          (m.census._밖.수 ?? 0) > 0 ? '' : ' bm-outside--ok'}`}>
-          {(m.census._밖.수 ?? 0) > 0 ? (
-            <>🔴 아직 지도 밖: <b>{m.census._밖.수}개 모듈</b>
-              {' · '}{(m.census._밖.줄수 ?? 0).toLocaleString()}줄 —
-              {' '}{(m.census._밖.큰것 || []).slice(0, 5)
+          (m.outside.수 ?? 0) > 0 ? '' : ' bm-outside--ok'}`}>
+          {(m.outside.수 ?? 0) > 0 ? (
+            <>🔴 아직 지도 밖: <b>{m.outside.수}개 모듈</b>
+              {' · '}{(m.outside.줄수 ?? 0).toLocaleString()}줄 —
+              {' '}{(m.outside.큰것 || []).slice(0, 5)
                     .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
             </>
           ) : <>지도 밖 <b>0</b> — 모듈이 모두 어딘가에 그려져 있다</>}
-          {(m.census._밖.이름밖 ?? 0) > 0 && (
+          {(m.outside.이름밖 ?? 0) > 0 && (
             <span className="bm-outside__rule" title="이름 규칙·꾸러미가 못 가려 이웃으로 자리를 잡은 것 — 그려는 져 있다">
-              {' · '}이름 규칙 밖 <b>{m.census._밖.이름밖}</b>
-              {(m.census._밖.이름밖그림 ?? 0) > 0
-                ? ` (그중 ${m.census._밖.이름밖그림}개는 이웃으로 자리를 잡아 그려져 있다)` : ''}
+              {' · '}이름 규칙 밖 <b>{m.outside.이름밖}</b>
+              {(m.outside.이름밖그림 ?? 0) > 0
+                ? ` (그중 ${m.outside.이름밖그림}개는 이웃으로 자리를 잡아 그려져 있다)` : ''}
             </span>
           )}
         </div>
@@ -742,11 +749,22 @@ export function BrainMap() {
           </div>
           {pick.stage != null ? (
             <div className="bm-stage">성숙도 <b>{pick.stage}</b>
-              {' '}({['선언','배선','도는 중','측정됨','관문'][pick.stage]})
+              {/* 🔴 단계 이름의 정본은 서버 STAGES — 하드코딩 두 벌이었다 */}
+              {' '}({m.maturity?.단계?.[pick.stage] ?? ''})
               {pick.stage_why ? ` — ${pick.stage_why}` : ''}</div>) : null}
           {pick.why ? <div>{pick.why}</div> : null}
+          {/* 🔴 서버가 보내는데 화면이 버리던 칸들 (2026-09-11 전수 대조) —
+              aim(할 일이 겨눈 영역)·owner(빚의 임자)·src(수를 잰 표)·
+              order(사슬 차례)·자극[1] */}
+          {pick.aim ? <div>겨눈 영역: {m.regions[pick.aim]?.label ?? pick.aim}</div> : null}
+          {pick.owner ? <div>임자: {pick.owner}</div> : null}
+          {pick.src ? <div className="bm-src">잰 곳: {pick.src}</div> : null}
           {pick.수용체?.length ? <div>수용체: {pick.수용체.join(' · ')}</div> : null}
-          {pick.자극?.length ? <div>이런 말에 울린다: 「{pick.자극[0]}」</div> : null}
+          {pick.자극?.length
+            ? <div>이런 말에 울린다: {pick.자극.slice(0, 2)
+                .map(x => `「${x}」`).join(' · ')}
+                {pick.order != null ? <i className="bm-ord"> · 차례 {pick.order}</i> : null}
+              </div> : null}
           {pick.miss && Object.keys(pick.miss).length
             ? <div className="bm-miss">
                 {Object.entries(pick.miss).map(([k, v]) =>
