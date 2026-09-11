@@ -43,6 +43,10 @@ type Map = {
   trace_lanes?: Record<string, [string, string]>;
   /** 재고 축 — 지금 쌓여 있는 것 (3차 검토가 비어 있다고 잡은 그 축) */
   stock?: Record<string, number | null>;
+  bench?: {
+    at?: string; 'recall@5'?: number; n?: number;
+    chat_at?: string; 'chat@5'?: number; 'chat_off@5'?: number; chat_n?: number;
+  } | null;
   /** 🔴 `_밖` 은 영역이 아니라서 census Record 에서 분리됐다 (2026-09-11) */
   outside?: { 수?: number; 줄수?: number; 큰것?: [number, string][];
               이름밖?: number; 이름밖그림?: number;
@@ -613,6 +617,34 @@ export function BrainMap() {
               {k} <b>{v == null ? '못 읽음' : v.toLocaleString()}</b>
             </span>
           ))}
+        </div>
+      )}
+      {/* 🔴 판단 계기 (v18) — 지도는 관측이지 성적이 아니다. 실측 장부
+          (retrieval_bench.json)만 읽고 측정일을 함께 보인다 — 낡으면
+          날짜가 낡았다고 말한다. 장부가 없으면 «아직 못 잼». */}
+      {m.bench !== undefined && (
+        <div className="brainmap__stock"
+             title="판단 계기 — 검색 벤치가 제 손으로 쓴 장부 (측정일 포함)">
+          {m.bench == null ? (
+            <span className="bm-stock">판단 계기 <b>장부 없음</b></span>
+          ) : (
+            <>
+              <span className="bm-stock" title={`질문 ${m.bench.n ?? '?'}개`}>
+                검색@5 <b>{m.bench['recall@5'] != null
+                  ? Math.round(m.bench['recall@5'] * 100) + '%' : '?'}</b>
+                <i style={{ opacity: .6 }}> ({m.bench.at ?? '?'})</i>
+              </span>
+              {m.bench.chat_n ? (
+                <span className="bm-stock"
+                      title={`회의문장 ${m.bench.chat_n}문을 대화 문(tools.retrieve)으로 — 동점가름 끔→켬`}>
+                  대화문·회의문장@5 <b>
+                    {Math.round((m.bench['chat_off@5'] ?? 0) * 100)}%→
+                    {Math.round((m.bench['chat@5'] ?? 0) * 100)}%</b>
+                  <i style={{ opacity: .6 }}> ({m.bench.chat_at ?? '?'})</i>
+                </span>
+              ) : null}
+            </>
+          )}
         </div>
       )}
       {m.maturity && (
