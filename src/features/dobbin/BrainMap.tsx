@@ -124,6 +124,8 @@ const EDGE_CLS: Record<string, string> = {
   '오배선': 'bad', '공급': 'feed', '사슬': 'chain',
   '부름': 'call', '검증': 'gate', '걸음': 'feed', '일함': 'call',
   '일으킴': 'act', '빚': 'debt', '위계': 'tree',
+  // v20 온톨로지 — 억제(비켜서기)·전제(설전 의존)는 코드에 실재하는 관계다
+  '억제': 'bad', '전제': 'gate',
 };
 
 /** 이음 범례 — 무엇이 무엇인지 화면에 적는다 */
@@ -135,9 +137,11 @@ const EDGE_LEGEND: [string, string][] = [
   ['일함', '이 걸음이 저 모듈을 만진다'],
   ['일으킴', '이 모듈이 저 자국을 남긴다'],
   ['빚', '이 할 일이 저 신경에 걸려 있다'],
-  ['위계', '이 갈래에 속한 신경이다'],
+  ['위계', '이 부(온톨로지)에 속한 신경이다'],
   ['사슬', '답을 고르는 차례 — 앞이 이긴다'],
   ['오배선', '의도한 신경 대신 저 신경이 먹었다'],
+  ['억제', '이 신경이 물면 저 신경이 비킨다 (코드의 비켜서기)'],
+  ['전제', '저 신경은 이 신경이 만든 상태 위에서만 선다'],
 ];
 
 const STATUS: Record<string, { c: string; t: string }> = {
@@ -1012,6 +1016,11 @@ export function BrainMap() {
               {' '}({m.maturity?.단계?.[pick.stage] ?? ''})
               {pick.stage_why ? ` — ${pick.stage_why}` : ''}</div>) : null}
           {pick.why ? <div>{pick.why}</div> : null}
+          {/* v20 온톨로지 — 피질 > 계 > 부 > 신경의 자리 */}
+          {(pick as any).부 ? (
+            <div className="bm-ont" title="인지 온톨로지에서의 자리">
+              자리: {(pick as any).계 ?? '?'} › {(pick as any).부}
+            </div>) : null}
           {/* 🔴 서버가 보내는데 화면이 버리던 칸들 (2026-09-11 전수 대조) —
               aim(할 일이 겨눈 영역)·owner(빚의 임자)·src(수를 잰 표)·
               order(사슬 차례)·자극[1] */}
