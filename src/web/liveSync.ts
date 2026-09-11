@@ -50,9 +50,20 @@ function watchBuild(): void {
 export function startLive(): void {
   if (source) return;
   watchBuild();
+  let everBroke = false;
   const open = () => {
     source = new EventSource('/api/events');
-    source.onopen = () => { retry = 1000; };
+    source.onopen = () => {
+      retry = 1000;
+      // 🔴 **끊긴 사이 사건은 영영 유실이다** (2026-09-11 신호 경로 전수 —
+      //    SSE 에 Last-Event-ID 재전송이 없다). 다시 붙었을 때 리스너들에게
+      //    「재접속」을 알려 각자 다시 읽게 한다 — 유실을 재조회로 메운다.
+      if (everBroke) {
+        handlers.forEach((h) => {
+          try { h({ kind: 'reconnected' }); } catch { /* 한 곳이 죽어도 */ }
+        });
+      }
+    };
     source.onmessage = (e) => {
       try {
         const ev = JSON.parse(e.data);
@@ -62,6 +73,7 @@ export function startLive(): void {
     // 🔴 끊기면 다시 붙는다. 노트북 덮개를 닫았다 열면 끊긴다 —
     //    거기서 포기하면 그때부터 이전 화면을 보게 된다.
     source.onerror = () => {
+      everBroke = true;
       source?.close();
       source = null;
       retry = Math.min(retry * 2, 30000);

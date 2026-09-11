@@ -110,7 +110,10 @@
 
 /* 노드 — 참조 그림의 «발광하는 뉴런» */
 .bm-node circle { transition: r .16s ease, opacity .16s ease, filter .16s ease; }
-.bm-node:hover circle { opacity: 1; r: 7; }
+/* 🔴 hover r:7 규칙이 그 <g> 안 **모든** circle 을 물었다 (2026-09-11 A12)
+   — 발화 후광(16)을 쪼그라뜨리고 투명 과녁(9)을 줄여 hover 진동을 만들었다.
+   활성 반지름은 TSX 가 정한다 — CSS 는 밝기만. */
+.bm-node:hover circle { opacity: 1; }
 .brainmap__svg { background: transparent; }
 .brainmap__legend i { box-shadow: 0 0 6px currentColor; }
 
@@ -146,7 +149,7 @@
 .bm-region--btn { cursor: pointer; }
 .bm-region--btn:hover { opacity: 1; text-decoration: underline; }
 .brainmap__census .bm-why { margin-top: 2px; }
-.bm-why--진짜적음 { color: #e3b341; }
+/* (죽은 값 「진짜적음」 규칙 제거 — 서버가 더 안 낸다 · 2026-09-11) */
 .bm-why--규칙좁음 { color: #7cc4ff; }
 .bm-why--이름표없음 { color: #9b7cff; }
 .bm-cen-mat span { margin-right: 10px; }
@@ -267,3 +270,15 @@
   fill: #eaf2ff;
   filter: drop-shadow(0 0 5px hsl(205 90% 65% / .8));
 }
+
+/* F18 — 장식 입자가 원자 노드와 구별되지 않던 것 (A11): 훨씬 흐리게·작게 */
+.bm-dust { r: 0.8; }
+.bm-holo .bm-dust { opacity: .14 !important; }
+
+/* F19 — census 갈래 색: 서버가 내는 값과 한 벌로 (A10) */
+.bm-why--어긋남 { color: #f0883e; }
+.bm-why--다그림 { color: #3ecf8e; }
+.bm-why--장비   { color: #8fa6d8; }
+
+/* 갈래(위계 머리) 이름표 — 원자 점 옆 소형 상시 (F21) */
+.bm-node--갈래 .bm-tag { font-size: 8.5px; opacity: .6; }

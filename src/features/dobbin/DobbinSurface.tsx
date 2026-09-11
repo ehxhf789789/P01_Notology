@@ -128,7 +128,8 @@ export function DobbinSurface() {
                    // 🔴 **내가 할 수 있는 일을 알린다** (MCP 꼴, clientTools.ts).
                    //    이게 없으면 dobbin은 못 하는 것을 하겠다고 말하게 된다.
                    'X-Client-Tools': clientTools().join(',') },
-        body: JSON.stringify({ messages: turns }) });
+        // model 은 규약이다 — ui_e2e 가 「요청 몸이 규약과 같은가」를 문다
+        body: JSON.stringify({ model: 'dobbin', messages: turns }) });
       const j = await r.json();
       const msg = j?.choices?.[0]?.message;
       dobbinActions.push({ role: 'assistant',

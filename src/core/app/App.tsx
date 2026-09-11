@@ -38,6 +38,7 @@ import {
   useNoteTemplates,
 } from '../stores/zustand';
 import { useSearchIndexing } from '../stores/refreshStore';
+import { startLiveBridge } from '../../app/live';
 import Sidebar from '../layout/Sidebar';
 import ContainerView from '../../features/note-editor/ContainerView';
 import { DobbinHome } from '../../features/dobbin/DobbinHome';
@@ -698,6 +699,11 @@ function App() {
   // 🔴 변화가 오면 화면을 따라가게 한다 — 이전 화면을 보며 편집하면 덮어쓴다
   useEffect(() => {
     startLive();
+    // 🔴 **window(`dobbin:live`) 다리를 부르는 곳이 0이었다** (2026-09-11
+    //    신호 경로 전수). 서버가 index.html 에 주입하는 다리에만 기대 —
+    //    주입 없이 번들만 띄우면 FolderTree·IntakePanel·알림함이 전부
+    //    귀머거리였다. 가드(__dobbinLiveBridge)가 있어 이중으로 안 열린다.
+    startLiveBridge();
     return onLive((ev) => {
       // 🔴 **바뀐 것만 갈아 끼운다.** 예전엔 무슨 알림이든 전부 다시 읽게
       //    했는데, 그게 *"매번 수정 때마다 처음 버퍼링으로 돌아가는"* 원인이었다.
@@ -708,8 +714,13 @@ function App() {
         return;
       }
       // 무엇이 바뀌었는지 모를 때만 통째로 다시 읽는다 (감시·파이프라인).
+      // 🔴 note-changed(dobbin 이 쓴 노트)·shelf-changed(서가 이동)가 이
+      //    목록 밖이라 **dobbin 의 손이 목록에 안 왔다** (2026-09-11 신호
+      //    경로 전수). reconnected 는 끊긴 사이 유실을 메우는 재조회다.
       if (ev.kind === 'file-changed' || ev.kind === 'vault-changed'
-          || ev.kind === 'memos-changed' || ev.kind === 'inbox-changed') {
+          || ev.kind === 'memos-changed' || ev.kind === 'inbox-changed'
+          || ev.kind === 'note-changed' || ev.kind === 'shelf-changed'
+          || ev.kind === 'reconnected') {
         refreshActions.incrementSearchRefresh();
         refreshActions.refreshCalendar();
         refreshActions.incrementOntologyRefresh();

@@ -34,6 +34,7 @@ type Layer = { label: string; cy: number; hue: number; why?: string };
 type Map = {
   regions: Record<string, Region>; layers?: Record<string, Layer>;
   nodes: Node[]; edges: Edge[];
+  built_at?: string; registry_error?: string | null;
   maturity?: { 단계: string[]; 셈: Record<string, number>; 합: number;
                손CLI?: number; 덮음?: { 기관: number; 전체: number } };
   counts?: { 뇌?: number; 조작?: number; 장비?: number; 전체?: number;
@@ -248,7 +249,9 @@ function holoDots(): { x: number; y: number; r: number; o: number }[] {
 
 export function BrainMap() {
   const [m, setM] = useState<Map | null>(null);
-  const [pick, setPick] = useState<Node | null>(null);
+  // 🔴 노드 **객체**를 잡으면 지도가 갱신돼도 상세칸이 옛 값을 보였다 (A18)
+  //    — id 만 잡고 렌더마다 지금 지도에서 찾는다.
+  const [pickId, setPickId] = useState<string | null>(null);
   const [reg, setReg] = useState<string | null>(null);
   const [hover, setHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
@@ -259,7 +262,8 @@ export function BrainMap() {
   //    그 턴에 울린 수는 **그때 붙잡아** 둔다.
   const [turn, setTurn] = useState<{ trace: string[]; refs: number;
                                      llm: boolean; level: string | null;
-                                     organs: string[]; nerves: number } | null>(null);
+                                     organs: string[]; nerves: number;
+                                     list: string[] } | null>(null);
   const [pulse, setPulse] = useState(0);
   const timer = useRef<number | null>(null);
 
@@ -269,6 +273,8 @@ export function BrainMap() {
   //    전엔 화면이 그대로였고, 살아 있는 것은 번쩍임뿐이었다.
   //    한빈이 이 화면에 요구한 첫 항목이 *"실시간 개발 현황 파악"* 이다.
   const [at, setAt] = useState<string | null>(null);
+  /** 마지막 fetch 실패 시각 — null 이면 정상 (F6 · 조용한 실패 금지) */
+  const [err, setErr] = useState<string | null>(null);
   useEffect(() => {
     let dead = false;
     // 🔴 **몰아치기 막이 + 도는 중 막이** (2026-09-10). 신호마다 곧바로 읽었더니
@@ -280,16 +286,26 @@ export function BrainMap() {
     const raw = () => {
       if (inflight) return;
       inflight = true;
-      return fetch('/api/brainmap')
-      .then(r => (r.ok ? r.json() : null))
+      // 🔴 **타임아웃 없는 fetch 는 영구 잠금이다** (2026-09-11 적대 검토).
+      //    요청 하나가 매달리면 inflight 가 영원히 true — SSE 도 심박도 전부
+      //    즉시 반환해 그 탭의 지도는 다시는 안 갱신되는데 멀쩡해 보였다.
+      const ab = new AbortController();
+      const kill = window.setTimeout(() => ab.abort(), 20000);
+      return fetch('/api/brainmap', { signal: ab.signal })
+      .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(j => {
         if (dead || !j) return;
         setM(j as Map);
-        setAt(new Date().toLocaleTimeString('ko-KR',
-          { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+        setErr(null);
+        // 🔴 fetch 시각이 아니라 **지은 시각** — 거짓 신선도 금지
+        setAt(j?.built_at ? j.built_at.slice(5)
+              : new Date().toLocaleTimeString('ko-KR',
+                { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       })
-        .catch(() => { /* 옛 서버면 지도가 없다 */ })
-        .finally(() => { inflight = false; });
+        // 🔴 조용히 옛 지도를 두지 않는다 — 「못 읽었다」를 말한다
+        .catch(() => { if (!dead) setErr(new Date()
+          .toLocaleTimeString('ko-KR', { hour12: false })); })
+        .finally(() => { window.clearTimeout(kill); inflight = false; });
     };
     const pull = () => {
       if (timer) window.clearTimeout(timer);
@@ -298,7 +314,8 @@ export function BrainMap() {
     raw();
     // 서버가 «지도가 바뀌었다» 고 쏘면 그때 다시 읽는다
     const off = onLive((ev: any) => {
-      if (ev?.kind === 'brainmap-changed') pull();
+      // 재접속 — 끊긴 사이 사건은 유실됐다 (SSE 재전송 없음). 다시 읽어 메운다.
+      if (ev?.kind === 'brainmap-changed' || ev?.kind === 'reconnected') pull();
     });
     // 🔴 **느린 심박** — 쏘는 자가 놓친 변화(장부가 자란 것 따위)를 위해.
     //    60초는 사람이 화면을 보는 동안 한두 번 도는 값이다.
@@ -350,7 +367,9 @@ export function BrainMap() {
       setTurn({ trace, refs: (Array.isArray(d) ? 0 : d?.refs ?? 0),
                 llm: Array.isArray(d) ? false : !!d?.llm,
                 level: Array.isArray(d) ? null : (d?.level ?? null),
-                organs, nerves: nerveIds.length });
+                // 🔴 목록도 그때 붙잡는다 — 살아 있는 lit 을 읽으면 5.2초 뒤
+                //    빈 괄호가 되고, 다음 사건이 앞 턴 괄호에 섞였다 (A4)
+                organs, nerves: nerveIds.length, list: nerveIds });
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => setLit([]), 5200);
     };
@@ -359,6 +378,8 @@ export function BrainMap() {
     //    답이 끝난 뒤가 아니라 **생각하는 도중** 켠다 — SSE 의 `thinking`
     //    걸음이 0.4초 안에 온다. 대화가 아닐 때(자율 걸음)도 같은 통로다.
     const off = onLive((ev: any) => {
+      // 재접속 신호는 fetch 효과가 받는다 — 자국 띠에는 안 적는다 (사건 아님)
+      if (ev?.kind === 'reconnected') return;
       // 🔴 **자국부터 남기고** 불을 켠다 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다.
       if (ev?.kind) {
         const [lane, why] = m?.trace_lanes?.[ev.kind]
@@ -416,10 +437,12 @@ export function BrainMap() {
   //    ⚠️ 접는 것과 **없애는 것**은 다르다. 수는 범례에 그대로 적힌다.
   const [showCall, setShowCall] = useState(false);
   const shownNodes = useMemo(() => {
-    if (!m) return [] as Node[];
+    // 🔴 지그의 빈손 200(`{}`)에서 `m.nodes.forEach` 가 터져 앱이 죽었다
+    //    (ui_e2e pageerror · 2026-09-11). 렌더 가드는 useMemo 뒤에 돈다.
+    if (!m?.nodes) return [] as Node[];
     const K = 9;
     const byR: Record<string, Node[]> = {};
-    m.nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
+    (m.nodes ?? []).forEach(n => { (byR[n.region] ||= []).push(n); });
     const out: Node[] = [];
     Object.entries(byR).forEach(([r, list]) => {
       const organs = list.filter(n => n.kind === '기관');
@@ -431,7 +454,16 @@ export function BrainMap() {
       //    정렬해 놓고 접힘의 「줄수」는 **정렬 전** `organs.slice(K)` 를 더해
       //    서로 다른 집합을 셌다 — 실측 오차 −2,131줄.
       const sorted = [...organs].sort((a, b) => rank(b) - rank(a));
-      const top = sorted.slice(0, K), tail = sorted.slice(K);
+      let top = sorted.slice(0, K), tail = sorted.slice(K);
+      // 🔴 **발화하는 기관이 정확히 접혀 사라지는 부류였다** (2026-09-11 적대
+      //    검토 A3). 글자는 「기관 3개 관여」인데 그림은 0개 — 켜졌거나
+      //    선택된 것은 접힘에서 꺼내 보인다.
+      const must = new Set([...lit, pickId].filter(Boolean));
+      const rescued = tail.filter(n => must.has(n.id));
+      if (rescued.length) {
+        top = [...top, ...rescued];
+        tail = tail.filter(n => !must.has(n.id));
+      }
       out.push(...top);
       out.push({ id: `접힘:${r}`, kind: '접힘', region: r, status: 'fold',
                  label: `+${tail.length}`,
@@ -439,7 +471,7 @@ export function BrainMap() {
                  줄수: tail.reduce((a, b) => a + (b.줄수 || 0), 0) } as Node);
     });
     return out;
-  }, [m, open]);
+  }, [m, open, lit, pickId]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
   const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, m.layers || {}) : {}),
                      [m, shownNodes]);
@@ -461,6 +493,7 @@ export function BrainMap() {
   const litSet = new Set(lit);
   const nodeById: Record<string, Node> = {};
   m.nodes.forEach(n => { nodeById[n.id] = n; });
+  const pick = pickId ? nodeById[pickId] ?? null : null;
 
   return (
     <section className="brainmap">
@@ -475,6 +508,11 @@ export function BrainMap() {
               (`matrix.오배선`)을 보내는데 안 읽고 있었다. */}
           {mx.오배선 ? <> · <em className="bm-bad">오배선 {mx.오배선}</em></> : null}
           {ta.red ? <> · <span className="bm-dim">붉은 칸 {ta.red}</span></> : null}
+          {mx.명중 == null
+            ? <em className="bm-dim"
+                  title="nerve_run 표를 못 읽어 반사·신경 덮음·문 셈이 없다 — 조용히 숨기지 않는다 (A14)">
+                {' '}· 반사 기록 못 읽음</em>
+            : null}
           {mx.명중 != null
             ? <span title={`신경 ${mx.측정}개 · ${mx.잰때 || '언제인지 모름'}`
                            + ` · 출처 ${mx.출처}`}>
@@ -521,7 +559,11 @@ export function BrainMap() {
           </i>
           {/* 🔴 **갱신 시각을 적는다.** 「반사 49/51」이 17시간 낡았는데 화면에
               아무 표시가 없었다 — 낡은 수를 지금 수처럼 보이게 하면 안 된다. */}
-          {at ? <i className="bm-at" title="이 지도를 마지막으로 읽은 때">· {at}</i> : null}
+          {at ? <i className="bm-at" title="지도를 지은 때 (서버 built_at) — 캐시가 낡으면 이 시각도 낡게 보인다">· 지음 {at}</i> : null}
+          {err ? <em className="bm-bad" title="마지막 요청이 실패했다 — 보이는 지도는 그 이전 것이다">
+            · 🔴 못 읽음 ({err})</em> : null}
+          {m.registry_error ? <em className="bm-bad"
+            title={m.registry_error}> · 🔴 신경 등록부를 못 읽었다</em> : null}
         </span>
       </h3>
 
@@ -541,11 +583,12 @@ export function BrainMap() {
             //    92%가 지금 돌고 있고 **재는 자**만 없다. 단계마다 그 한 줄을
             //    붙인다 — 수만 보이는 것은 절반의 진실이다.
             const cli = m.maturity!.손CLI ?? 0;
+            // 🔴 단계 설명을 지어 붙였었다 (A8) — 3단계 구성원 대부분은
+            //    「전용 잣대」가 아니라 「반사/표」다. **잰 것(0단계 CLI 수)만**
+            //    남기고, 노드별 까닭은 각 노드의 stage_why 가 말한다.
             const note = i === 0 && cli
               ? `그중 ${cli}개는 일회성 CLI — 손으로 돌린다. 진짜 미착수는 ${n - cli}개`
-              : i === 1 ? '부르는 자는 있다 — 아직 재는 자가 없다'
-              : i === 3 ? '전용 잣대가 돌아 초록이다'
-              : i === 4 ? '관문이 rc 로 문다' : '';
+              : '';
             return (
               <span key={label} className={`bm-mat bm-mat--${i}`} title={note}>
                 <b>{label}</b> {n}<i>({pct}%)</i>
@@ -663,7 +706,8 @@ export function BrainMap() {
               뇌 안에 그려 노드의 51%가 개발 장비였다. 선을 긋고 밖에 둔다. */}
           {/* 장비 위성 호의 캡션 — 뇌 원 밖 왼쪽 아래 */}
           <text className="bm-equip-lab" x={40} y={H - 26}>
-            장비 — 뇌가 아니다 · 바깥 호 (재는 자 {equipN.gate} · 할 일 {equipN.todo})
+            장비 — 뇌가 아니다 · 바깥 호 (재는 자 {equipN.gate} · 할 일 {equipN.todo}
+            {' '}· 서비스 층 {m.nodes.filter(n => n.region === 'service').length})
           </text>
 
           {/* 영역 이름 — 누르면 아래에 「왜 적은가 · 어디까지 됐나」가 뜬다 */}
@@ -681,8 +725,10 @@ export function BrainMap() {
                     y={y} textAnchor="middle"
                     onClick={() => setReg(reg === k ? null : k)}
                     style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
+                {/* 🔴 L.n 은 접힘 뒤 수 — census 는 65 인데 라벨은 11 이던
+                    어긋남 (A2). 서버 전체 수를 쓴다. */}
                 {L.label} <tspan className="bm-region-n">
-                  {L.n}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
+                  {c?.칸 ?? L.n}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
               </text>
             );
           })}
@@ -734,7 +780,7 @@ export function BrainMap() {
                      setOpen(o => { const x = new Set(o); x.add(n.region); return x; });
                      return;
                    }
-                   setPick(pick?.id === n.id ? null : n);
+                   setPickId(pickId === n.id ? null : n.id);
                  }}
                  onMouseEnter={() => setHover(n.id)}
                  onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
@@ -756,7 +802,7 @@ export function BrainMap() {
                                  ? 0.3 : 0.8}>
                   <title>{`${n.label || n.id} · ${s.t}`}</title>
                 </circle>
-                {(n.kind === '접힘' || active) && (
+                {(n.kind === '접힘' || n.kind === '갈래' || active) && (
                   <text className={`bm-tag${on ? ' bm-tag--on' : ''}`} x={p.x}
                         y={p.y - (r + 5)} textAnchor="middle">
                     {n.label || n.id}
@@ -768,7 +814,7 @@ export function BrainMap() {
         </svg>
         {lit.length > 0 && (
           <div className="brainmap__live" key={pulse}>
-            방금 울린 신경: {lit.join(' → ')}
+            방금 울린 것: {lit.join(' → ')}
           </div>
         )}
       </div>
@@ -776,8 +822,7 @@ export function BrainMap() {
       {turn && (
         <div className="brainmap__turn">
           <span>방금 턴 — <b>신경 {turn.nerves}</b>개 울림
-            {turn.nerves ? ` (${(Array.isArray(lit) ? lit : [])
-              .filter(x => !turn.organs.includes(x)).join(' → ')})` : ''}</span>
+            {turn.nerves ? ` (${turn.list.join(' → ')})` : ''}</span>
           <span>기관 <b>{turn.organs.length}</b>개 관여{turn.organs.length ? ` (${turn.organs.join(' · ')})` : ''}</span>
           <span>모델 <b>{turn.llm ? '씀' : '안 씀 — 표에서 셈'}</b></span>
           <span>근거 <b>{turn.refs}</b>건</span>
@@ -846,7 +891,8 @@ export function BrainMap() {
               {' '}{(m.outside.큰것 || []).slice(0, 5)
                     .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
             </>
-          ) : <>지도 밖 <b>0</b> — 모듈이 모두 어딘가에 그려져 있다</>}
+          ) : <>지도 밖 <b>0</b> — 모듈이 모두 어딘가에 그려져 있다
+              {' '}· 미분류 칸 <b>{m.census?.미분류?.칸 ?? 0}</b></>}
           {(m.outside.이름밖 ?? 0) > 0 && (
             <span className="bm-outside__rule" title="이름 규칙·꾸러미가 못 가려 이웃으로 자리를 잡은 것 — 그려는 져 있다">
               {' · '}이름 규칙 밖 <b>{m.outside.이름밖}</b>
