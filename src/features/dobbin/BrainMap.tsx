@@ -257,6 +257,22 @@ export function BrainMap() {
   const [lit, setLit] = useState<string[]>([]);
   /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
   const [trace, setTrace] = useState<Trace[]>([]);
+  // 🔴 늦게 열거나 끊겼다 붙으면 그 사이 자국이 영영 없었다 (2026-09-11) —
+  //    서버의 최근 사건 버퍼로 씨를 뿌린다. SSE 로 온 것이 위에 쌓인다.
+  useEffect(() => {
+    fetch('/api/events/recent').then(r => (r.ok ? r.json() : null)).then(j => {
+      if (!j?.events?.length) return;
+      setTrace(prev => prev.length ? prev : j.events.slice(-40).reverse()
+        .map((ev: any) => ({
+          at: new Date((ev.at || 0) * 1000)
+            .toLocaleTimeString('ko-KR', { hour12: false }),
+          lane: (m?.trace_lanes?.[ev.kind] || LANE_FALLBACK)[0],
+          kind: String(ev.kind || ''),
+          what: String(ev.step || ev.nerve || ev.path || ev.note || ev.kind || '')
+            .slice(0, 60),
+        })));
+    }).catch(() => { /* 백필은 덤 */ });
+  }, [m?.trace_lanes]);
   // 🔴 **꺼지는 빛에 기대지 않는다.** 앞 판은 요약의 「신경 N개」를 번쩍임
   //    상태(lit)에서 셌는데, 5초 뒤 빛이 꺼지면 «0개»로 바뀌었다 (실측).
   //    그 턴에 울린 수는 **그때 붙잡아** 둔다.
@@ -384,7 +400,10 @@ export function BrainMap() {
       if (ev?.kind) {
         const [lane, why] = m?.trace_lanes?.[ev.kind]
           || [LANE_FALLBACK[0], ev.kind];
-        const what = ev.step || ev.nerve || ev.path || ev.name || why;
+        const what = ev.step || ev.nerve || ev.path || ev.name
+          // 🔴 consistency 의 total/was/grew 를 읽는 곳이 0이었다 (2026-09-11)
+          || (ev.total != null ? `전체 ${ev.total}${ev.grew ? ` (+${ev.grew})` : ''}` : '')
+          || ev.note || why;
         setTrace(prev => [{
           at: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
           lane, kind: ev.kind, what: String(what).slice(0, 60),
