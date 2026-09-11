@@ -299,3 +299,9 @@
 .bm-lobe { cursor: pointer; transition: fill .15s, stroke .15s; }
 .bm-lobe--hov { filter: drop-shadow(0 0 7px hsl(210 80% 60% / .35)); }
 .bm-region.is-on .bm-region-n { opacity: .85; }
+
+/* v15 정제 — 색 덩어리를 걷고 선을 가늘게 (한빈 «디자인 정제») */
+.bm-lobe { stroke-width: 1; }
+.bm-edge { stroke-width: .7; opacity: .5; }
+.bm-edge--on { stroke-width: 1.6; opacity: 1; }
+.bm-layer-lab { font-size: 12px; letter-spacing: .14em; opacity: .8; }

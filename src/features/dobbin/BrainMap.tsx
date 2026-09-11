@@ -140,10 +140,28 @@ const STATUS: Record<string, { c: string; t: string }> = {
  *    다시 열어도 같은 자리. 서버 값 계약은 한 글자도 안 바꿨다.
  */
 const CX = W / 2, CY = (BRAIN_TOP + BRAIN_BOT) / 2;
-/** 층 → [안 반지름, 바깥 반지름]. 바깥 끝 258 ≤ 화면 여유 266. */
-const RINGS: Record<string, [number, number]> = {
-  '원심': [56, 104], '연합': [133, 197], '구심': [218, 258],
-};
+/** 링 **차례**의 계약 — 반지름은 아래 `ringGeo()` 가 **노드 수로** 계산한다
+ *  (한빈 2026-09-11: *"노드가 추가되면 범위도 동적으로 넓어지고 디자인도
+ *  동적으로 변화되도록"*). 열쇠는 서버 LAYERS 와 한 벌이어야 한다 (뇌계약
+ *  관문이 문다). */
+const RINGS: Record<string, number> = { '원심': 0, '연합': 1, '구심': 2 };
+const R_IN = 50, R_OUT = 258, R_GAP = 24;   // 중심 여백 · 바깥 한계 · 링 사이 틈
+
+/** 층별 노드 수 → 링 [안, 밖] 반지름. 두께가 √수 에 비례해 자란다. */
+function ringGeo(counts: Record<string, number>): Record<string, [number, number]> {
+  const order = Object.keys(RINGS).sort((a, b) => RINGS[a] - RINGS[b]);
+  const w = order.map(k => Math.sqrt(Math.max(counts[k] ?? 0, 4)));
+  const span = R_OUT - R_IN - R_GAP * (order.length - 1);
+  const tot = w.reduce((a, b) => a + b, 0) || 1;
+  const out: Record<string, [number, number]> = {};
+  let r = R_IN;
+  order.forEach((k, i) => {
+    const t = Math.max(34, span * w[i] / tot);
+    out[k] = [r, Math.min(r + t, R_OUT)];
+    r += t + R_GAP;
+  });
+  return out;
+}
 /** 장비 위성 호 — 뇌 링 밖 아래 반원. 아래 끝 290+334=624 ≤ 700. */
 const EQUIP_RING: [number, number] = [288, 334];
 
@@ -153,7 +171,7 @@ type Lobe = { cx: number; cy: number; rx: number; ry: number; hue: number;
               arc?: { a0: number; a1: number; r0: number; r1: number } };
 
 function lobes(nodes: Node[], regions: Record<string, Region>,
-               _layers: Record<string, Layer>): Record<string, Lobe> {
+               rings: Record<string, [number, number]>): Record<string, Lobe> {
   const byR: Record<string, Node[]> = {};
   nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
   const out: Record<string, Lobe> = {};
@@ -162,7 +180,7 @@ function lobes(nodes: Node[], regions: Record<string, Region>,
   Object.entries(byR).forEach(([r, list]) => {
     const reg = regions[r]; if (!reg) return;
     const equip = list[0]?.equip ?? !reg.layer;
-    if (equip || !reg.layer || !RINGS[reg.layer]) {
+    if (equip || !reg.layer || !rings[reg.layer]) {
       // 🔴 **장비도 뇌를 중심으로** (한빈 2026-09-11: *"장비 부분 노드도
       //    뇌 디자인을 중심으로 배치를 달리해서 영역별로 구분해라"*).
       //    가로 줄에서 겹치던 것을 **바깥 하단 호**(위성 링)로 — 뇌 링과
@@ -174,7 +192,7 @@ function lobes(nodes: Node[], regions: Record<string, Region>,
   });
   Object.entries(perLayer).forEach(([layer, regs]) => {
     const equipRing = layer === '장비';
-    const [r0, r1] = equipRing ? EQUIP_RING : RINGS[layer];
+    const [r0, r1] = equipRing ? EQUIP_RING : rings[layer];
     // 서버의 cx(0~1) 차례를 지킨다 — 링이 바뀌어도 이웃 관계가 남는다
     regs.sort((a, b) => (regions[a[0]].cx ?? 0) - (regions[b[0]].cx ?? 0));
     const GAP = 0.10;                                   // 구획 사이 틈 (rad)
@@ -463,7 +481,10 @@ export function BrainMap() {
     // 🔴 지그의 빈손 200(`{}`)에서 `m.nodes.forEach` 가 터져 앱이 죽었다
     //    (ui_e2e pageerror · 2026-09-11). 렌더 가드는 useMemo 뒤에 돈다.
     if (!m?.nodes) return [] as Node[];
-    const K = 9;
+    // 🔴 접힘(+N)을 없앴다 (한빈 2026-09-11: *"+숫자를 없애고 실제 노드
+    //    수를 보이도록"*). 원자 점(1.6px)이라 전부 그려도 읽힌다 — 구획
+    //    각도와 링 두께가 수에 비례해 저절로 넓어진다.
+    const K = 9999;
     const byR: Record<string, Node[]> = {};
     (m.nodes ?? []).forEach(n => { (byR[n.region] ||= []).push(n); });
     const out: Node[] = [];
@@ -496,8 +517,16 @@ export function BrainMap() {
     return out;
   }, [m, open, lit, pickId]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
-  const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, m.layers || {}) : {}),
-                     [m, shownNodes]);
+  const rings = useMemo(() => {
+    const cnt: Record<string, number> = {};
+    shownNodes.forEach(n => {
+      const ly = n.layer ?? m?.regions[n.region]?.layer;
+      if (ly) cnt[ly] = (cnt[ly] ?? 0) + 1;
+    });
+    return ringGeo(cnt);
+  }, [m, shownNodes]);
+  const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, rings) : {}),
+                     [m, shownNodes, rings]);
   const pos = useMemo(() => (m ? place(shownNodes, lb) : {}), [shownNodes, lb]);
   // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
   //    같은 엽 안에서 «가까이 찍힌» 둘을 이어 321개를 그렸는데, 서버가 보낸
@@ -668,7 +697,7 @@ export function BrainMap() {
               `prefers-reduced-motion` 이면 정지한다. dobbin 홈이
               `display:none` 으로 숨으면 그리기 자체가 없어 CPU 0 이다. */}
           <g className="bm-holo" aria-hidden="true">
-            {Object.entries(RINGS).map(([k, [r0, r1]]) => (
+            {Object.entries(rings).map(([k, [r0, r1]]) => (
               <g key={`ring-${k}`}>
                 <circle cx={CX} cy={CY} r={r1} className="bm-ring" />
                 <circle cx={CX} cy={CY} r={r0} className="bm-ring bm-ring--in" />
@@ -684,8 +713,8 @@ export function BrainMap() {
           </g>
           <g className="bm-holo bm-holo--rev" aria-hidden="true">
             {/* 짧은 호 조각들 — 반대로 도는 겹이 깊이를 만든다 */}
-            {[70, 150, 231].map((r, i) => (
-              <circle key={`seg-${i}`} cx={CX} cy={CY} r={r}
+            {Object.values(rings).map(([r0, r1], i) => (
+              <circle key={`seg-${i}`} cx={CX} cy={CY} r={(r0 + r1) / 2}
                       className="bm-ring bm-ring--seg" />
             ))}
           </g>
@@ -711,15 +740,15 @@ export function BrainMap() {
                       onMouseEnter={() => setRegHover(k)}
                       onMouseLeave={() => setRegHover(h => (h === k ? null : h))}
                       onClick={() => setReg(reg === k ? null : k)}
-                      style={{ fill: `hsl(${L.hue} 80% 55% / ${hov ? '.2' : '.12'})`,
-                               stroke: `hsl(${L.hue} 80% 62% / ${hov ? '.6' : '.38'})` }} />
+                      style={{ fill: `hsl(${L.hue} 70% 55% / ${hov ? '.16' : '.06'})`,
+                               stroke: `hsl(${L.hue} 70% 62% / ${hov ? '.55' : '.22'})` }} />
               );
             })}
           </g>
 
           {/* 링 이름 — 12시 방향, 링 바로 위 */}
           {Object.entries(m.layers || {}).map(([k, L]) => {
-            const ring = RINGS[k]; if (!ring) return null;
+            const ring = rings[k]; if (!ring) return null;
             return (
               <text key={`layl-${k}`} className="bm-layer-lab" x={CX}
                     y={CY - ring[1] + 13} textAnchor="middle"
@@ -803,10 +832,10 @@ export function BrainMap() {
                 이 크기에서 안 읽혀서, 채움 자체를 상태색으로 바꿨다.
                 활성화(발화·hover·선택)에만 커지고 이름이 붙는다. */}
             const base = n.kind === '접힘' ? 5.5
-                       : n.kind === '갈래' ? 3
-                       : n.kind === '계획' ? 2.2
-                       : n.kind === '걸음' ? 1.7
-                       : 2.1;
+                       : n.kind === '갈래' ? 2.4
+                       : n.kind === '계획' ? 1.8
+                       : n.kind === '걸음' ? 1.3
+                       : 1.6;
             const r = active ? Math.max(base * 2.6, 5.5) : base;
             const ghost = n.kind === '계획';
             return (
