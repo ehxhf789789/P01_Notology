@@ -76,6 +76,10 @@ html[data-theme="dark"]     { color-scheme: dark; }
 
   /* ── Tier 2: accent ── */
   --c-accent:         var(--primitive-blue-500);
+  /* 🔴 dobbin 화면 CSS(surface·intake·brain)가 `var(--accent, #4a7dbd)` 로
+     읽는데 **정의가 어디에도 없어** fallback 이 실제 색이었다 (2026-09-11
+     전수 대조). 별칭으로 잇는다 — 색 하나를 두 곳이 정하면 어긋난다. */
+  --accent: var(--c-accent);
   --c-accent-hover:   var(--primitive-blue-600);
   --c-accent-pressed: var(--primitive-blue-700);
 
@@ -290,6 +294,10 @@ html[data-theme="light"] {
   --sep-o: #C6C6C8;
 
   --c-accent:         var(--primitive-blue-500);
+  /* 🔴 dobbin 화면 CSS(surface·intake·brain)가 `var(--accent, #4a7dbd)` 로
+     읽는데 **정의가 어디에도 없어** fallback 이 실제 색이었다 (2026-09-11
+     전수 대조). 별칭으로 잇는다 — 색 하나를 두 곳이 정하면 어긋난다. */
+  --accent: var(--c-accent);
   --c-accent-hover:   var(--primitive-blue-600);
   --c-accent-pressed: var(--primitive-blue-700);
 
@@ -423,7 +431,12 @@ html[data-theme="light"] {
 /* ============================================================
    html[data-theme="dark"] — DARK
    ============================================================ */
-html[data-theme="dark"] {
+/* 🔴 `.dhome`(dobbin 관제실) 은 테마와 무관하게 **늘 다크다** (2026-09-11
+   한빈 ③ 리디자인). 뇌 지도가 다크 하드코딩이라 라이트 테마에서 지도만
+   검은 상자로 뜨던 어긋남을, 화면 전체를 관제실로 선언해 없앤다.
+   토큰을 베끼지 않고 셀렉터를 잇는다 — 두 벌이 되면 어긋난다. */
+html[data-theme="dark"],
+.dhome {
   --bg-app:      #000000;
   --bg-elev-1:   #1C1C1E;
   --bg-elev-2:   #2C2C2E;

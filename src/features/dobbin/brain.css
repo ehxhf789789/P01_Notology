@@ -206,3 +206,64 @@
 /* "static" 이음 = 코드에 있다(정적 분석) — 실측된 이음보다 흐리게 (2026-09-11) */
 .bm-edge--static { opacity: .55; }
 .bm-src, .bm-ord { font-style: normal; opacity: .7; }
+
+/* ══ 자비스 홀로그램 (v15 · 2026-09-11) ═══════════════════════════════
+   형태 언어만 가져왔다 — 동심 링·눈금·입자·발광·느린 회전. 색은 현행
+   파랑 계열 그대로 (한빈 확정). 🔴 도는 것은 **장식뿐**이다: 노드·이음·
+   글자는 돌지 않는다 — 읽는 것이 먼저다. */
+.bm-holo {
+  transform-origin: 490px 290px;
+  transform-box: view-box;
+  animation: bmspin 96s linear infinite;
+}
+.bm-holo--rev { animation-duration: 148s; animation-direction: reverse; }
+@keyframes bmspin { to { transform: rotate(360deg); } }
+
+.bm-ring {
+  fill: none;
+  stroke: hsl(215 85% 66% / .22);
+  stroke-width: 1;
+}
+.bm-ring--in { stroke: hsl(215 85% 66% / .13); }
+/* 눈금 — dasharray 가 자비스의 그 잔눈금을 만든다 */
+.bm-ring--tick {
+  stroke: hsl(200 90% 70% / .30);
+  stroke-width: 3;
+  stroke-dasharray: 1.5 11;
+}
+/* 반대로 도는 짧은 호 조각 — 깊이의 겹 */
+.bm-ring--seg {
+  stroke: hsl(225 80% 70% / .20);
+  stroke-width: 1.5;
+  stroke-dasharray: 40 260 90 500;
+}
+.bm-dust { fill: hsl(210 90% 78%); }
+
+/* 코어 — 숨쉬는 중심. 4초 주기는 dobbin idle 호흡(2-14-2-2)과 같다 */
+.bm-core__halo { fill: hsl(215 90% 60% / .07); stroke: hsl(215 85% 66% / .25); }
+.bm-core__ring { fill: none; stroke: hsl(205 90% 72% / .55); stroke-width: 1.2; }
+.bm-core__dot  { fill: hsl(200 95% 78%); animation: bmbreath 4s ease-in-out infinite; }
+.bm-core__lab  { fill: hsl(212 60% 76% / .85); font-size: 10.5px; letter-spacing: .18em; }
+@keyframes bmbreath { 50% { opacity: .45; } }
+
+/* 발화한 노드의 호 구획 — 사건 시 강조 (상시 아님) */
+.bm-lobe--on {
+  fill-opacity: 1;
+  filter: drop-shadow(0 0 9px hsl(205 90% 70% / .5));
+  animation: bmwave 1.6s ease-out;
+}
+@keyframes bmwave {
+  0% { stroke-width: 3.2; } 100% { stroke-width: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bm-holo, .bm-holo--rev, .bm-core__dot, .bm-lobe--on { animation: none; }
+}
+
+/* 원자 노드 (한빈 2026-09-11 «원자처럼 작게 — 활성화 때만 강조») */
+.bm-node circle { transition: r .18s ease, opacity .18s ease; }
+.bm-tag--on {
+  font-weight: 600;
+  fill: #eaf2ff;
+  filter: drop-shadow(0 0 5px hsl(205 90% 65% / .8));
+}

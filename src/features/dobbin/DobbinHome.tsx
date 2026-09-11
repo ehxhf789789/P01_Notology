@@ -137,15 +137,8 @@ export function DobbinHome() {
           <h1 className="dhome__title">dobbin</h1>
           <p className="dhome__sub">{brief?.greeting || '이 서재를 관리합니다'}</p>
         </div>
-        {badges.length > 0 && (
-          <div className="dhome__badges">
-            {badges.map(b => (
-              <span key={b.k} className={`dhome__badge is-${b.tone}`}>
-                {b.k} <b>{b.n}</b>
-              </span>
-            ))}
-          </div>
-        )}
+        {/* 배지는 아래 상황판으로 내렸다 (C4 · 2026-09-11) — 흩어진
+            브리핑 띠·질문칸·배지 세 덩이가 「상황판」 한 카드가 된다 */}
         {/* 🔴 두 자리를 오가는 길을 **각 화면에 하나씩** 둔다 (숨은 조작 금지).
             여기서는 «곁에 두기» — 노트를 보면서 흘끗 볼 때. */}
         {/* 🔴 닫기 단추를 두지 않는다 (2026-08-27 사용자) — 컨테이너를
@@ -161,13 +154,27 @@ export function DobbinHome() {
           숨은 405자가 하필 «인격체» 대목이었다 — *"제가 한 일 중 미심쩍은
           것 — 제 판정 17건 중 6건은 다시 잴 수 없다…"*. 두 줄까지 펴 두고,
           누르면 전부 보인다. */}
-      {say && (
+      {/* ── 상황판 (C4 · 한빈 ③ «심플하고 이쁘게») ──
+          브리핑 띠 + 질문칸 + 배지 3덩이 → 한 카드. 할 말도 배지도 질문도
+          없으면 카드 자체가 없다 (2-10-1: 빈 인사는 하지 않는다). */}
+      {(say || badges.length > 0 || !!brief?.choices?.length) && (
+      <section className="dhome__board">
+        {badges.length > 0 && (
+          <div className="dhome__badges">
+            {badges.map(b => (
+              <span key={b.k} className={`dhome__badge is-${b.tone}`}>
+                {b.k} <b>{b.n}</b>
+              </span>
+            ))}
+          </div>
+        )}
+        {say && (
         <button className={`dhome__brief${briefOpen ? ' is-open' : ''}`}
                 title={briefOpen ? '접기' : '전부 보기'}
                 onClick={() => setBriefOpen(v => !v)}>
           {say}
         </button>
-      )}
+        )}
       {/* 🔴 **무엇을 묻는 단추인지 말한다** (한빈 2026-09-09: *"상단에 있는
           버튼 및 UI가 뭔가? 나보고 입력을 하라고 있는건가?"*). 전 판은 라벨만
           늘어놓아서 — 게다가 가운데가 잘려서 — 「맞다 · 수요 조사: 다음 주에
@@ -187,6 +194,8 @@ export function DobbinHome() {
             ))}
           </div>
         </div>
+      )}
+      </section>
       )}
 
       <div className="dhome__body">

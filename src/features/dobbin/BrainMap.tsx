@@ -124,35 +124,81 @@ const STATUS: Record<string, { c: string; t: string }> = {
   fold:     { c: '#8fa6d8', t: '접혀 있다 — 눌러서 편다' },
 };
 
-/** 영역의 자리와 크기 — 층이 세로를, `cx` 가 가로를, 식구 수가 크기를 정한다. */
+/** ── 자비스 홀로그램 배치 (v15 · 한빈 2026-09-11) ──────────────────────
+ *
+ * *"실시간 신경 구현 디자인을 어벤져스 영화의 자비스 인터페이스를 참조하여."*
+ * 색은 현재 파랑 계열 유지 — 가져온 것은 **형태 언어**다: 동심 링·호 구획·
+ * 눈금·입자·발광·느린 회전.
+ *
+ * 층 3단 가로 띠 → **동심 링 3겹**: 구심(들어오는 길)=바깥 · 연합=가운데 ·
+ * 원심(나가는 길)=안. 중심은 dobbin 코어. 영역(엽)은 링 위의 **호 구획** —
+ * 각도 범위가 식구 수에 비례한다. 장비·서비스 띠는 그대로 아래 선반이다
+ * (뇌가 아닌 것은 **모양**부터 다르다).
+ *
+ * 🔴 노드 좌표는 여전히 결정론이다 (황금비 저불일치 수열) — 같은 지도를
+ *    다시 열어도 같은 자리. 서버 값 계약은 한 글자도 안 바꿨다.
+ */
+const CX = W / 2, CY = (BRAIN_TOP + BRAIN_BOT) / 2;
+/** 층 → [안 반지름, 바깥 반지름]. 바깥 끝 258 ≤ 화면 여유 266. */
+const RINGS: Record<string, [number, number]> = {
+  '원심': [56, 104], '연합': [133, 197], '구심': [218, 258],
+};
+/** 장비 위성 호 — 뇌 링 밖 아래 반원. 아래 끝 290+334=624 ≤ 700. */
+const EQUIP_RING: [number, number] = [288, 334];
+
+type Lobe = { cx: number; cy: number; rx: number; ry: number; hue: number;
+              label: string; n: number; equip: boolean;
+              /** 호 구획 — 뇌 안 영역만 갖는다 (장비 선반은 없다) */
+              arc?: { a0: number; a1: number; r0: number; r1: number } };
+
 function lobes(nodes: Node[], regions: Record<string, Region>,
-               layers: Record<string, Layer>) {
+               _layers: Record<string, Layer>): Record<string, Lobe> {
   const byR: Record<string, Node[]> = {};
   nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
-  const out: Record<string, { cx: number; cy: number; rx: number; ry: number;
-                              hue: number; label: string; n: number;
-                              equip: boolean }> = {};
+  const out: Record<string, Lobe> = {};
+  // 층마다 그 층의 영역을 모아 링 위에서 각도를 배분한다
+  const perLayer: Record<string, [string, number][]> = {};
   Object.entries(byR).forEach(([r, list]) => {
     const reg = regions[r]; if (!reg) return;
-    const [rx, ry] = lobeR(list.length);
-    // 🔴 서버가 노드마다 `equip`/`layer` 를 이미 보낸다 — 화면이 영역
-    //    layer 로 **다시 계산**하던 것을 서버 값 우선으로 (두 벌 금지).
     const equip = list[0]?.equip ?? !reg.layer;
-    // 🔴 층은 **띠로 보이는 것**이고 자리는 갈래마다 따로 받는다. 층 하나에
-    //    여섯 갈래를 한 줄로 앉히면 「언어 50개」가 이웃을 덮는다 (실측).
-    const cy = equip ? EQUIP_TOP + 44
-                     : BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * (reg.cy ?? 0.5);
-    // 뇌 안쪽으로 모은다 — 겉선에 붙지 않게 가로 폭을 좁힌다
-    const cx = equip ? (0.10 + 0.80 * reg.cx) * W
-                     : (0.20 + 0.60 * reg.cx) * W;
-    out[r] = { cx, cy, rx: equip ? Math.min(rx * 1.8, 250) : rx,
-               ry: equip ? 34 : ry, hue: reg.hue, label: reg.label,
-               n: list.length, equip };
+    if (equip || !reg.layer || !RINGS[reg.layer]) {
+      // 🔴 **장비도 뇌를 중심으로** (한빈 2026-09-11: *"장비 부분 노드도
+      //    뇌 디자인을 중심으로 배치를 달리해서 영역별로 구분해라"*).
+      //    가로 줄에서 겹치던 것을 **바깥 하단 호**(위성 링)로 — 뇌 링과
+      //    같은 문법이되 반지름이 달라 「뇌가 아니다」가 모양에서 읽힌다.
+      (perLayer['장비'] ||= []).push([r, list.length]);
+      return;
+    }
+    (perLayer[reg.layer] ||= []).push([r, list.length]);
+  });
+  Object.entries(perLayer).forEach(([layer, regs]) => {
+    const equipRing = layer === '장비';
+    const [r0, r1] = equipRing ? EQUIP_RING : RINGS[layer];
+    // 서버의 cx(0~1) 차례를 지킨다 — 링이 바뀌어도 이웃 관계가 남는다
+    regs.sort((a, b) => (regions[a[0]].cx ?? 0) - (regions[b[0]].cx ?? 0));
+    const GAP = 0.10;                                   // 구획 사이 틈 (rad)
+    const total = regs.reduce((a, [, n2]) => a + Math.max(n2, 3), 0);
+    // 장비 호는 온바퀴가 아니라 **아래 반원**만 쓴다 (SVG 는 y 가 아래로 +)
+    const sweep = equipRing ? Math.PI * 0.72 : Math.PI * 2;
+    const avail = sweep - GAP * regs.length;
+    // 링마다 시작각을 어긋내 구획 경계가 겹줄로 안 보이게
+    let a = equipRing ? Math.PI * 0.14
+          : -Math.PI / 2 + (layer === '연합' ? 0.35 : layer === '원심' ? 0.9 : 0);
+    regs.forEach(([r, n2]) => {
+      const span = avail * Math.max(n2, 3) / total;
+      const mid = a + span / 2, rm = (r0 + r1) / 2;
+      out[r] = { cx: CX + rm * Math.cos(mid), cy: CY + rm * Math.sin(mid),
+                 rx: (r1 - r0) / 2, ry: (r1 - r0) / 2,
+                 hue: regions[r].hue, label: regions[r].label,
+                 n: byR[r].length, equip: equipRing,
+                 arc: { a0: a, a1: a + span, r0, r1 } };
+      a += span + GAP;
+    });
   });
   return out;
 }
 
-/** 영역 중심에 결정론으로 흩는다 (같은 지도를 다시 열어도 같은 자리). */
+/** 결정론 배치 — 호 구획 안에 황금비 저불일치 수열로 흩는다. */
 function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
   const pos: Record<string, { x: number; y: number }> = {};
   const byR: Record<string, Node[]> = {};
@@ -160,13 +206,44 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
   Object.entries(byR).forEach(([r, list]) => {
     const L = lb[r]; if (!L) return;
     list.forEach((n, i) => {
-      const a = i * 2.399963;                       // 황금각
-      const t = Math.sqrt((i + 0.5) / list.length);
-      pos[n.id] = { x: L.cx + L.rx * 0.84 * t * Math.cos(a),
-                    y: L.cy + L.ry * 0.82 * t * Math.sin(a) };
+      if (L.arc) {
+        const { a0, a1, r0, r1 } = L.arc;
+        const u = (i * 0.6180339887) % 1;             // 황금비 — 각도
+        const v = (i * 0.7548776662) % 1;             // 플라스틱 수 — 반지름
+        const th = a0 + (a1 - a0) * (0.09 + 0.82 * u);
+        const rr = r0 + (r1 - r0) * (0.16 + 0.68 * v);
+        pos[n.id] = { x: CX + rr * Math.cos(th), y: CY + rr * Math.sin(th) };
+      } else {
+        const a = i * 2.399963;                       // 황금각 (선반)
+        const t = Math.sqrt((i + 0.5) / list.length);
+        pos[n.id] = { x: L.cx + L.rx * 0.84 * t * Math.cos(a),
+                      y: L.cy + L.ry * 0.82 * t * Math.sin(a) };
+      }
     });
   });
   return pos;
+}
+
+/** 호 구획의 SVG path (도넛 조각). */
+function arcPath(a0: number, a1: number, r0: number, r1: number): string {
+  const p = (r: number, a: number) =>
+    `${(CX + r * Math.cos(a)).toFixed(1)},${(CY + r * Math.sin(a)).toFixed(1)}`;
+  const big = a1 - a0 > Math.PI ? 1 : 0;
+  return `M${p(r1, a0)} A${r1},${r1} 0 ${big} 1 ${p(r1, a1)} `
+       + `L${p(r0, a1)} A${r0},${r0} 0 ${big} 0 ${p(r0, a0)} Z`;
+}
+
+/** 홀로그램 장식 입자 — 결정론 (매 렌더 같은 자리). */
+function holoDots(): { x: number; y: number; r: number; o: number }[] {
+  const out = [];
+  for (let i = 0; i < 46; i++) {
+    const th = (i * 2.399963) % (Math.PI * 2);
+    const rr = 48 + ((i * 0.7548776662) % 1) * 214;
+    out.push({ x: CX + rr * Math.cos(th), y: CY + rr * Math.sin(th),
+               r: 0.7 + ((i * 0.618034) % 1) * 1.1,
+               o: 0.12 + ((i * 0.324717) % 1) * 0.25 });
+  }
+  return out;
 }
 
 export function BrainMap() {
@@ -389,7 +466,7 @@ export function BrainMap() {
     <section className="brainmap">
       {/* 🔴 한 호흡에 못 읽는 숫자 아홉을 늘어놓지 않는다 (한빈: «글자가 잘
           보여야 함»). 뇌와 장비를 먼저 가르고, 나머지는 아래 범례가 맡는다. */}
-      <h3>뇌 지도
+      <h3><span className="brainmap__ttl">뇌 지도</span>
         <span className="brainmap__sum">
           뇌 <b>{m.counts?.뇌 ?? m.nodes.length}</b> · 이음 <b>{m.edges.length}</b>
           {/* 🔴 여기 `tally.red`(붉은 노드 **전부**)를 「오배선」이라 불렀다.
@@ -519,31 +596,63 @@ export function BrainMap() {
               그 둘은 각각 「자료가 어디로 흐르나」와 「무엇이 어디 사나」를 말한다.
               ⚠️ `lobes()`·`place()` 의 자리 계산은 **안 건드렸다** — 어제 겉선을
                  고치며 배치까지 만졌다가 노드가 흩어진 적이 있다. */}
-          <g>
-            {/* 층 띠 — 구심(위) → 연합(가운데) → 원심(아래) */}
-            {Object.entries(m.layers || {}).map(([k, L]) => {
-              const cy = BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * L.cy;
-              const h = (BRAIN_BOT - BRAIN_TOP) * 0.30;
-              return (
-                <rect key={`lay-${k}`} x={0} y={cy - h / 2} width={W} height={h}
-                      className="bm-layer"
-                      style={{ fill: `hsl(${L.hue} 70% 50% / .07)` }} />
-              );
-            })}
-            {/* 엽 — 색으로 갈린 영역 (뇌 안쪽만) */}
-            {Object.entries(lb).filter(([, L]) => !L.equip).map(([k, L]) => (
-              <ellipse key={`lobe-${k}`} cx={L.cx} cy={L.cy} rx={L.rx} ry={L.ry}
-                       className="bm-lobe" filter="url(#bmsoft)"
-                       style={{ fill: `hsl(${L.hue} 80% 55% / .13)`,
-                                stroke: `hsl(${L.hue} 80% 62% / .34)` }} />
+          {/* ── 자비스 홀로그램 — 장식 층 (한빈 ② · 2026-09-11) ──
+              🔴 **장식만 돈다.** 노드·이음·글자는 회전 금지 — 읽는 것이
+              먼저다. 60~140초/바퀴의 느린 회전이라 시선을 안 뺏고,
+              `prefers-reduced-motion` 이면 정지한다. dobbin 홈이
+              `display:none` 으로 숨으면 그리기 자체가 없어 CPU 0 이다. */}
+          <g className="bm-holo" aria-hidden="true">
+            {Object.entries(RINGS).map(([k, [r0, r1]]) => (
+              <g key={`ring-${k}`}>
+                <circle cx={CX} cy={CY} r={r1} className="bm-ring" />
+                <circle cx={CX} cy={CY} r={r0} className="bm-ring bm-ring--in" />
+                {/* 눈금 호 — 자비스의 그 눈금. dasharray 가 눈금을 만든다 */}
+                <circle cx={CX} cy={CY} r={(r0 + r1) / 2 + (r1 - r0) * 0.32}
+                        className="bm-ring bm-ring--tick" />
+              </g>
+            ))}
+            {holoDots().map((d, i) => (
+              <circle key={`dot-${i}`} cx={d.x} cy={d.y} r={d.r}
+                      className="bm-dust" style={{ opacity: d.o }} />
+            ))}
+          </g>
+          <g className="bm-holo bm-holo--rev" aria-hidden="true">
+            {/* 짧은 호 조각들 — 반대로 도는 겹이 깊이를 만든다 */}
+            {[70, 150, 231].map((r, i) => (
+              <circle key={`seg-${i}`} cx={CX} cy={CY} r={r}
+                      className="bm-ring bm-ring--seg" />
             ))}
           </g>
 
-          {/* 층 이름 — 왼쪽 가장자리에 세로로 */}
+          {/* dobbin 코어 — 중심. 상태가 아니라 자리다 (얼굴은 히어로에 있다) */}
+          <g className="bm-core" aria-hidden="true">
+            <circle cx={CX} cy={CY} r={30} className="bm-core__halo" />
+            <circle cx={CX} cy={CY} r={17} className="bm-core__ring" />
+            <circle cx={CX} cy={CY} r={5} className="bm-core__dot" />
+            <text x={CX} y={CY + 44} textAnchor="middle" className="bm-core__lab">
+              dobbin</text>
+          </g>
+
+          <g>
+            {/* 엽 — 링 위의 호 구획. 발화하면 그 구획이 파동친다 (B3) */}
+            {Object.entries(lb).filter(([, L]) => L.arc).map(([k, L]) => {
+              const { a0, a1, r0, r1 } = L.arc!;
+              const on = lit.some(id => nodeById[id]?.region === k);
+              return (
+                <path key={`lobe-${k}`} d={arcPath(a0, a1, r0, r1)}
+                      className={`bm-lobe${on ? ' bm-lobe--on' : ''}`}
+                      style={{ fill: `hsl(${L.hue} 80% 55% / .12)`,
+                               stroke: `hsl(${L.hue} 80% 62% / .38)` }} />
+              );
+            })}
+          </g>
+
+          {/* 링 이름 — 12시 방향, 링 바로 위 */}
           {Object.entries(m.layers || {}).map(([k, L]) => {
-            const cy = BRAIN_TOP + (BRAIN_BOT - BRAIN_TOP) * L.cy;
+            const ring = RINGS[k]; if (!ring) return null;
             return (
-              <text key={`layl-${k}`} className="bm-layer-lab" x={16} y={cy}
+              <text key={`layl-${k}`} className="bm-layer-lab" x={CX}
+                    y={CY - ring[1] + 13} textAnchor="middle"
                     style={{ fill: `hsl(${L.hue} 60% 66%)` }}>
                 <title>{L.why}</title>{L.label}
               </text>
@@ -552,18 +661,24 @@ export function BrainMap() {
 
           {/* ── 장비 띠 — 🔴 **뇌가 아니다.** 전 판은 관문 74 + 할 일 94 를
               뇌 안에 그려 노드의 51%가 개발 장비였다. 선을 긋고 밖에 둔다. */}
-          <line x1={40} y1={EQUIP_TOP - 12} x2={W - 40} y2={EQUIP_TOP - 12}
-                className="bm-divider" />
-          <text className="bm-equip-lab" x={40} y={EQUIP_TOP + 2}>
-            장비 — 뇌가 아니다 (재는 자 {equipN.gate} · 할 일 {equipN.todo})
+          {/* 장비 위성 호의 캡션 — 뇌 원 밖 왼쪽 아래 */}
+          <text className="bm-equip-lab" x={40} y={H - 26}>
+            장비 — 뇌가 아니다 · 바깥 호 (재는 자 {equipN.gate} · 할 일 {equipN.todo})
           </text>
 
           {/* 영역 이름 — 누르면 아래에 「왜 적은가 · 어디까지 됐나」가 뜬다 */}
           {Object.entries(lb).map(([k, L]) => {
             const c = m.census?.[k];
+            // 호 구획이면 가운데 각도의 바깥 가장자리 — 아니면(선반) 위쪽
+            let x = L.cx, y = L.cy - L.ry - 5;
+            if (L.arc) {
+              const mid = (L.arc.a0 + L.arc.a1) / 2;
+              const rr = L.arc.r1 - 7;
+              x = CX + rr * Math.cos(mid); y = CY + rr * Math.sin(mid);
+            }
             return (
-              <text key={`lab-${k}`} className="bm-region bm-region--btn" x={L.cx}
-                    y={L.cy - L.ry - 5} textAnchor="middle"
+              <text key={`lab-${k}`} className="bm-region bm-region--btn" x={x}
+                    y={y} textAnchor="middle"
                     onClick={() => setReg(reg === k ? null : k)}
                     style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
                 {L.label} <tspan className="bm-region-n">
@@ -598,12 +713,19 @@ export function BrainMap() {
             const p = pos[n.id]; if (!p) return null;
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
-            const r = n.kind === '접힘' ? 9
-                    : n.kind === '갈래' ? 10
-                    : n.kind === '신경' ? (on ? 7.5 : 5)
-                    : n.kind === '기관' ? 8
-                    : n.kind === '계획' ? (n.status === 'building' ? 6.5 : 4.5)
-                    : 4;
+            const active = on || hover === n.id || pick?.id === n.id;
+            {/* 🔴 **원자 크기** (한빈 2026-09-11: *"노드가 너무 커서 디자인이
+                구리다. 원자처럼 작게 — 분포만 보이게, 활성화될 때만 어떤
+                신경인지 강조."*). 평시 ~2px 점: 자리(호 구획)가 갈래를,
+                점의 색이 **상태**를 말한다 — 굵은 원에 두르던 상태 테두리는
+                이 크기에서 안 읽혀서, 채움 자체를 상태색으로 바꿨다.
+                활성화(발화·hover·선택)에만 커지고 이름이 붙는다. */}
+            const base = n.kind === '접힘' ? 5.5
+                       : n.kind === '갈래' ? 3
+                       : n.kind === '계획' ? 2.2
+                       : n.kind === '걸음' ? 1.7
+                       : 2.1;
+            const r = active ? Math.max(base * 2.6, 5.5) : base;
             const ghost = n.kind === '계획';
             return (
               <g key={n.id} className={`bm-node bm-node--${n.kind}${on ? ' bm-node--fire' : ''}`}
@@ -616,23 +738,27 @@ export function BrainMap() {
                  }}
                  onMouseEnter={() => setHover(n.id)}
                  onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
-                {on && <circle cx={p.x} cy={p.y} r={22} fill="url(#bmglow)" />}
+                {/* 2px 점은 못 누른다 — 보이지 않는 넉넉한 과녁 */}
+                <circle cx={p.x} cy={p.y} r={9} fill="transparent" />
+                {on && <circle cx={p.x} cy={p.y} r={16} fill="url(#bmglow)" />}
                 <circle cx={p.x} cy={p.y} r={r}
                         className={n.status === 'building' ? 'bm-build' : undefined}
                         strokeDasharray={ghost ? '2 2' : undefined}
-                        fill={ghost ? 'none'
-                              : `hsl(${m.regions[n.region]?.hue ?? 210} 75% 60%)`}
-                        stroke={pick?.id === n.id ? '#fff' : s.c}
-                        strokeWidth={pick?.id === n.id ? 2 : 1.8}
+                        fill={ghost ? 'none' : s.c}
+                        stroke={pick?.id === n.id ? '#fff'
+                                : ghost ? s.c
+                                : active ? `hsl(${m.regions[n.region]?.hue ?? 210} 80% 70%)`
+                                : 'none'}
+                        strokeWidth={active ? 1.4 : ghost ? 1 : 0}
                         filter={on ? 'url(#bmlit)' : undefined}
-                        opacity={n.status === 'dark' || n.status === 'idle'
-                                 ? 0.34 : 0.94}>
+                        opacity={active ? 1
+                                 : n.status === 'dark' || n.status === 'idle'
+                                 ? 0.3 : 0.8}>
                   <title>{`${n.label || n.id} · ${s.t}`}</title>
                 </circle>
-                {(n.kind === '갈래' || n.kind === '접힘' || on
-                  || hover === n.id || pick?.id === n.id) && (
-                  <text className="bm-tag" x={p.x}
-                        y={p.y + (n.kind === '기관' ? 15 : -11)} textAnchor="middle">
+                {(n.kind === '접힘' || active) && (
+                  <text className={`bm-tag${on ? ' bm-tag--on' : ''}`} x={p.x}
+                        y={p.y - (r + 5)} textAnchor="middle">
                     {n.label || n.id}
                   </text>
                 )}

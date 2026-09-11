@@ -1,5 +1,6 @@
 import { startLive, onLive } from '../../web/liveSync';
-import { DobbinPanel, useDobbinShortcut } from '../../features/dobbin/DobbinPanel';
+// 🔴 구세대 우측 슬라이드 패널(DobbinPanel)은 지웠다 (2026-09-11 한빈 확정)
+//    — dobbin 홈과 기능이 중복이었다. Ctrl+K 는 홈 토글로 재연결.
 import { Ingest } from '../../features/ingest/Ingest';
 import { CalendarDays } from 'lucide-react';
 import { PenguinFace } from '../../features/dobbin/PenguinFace';
@@ -576,7 +577,6 @@ function AppLayout() {
           2026-08-12). 부르는 것은 말로 하되 **돌고 있는 것은 손으로**
           다룬다 — 회의 중에 "그만"이라고 말하면 그 말이 녹음에 들어간다. */}
       <RecordBar />
-      <DobbinPanel />
       {/* 자료 투입 — 창 아무 데나 놓으면 받는다 (CLAUDE.md 1-2 ①) */}
       <Ingest />
       {/* 2026-05-24 (HanBin) — legacy vault repair prompt (one-shot per vault per device). */}
@@ -684,7 +684,17 @@ function AppLayout() {
 }
 
 function App() {
-  useDobbinShortcut();
+  // Ctrl+K → dobbin 홈 (구패널을 지우며 재연결 · 2026-09-11)
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        uiActions.setShowDobbinHome(!useUIStore.getState().showDobbinHome);
+      }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
   // 🔴 변화가 오면 화면을 따라가게 한다 — 이전 화면을 보며 편집하면 덮어쓴다
   useEffect(() => {
     startLive();

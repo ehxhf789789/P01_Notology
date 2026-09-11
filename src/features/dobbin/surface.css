@@ -230,3 +230,33 @@
 /* 다음 걸음 — 되묻기 단추와 달리 옅게 (제안이지 물음이 아니다) */
 .dsurf__picks--next { opacity: .82; align-items: center; }
 .dsurf__next-q { font-size: 10.5px; color: var(--tx-3); margin-right: 2px; }
+
+/* ══ v15 대화창 다듬기 (2026-09-11 · 한빈 «대화창도 심플하고 이쁘게») ══
+   홀로그램 질감은 여기 안 넣는다 — 읽는 자리다. 다듬는 것만:
+   dobbin 말풍선의 좌측 발광선 · pill 입력창 · 원형 전송 단추. */
+.dsurf__line:not(.mine) .dsurf__bubble {
+  border-left: 2px solid color-mix(in srgb, var(--accent, #4a7dbd) 55%, transparent);
+  box-shadow: -1px 0 7px -3px color-mix(in srgb, var(--accent, #4a7dbd) 40%, transparent);
+}
+.dsurf__input {
+  padding: 8px 10px 10px;
+  gap: 8px;
+}
+.dsurf__input textarea {
+  border-radius: 17px;
+  padding: 8px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent, #4a7dbd) 22%, transparent);
+  background: rgba(255, 255, 255, .04);
+  transition: border-color .15s;
+}
+.dsurf__input textarea:focus {
+  border-color: color-mix(in srgb, var(--accent, #4a7dbd) 55%, transparent);
+  outline: none;
+}
+.dsurf__input button {
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent, #4a7dbd) 82%, transparent);
+  border: none;
+  transition: transform .12s, background .15s;
+}
+.dsurf__input button:hover { transform: translateY(-1px); }
