@@ -732,22 +732,29 @@ export function BrainMap() {
           {/* 영역 이름 — 누르면 아래에 「왜 적은가 · 어디까지 됐나」가 뜬다 */}
           {Object.entries(lb).map(([k, L]) => {
             const c = m.census?.[k];
-            // 호 구획이면 가운데 각도의 바깥 가장자리 — 아니면(선반) 위쪽
+            // 🔴 이름이 점 위에 얹혀 깨져 보였다 (한빈 2026-09-11: *"영역
+            //    타이틀을 보기 좋게 — 아니면 hover 시에"*). 셋으로 고친다:
+            //    ① 자리 — 구획 **바깥** 가장자리 (점들의 띠 밖)
+            //    ② 헤일로 — 배경색 테두리로 점 위에서도 읽힌다 (CSS paint-order)
+            //    ③ 수치(칸·모듈)는 **hover·선택 때만** — 평시는 이름만
             let x = L.cx, y = L.cy - L.ry - 5;
             if (L.arc) {
               const mid = (L.arc.a0 + L.arc.a1) / 2;
-              const rr = L.arc.r1 - 7;
+              const rr = L.arc.r1 + 10;
               x = CX + rr * Math.cos(mid); y = CY + rr * Math.sin(mid);
             }
+            const dim = reg === k;
             return (
-              <text key={`lab-${k}`} className="bm-region bm-region--btn" x={x}
-                    y={y} textAnchor="middle"
+              <text key={`lab-${k}`}
+                    className={`bm-region bm-region--btn${dim ? ' is-on' : ''}`}
+                    x={x} y={y} textAnchor="middle"
                     onClick={() => setReg(reg === k ? null : k)}
-                    style={{ fill: `hsl(${L.hue} 70% 68%)` }}>
-                {/* 🔴 L.n 은 접힘 뒤 수 — census 는 65 인데 라벨은 11 이던
-                    어긋남 (A2). 서버 전체 수를 쓴다. */}
-                {L.label} <tspan className="bm-region-n">
-                  {c?.칸 ?? L.n}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
+                    style={{ fill: `hsl(${L.hue} 70% 72%)` }}>
+                <title>{`${L.label} — 칸 ${c?.칸 ?? L.n}`
+                        + (c?.모듈 ? ` · 모듈 ${c.모듈}` : '')}</title>
+                {/* L.n 은 접힘 뒤 수 — census 전체 수가 정답 (A2) */}
+                {L.label}<tspan className="bm-region-n">
+                  {` ${c?.칸 ?? L.n}`}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
               </text>
             );
           })}

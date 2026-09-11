@@ -282,3 +282,15 @@
 
 /* 갈래(위계 머리) 이름표 — 원자 점 옆 소형 상시 (F21) */
 .bm-node--갈래 .bm-tag { font-size: 8.5px; opacity: .6; }
+
+/* 영역 이름 — 헤일로로 점 위에서도 읽힌다 · 수치는 hover/선택 때만
+   (한빈 2026-09-11 «타이틀을 보기 좋게, 아니면 hover 시에») */
+.bm-region {
+  paint-order: stroke;
+  stroke: #0b0f1a;
+  stroke-width: 3.5px;
+  stroke-linejoin: round;
+  font-weight: 600;
+}
+.bm-region .bm-region-n { opacity: 0; transition: opacity .15s; }
+.bm-region:hover .bm-region-n, .bm-region.is-on .bm-region-n { opacity: .85; }
