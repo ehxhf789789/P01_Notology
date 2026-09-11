@@ -41,6 +41,8 @@ type Map = {
               장비파일?: number; 장비줄?: number; 탐침?: number };
   /** kind → [갈래, 설명] — 자국 띠의 정본 (서버 TRACE_LANES) */
   trace_lanes?: Record<string, [string, string]>;
+  /** 재고 축 — 지금 쌓여 있는 것 (3차 검토가 비어 있다고 잡은 그 축) */
+  stock?: Record<string, number | null>;
   /** 🔴 `_밖` 은 영역이 아니라서 census Record 에서 분리됐다 (2026-09-11) */
   outside?: { 수?: number; 줄수?: number; 큰것?: [number, string][];
               이름밖?: number; 이름밖그림?: number;
@@ -71,7 +73,30 @@ type Map = {
 // 쏘면 화면은 모른 채 「활동」으로 뭉갠다. 받은 표가 없을 때의 마지막 물러섬만
 // 남긴다 (첫 fetch 전 SSE 가 먼저 올 수 있다).
 const LANE_FALLBACK: [string, string] = ['활동', ''];
-type Trace = { at: string; lane: string; kind: string; what: string };
+/** 원사건만 담는다 — lane·글은 **렌더 때** 서버 trace_lanes 로 파생한다
+ *  (2026-09-11 3차 검토: 백필 줄이 지도 도착 전에 「활동」으로 굳고,
+ *  what 규칙이 두 벌이었다). ts 는 초 단위 epoch — 병합·중복 제거 열쇠. */
+type Trace = { ts: number; kind: string; raw: Record<string, unknown> };
+
+/** 한 벌뿐인 what 규칙 — 백필·실시간이 같은 글자를 얻는다 */
+function traceWhat(ev: Record<string, unknown>): string {
+  const t = ev as Record<string, any>;
+  const cnt = t.total != null
+    ? `전체 ${t.total}${t.grew ? ` (+${t.grew})` : ''}` : null;
+  return String(t.step ?? t.nerve ?? t.path ?? t.name ?? cnt
+    ?? t.note ?? t.kind ?? '').slice(0, 60);
+}
+
+/** 병합 — at+kind 로 중복을 걷고 최신순 40 */
+function mergeTrace(prev: Trace[], add: Trace[]): Trace[] {
+  const seen = new Set(prev.map(t => `${t.ts}|${t.kind}`));
+  const out = [...prev];
+  add.forEach(t => {
+    const k = `${t.ts}|${t.kind}`;
+    if (!seen.has(k)) { seen.add(k); out.push(t); }
+  });
+  return out.sort((a, b) => b.ts - a.ts).slice(0, 40);
+}
 
 const W = 980, H = 700;
 /** 뇌가 차지하는 세로 — 아래 나머지는 **장비 띠**다 (뇌가 아니다). */
@@ -258,9 +283,11 @@ function holoDots(): { x: number; y: number; r: number; o: number }[] {
   for (let i = 0; i < 46; i++) {
     const th = (i * 2.399963) % (Math.PI * 2);
     const rr = 48 + ((i * 0.7548776662) % 1) * 214;
+    // 🔴 CSS !important 가 이 계산을 통째로 덮고 있었다 (두 벌 계산의 한쪽만
+    //    삶 · 3차 검토). 어두운 값을 **여기서** 낸다 — 한 벌.
     out.push({ x: CX + rr * Math.cos(th), y: CY + rr * Math.sin(th),
-               r: 0.7 + ((i * 0.618034) % 1) * 1.1,
-               o: 0.12 + ((i * 0.324717) % 1) * 0.25 });
+               r: 0.5 + ((i * 0.618034) % 1) * 0.6,
+               o: 0.06 + ((i * 0.324717) % 1) * 0.10 });
   }
   return out;
 }
@@ -281,20 +308,17 @@ export function BrainMap() {
   const [trace, setTrace] = useState<Trace[]>([]);
   // 🔴 늦게 열거나 끊겼다 붙으면 그 사이 자국이 영영 없었다 (2026-09-11) —
   //    서버의 최근 사건 버퍼로 씨를 뿌린다. SSE 로 온 것이 위에 쌓인다.
-  useEffect(() => {
+  const backfill = () => {
     fetch('/api/events/recent').then(r => (r.ok ? r.json() : null)).then(j => {
       if (!j?.events?.length) return;
-      setTrace(prev => prev.length ? prev : j.events.slice(-40).reverse()
-        .map((ev: any) => ({
-          at: new Date((ev.at || 0) * 1000)
-            .toLocaleTimeString('ko-KR', { hour12: false }),
-          lane: (m?.trace_lanes?.[ev.kind] || LANE_FALLBACK)[0],
-          kind: String(ev.kind || ''),
-          what: String(ev.step || ev.nerve || ev.path || ev.note || ev.kind || '')
-            .slice(0, 60),
-        })));
+      // 🔴 「비었을 때만」이었다 — 재접속 때 놓친 사건이 영영 안 메워졌다
+      //    (3차 검토). 병합으로 바꾼다 — at+kind 중복은 걷힌다.
+      setTrace(prev => mergeTrace(prev, j.events.map((ev: any) => ({
+        ts: Math.round(ev.at || 0), kind: String(ev.kind || ''), raw: ev,
+      }))));
     }).catch(() => { /* 백필은 덤 */ });
-  }, [m?.trace_lanes]);
+  };
+  useEffect(backfill, []);
   // 🔴 **꺼지는 빛에 기대지 않는다.** 앞 판은 요약의 「신경 N개」를 번쩍임
   //    상태(lit)에서 셌는데, 5초 뒤 빛이 꺼지면 «0개»로 바뀌었다 (실측).
   //    그 턴에 울린 수는 **그때 붙잡아** 둔다.
@@ -336,8 +360,10 @@ export function BrainMap() {
         setM(j as Map);
         setErr(null);
         // 🔴 fetch 시각이 아니라 **지은 시각** — 거짓 신선도 금지
+        // built_at 없으면(낡은 서버) fetch 시각으로 물러서되 **표를 단다** —
+        //    그 물러섬이 옛 거짓 신선도 그대로였다 (3차 검토 A6)
         setAt(j?.built_at ? j.built_at.slice(5)
-              : new Date().toLocaleTimeString('ko-KR',
+              : '읽은 시각(대체) ' + new Date().toLocaleTimeString('ko-KR',
                 { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       })
         // 🔴 조용히 옛 지도를 두지 않는다 — 「못 읽었다」를 말한다
@@ -416,20 +442,14 @@ export function BrainMap() {
     //    답이 끝난 뒤가 아니라 **생각하는 도중** 켠다 — SSE 의 `thinking`
     //    걸음이 0.4초 안에 온다. 대화가 아닐 때(자율 걸음)도 같은 통로다.
     const off = onLive((ev: any) => {
-      // 재접속 신호는 fetch 효과가 받는다 — 자국 띠에는 안 적는다 (사건 아님)
-      if (ev?.kind === 'reconnected') return;
+      // 재접속 — 지도는 fetch 효과가, **자국은 여기서** 백필로 메운다
+      if (ev?.kind === 'reconnected') { backfill(); return; }
       // 🔴 **자국부터 남기고** 불을 켠다 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다.
       if (ev?.kind) {
-        const [lane, why] = m?.trace_lanes?.[ev.kind]
-          || [LANE_FALLBACK[0], ev.kind];
-        const what = ev.step || ev.nerve || ev.path || ev.name
-          // 🔴 consistency 의 total/was/grew 를 읽는 곳이 0이었다 (2026-09-11)
-          || (ev.total != null ? `전체 ${ev.total}${ev.grew ? ` (+${ev.grew})` : ''}` : '')
-          || ev.note || why;
-        setTrace(prev => [{
-          at: new Date().toLocaleTimeString('ko-KR', { hour12: false }),
-          lane, kind: ev.kind, what: String(what).slice(0, 60),
-        }, ...prev].slice(0, 40));
+        setTrace(prev => mergeTrace(prev, [{
+          ts: Math.round(ev.at || Date.now() / 1000),
+          kind: String(ev.kind), raw: ev,
+        }]));
       }
       if (ev?.kind === 'thinking') {
         const id = ev.nerve
@@ -471,51 +491,15 @@ export function BrainMap() {
   //    다 그리면 못 읽고, 안 그리면 거짓말이다(45/158 만 그리던 자리).
   //    영역마다 **큰 것 K개**만 펴고 나머지는 「+N」 한 점으로 접는다.
   //    잣대는 지어낸 중요도가 아니라 **줄 수 + 부르는 자 수**다.
-  const [open, setOpen] = useState<Set<string>>(new Set());
   // 🔴 **이음도 접는다** (2026-09-10). 모듈을 다 올리자 이음이 933이 되었고
   //    화면이 실뭉치가 됐다. `부름`(464)은 «코드에 있다»일 뿐 그 턴에 무슨
   //    일이 있었나를 말하지 않는다 — 기본으로 접고, 켜면 보인다.
   //    ⚠️ 접는 것과 **없애는 것**은 다르다. 수는 범례에 그대로 적힌다.
   const [showCall, setShowCall] = useState(false);
-  const shownNodes = useMemo(() => {
-    // 🔴 지그의 빈손 200(`{}`)에서 `m.nodes.forEach` 가 터져 앱이 죽었다
-    //    (ui_e2e pageerror · 2026-09-11). 렌더 가드는 useMemo 뒤에 돈다.
-    if (!m?.nodes) return [] as Node[];
-    // 🔴 접힘(+N)을 없앴다 (한빈 2026-09-11: *"+숫자를 없애고 실제 노드
-    //    수를 보이도록"*). 원자 점(1.6px)이라 전부 그려도 읽힌다 — 구획
-    //    각도와 링 두께가 수에 비례해 저절로 넓어진다.
-    const K = 9999;
-    const byR: Record<string, Node[]> = {};
-    (m.nodes ?? []).forEach(n => { (byR[n.region] ||= []).push(n); });
-    const out: Node[] = [];
-    Object.entries(byR).forEach(([r, list]) => {
-      const organs = list.filter(n => n.kind === '기관');
-      const rest = list.filter(n => n.kind !== '기관');
-      out.push(...rest);
-      if (organs.length <= K || open.has(r)) { out.push(...organs); return; }
-      const rank = (n: Node) => (n.줄수 || 0) + (n.부름받음 || 0) * 300;
-      // 🔴 **한 번만 줄 세우고 그 꼬리를 쓴다** (2026-09-10). 전에는 `top` 은
-      //    정렬해 놓고 접힘의 「줄수」는 **정렬 전** `organs.slice(K)` 를 더해
-      //    서로 다른 집합을 셌다 — 실측 오차 −2,131줄.
-      const sorted = [...organs].sort((a, b) => rank(b) - rank(a));
-      let top = sorted.slice(0, K), tail = sorted.slice(K);
-      // 🔴 **발화하는 기관이 정확히 접혀 사라지는 부류였다** (2026-09-11 적대
-      //    검토 A3). 글자는 「기관 3개 관여」인데 그림은 0개 — 켜졌거나
-      //    선택된 것은 접힘에서 꺼내 보인다.
-      const must = new Set([...lit, pickId].filter(Boolean));
-      const rescued = tail.filter(n => must.has(n.id));
-      if (rescued.length) {
-        top = [...top, ...rescued];
-        tail = tail.filter(n => !must.has(n.id));
-      }
-      out.push(...top);
-      out.push({ id: `접힘:${r}`, kind: '접힘', region: r, status: 'fold',
-                 label: `+${tail.length}`,
-                 why: `${tail.length}개가 접혀 있다 — 눌러서 편다`,
-                 줄수: tail.reduce((a, b) => a + (b.줄수 || 0), 0) } as Node);
-    });
-    return out;
-  }, [m, open, lit, pickId]);
+  // 🔴 접힘 기계를 걷었다 (2026-09-11 3차 검토 — K=9999 라 도달 불가인데
+  //    lit/pickId 의존성이 남아 **사건마다 446노드 전면 재배치**를 시켰다).
+  //    이제 노드 = 서버가 준 전부, 재배치는 지도 자체가 바뀔 때만.
+  const shownNodes = useMemo(() => (m?.nodes ?? []) as Node[], [m]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
   const rings = useMemo(() => {
     const cnt: Record<string, number> = {};
@@ -619,6 +603,18 @@ export function BrainMap() {
         </span>
       </h3>
 
+      {/* 🔴 재고 축 — 쓰기 자국·성적만 그리고 **지금 쌓여 있는 것**이 수로
+          0번 나오던 공백 (3차 검토). None 은 「못 읽음」로 — 0 과 다르다. */}
+      {m.stock && (
+        <div className="brainmap__stock"
+             title="서재에 지금 쌓여 있는 것 — 재고 축">
+          {Object.entries(m.stock).map(([k, v]) => (
+            <span key={k} className="bm-stock">
+              {k} <b>{v == null ? '못 읽음' : v.toLocaleString()}</b>
+            </span>
+          ))}
+        </div>
+      )}
       {m.maturity && (
         <div className="brainmap__mat" title="위 단계는 아래가 참이어야 준다">
           {m.maturity.단계.map((label, i) => {
@@ -840,13 +836,7 @@ export function BrainMap() {
             const ghost = n.kind === '계획';
             return (
               <g key={n.id} className={`bm-node bm-node--${n.kind}${on ? ' bm-node--fire' : ''}`}
-                 onClick={() => {
-                   if (n.kind === '접힘') {
-                     setOpen(o => { const x = new Set(o); x.add(n.region); return x; });
-                     return;
-                   }
-                   setPickId(pickId === n.id ? null : n.id);
-                 }}
+                 onClick={() => setPickId(pickId === n.id ? null : n.id)}
                  onMouseEnter={() => setHover(n.id)}
                  onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
                 {/* 2px 점은 못 누른다 — 보이지 않는 넉넉한 과녁 */}
@@ -1023,12 +1013,18 @@ export function BrainMap() {
         <b>방금 일어난 일</b>
         {trace.length ? (
           <ol>
-            {trace.slice(0, 12).map((t, i) => (
-              <li key={`${t.at}-${i}`} className={`bm-tr bm-tr--${t.lane}`}
-                  title={`${t.kind} · ${t.what}`}>
-                <i>{t.at}</i><em>{t.lane}</em>{t.what}
-              </li>
-            ))}
+            {trace.slice(0, 12).map((t, i) => {
+              const lane = (m.trace_lanes?.[t.kind] || LANE_FALLBACK)[0];
+              const what = traceWhat(t.raw) || t.kind;
+              const at = new Date(t.ts * 1000)
+                .toLocaleTimeString('ko-KR', { hour12: false });
+              return (
+                <li key={`${t.ts}-${t.kind}-${i}`} className={`bm-tr bm-tr--${lane}`}
+                    title={`${t.kind} · ${what}`}>
+                  <i>{at}</i><em>{lane}</em>{what}
+                </li>
+              );
+            })}
           </ol>
         ) : (
           <span className="bm-tr-empty">
@@ -1045,12 +1041,8 @@ export function BrainMap() {
           if (!n) return null;
           const foldable = kind === '부름' || kind === '사슬';
           const off = foldable && !showCall;
-          // 🔴 **끝점이 접혀 사라진 선을 아무 데도 안 적었다** (2026-09-10).
-          //    「이음 936」인데 화면엔 358줄이고, `부름`·`사슬` 519는 범례가
-          //    밝히는데 **나머지 59개**(일함 50 중 28)는 조용히 없어졌다.
-          //    「접는 것과 없애는 것은 다르다」를 이음 **끝점**에도 지킨다.
-          const gone = off ? 0
-            : mine.filter(e => !shownIds.has(e.a) || !shownIds.has(e.b)).length;
+          // 접힘을 걷어 끝점 소실이 구조적으로 0 이 됐다 (전 노드 표시)
+          const gone = 0;
           return (
             <span key={kind} title={why + (foldable ? ' · 눌러서 켜고 끈다' : '')
                     + (gone ? ` · ${gone}개는 끝점이 접혀 안 보인다 (영역을 펴면 나타난다)` : '')}

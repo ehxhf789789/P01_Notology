@@ -271,9 +271,8 @@
   filter: drop-shadow(0 0 5px hsl(205 90% 65% / .8));
 }
 
-/* F18 — 장식 입자가 원자 노드와 구별되지 않던 것 (A11): 훨씬 흐리게·작게 */
-.bm-dust { r: 0.8; }
-.bm-holo .bm-dust { opacity: .14 !important; }
+/* 먼지 크기·밝기는 TSX 계산이 정본 (한 벌 — 2026-09-11 3차 검토가
+   CSS !important 덮개를 걷었다) */
 
 /* F19 — census 갈래 색: 서버가 내는 값과 한 벌로 (A10) */
 .bm-why--어긋남 { color: #f0883e; }
@@ -305,3 +304,10 @@
 .bm-edge { stroke-width: .7; opacity: .5; }
 .bm-edge--on { stroke-width: 1.6; opacity: 1; }
 .bm-layer-lab { font-size: 12px; letter-spacing: .14em; opacity: .8; }
+
+/* 재고 축 — 지금 쌓여 있는 것 (2026-09-11) */
+.brainmap__stock {
+  display: flex; flex-wrap: wrap; gap: 4px 14px;
+  font-size: 11.5px; opacity: .82; margin: 2px 0 4px;
+}
+.bm-stock b { font-weight: 600; color: hsl(205 80% 72%); margin-left: 3px; }
