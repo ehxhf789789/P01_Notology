@@ -20,10 +20,11 @@ import { onLive } from '../../web/liveSync';
 const WORK_KINDS = new Set(['thinking', 'tending', 'tended', 'inbox-changed',
   'note-changed', 'vault-changed', 'brainmap-delta', 'brainmap-changed',
   'upload', 'errand-changed']);
-function StateChip() {
+function useWorkState(): { cls: string; txt: string } {
   const [, force] = useState(0);
   const lastRef = useRef<number>(0);
   const pendRef = useRef<number | null>(null);
+  const touchRef = useRef<number>(0);
   useEffect(() => {
     const off = onLive((ev: { kind?: string; pending?: number }) => {
       if (!ev?.kind) return;
@@ -32,8 +33,19 @@ function StateChip() {
         lastRef.current = Date.now();
       }
     });
+    // 사람 우선의 역설 — 지도를 보는 손이 governor 를 통해 일을 물린다
+    // (2-8: 배치는 사람에게 양보). 그 상태를 «중단»이 아니라 «양보»라고
+    // 말해야 혼동이 안 남는다 (한빈 09-13: «또 중단 상태로 보이는데?» —
+    // 물러섬 장부의 정체가 사용자 자신의 클릭이었다).
+    const touch = () => { touchRef.current = Date.now(); };
+    window.addEventListener('pointerdown', touch, { passive: true });
+    window.addEventListener('keydown', touch, { passive: true });
     const t = window.setInterval(() => force(x => x + 1), 1000);
-    return () => { off?.(); window.clearInterval(t); };
+    return () => {
+      off?.(); window.clearInterval(t);
+      window.removeEventListener('pointerdown', touch);
+      window.removeEventListener('keydown', touch);
+    };
   }, []);
   const age = lastRef.current ? (Date.now() - lastRef.current) / 1000 : Infinity;
   const pend = pendRef.current;
@@ -42,6 +54,9 @@ function StateChip() {
   if (age < 30) {
     cls = 'bm-chip--work';
     txt = `일하는 중 · ${Math.max(1, Math.round(age))}초 전`;
+  } else if (pend != null && pend > 0
+             && Date.now() - touchRef.current < 90000) {
+    txt = `사람 우선 양보 중 · 잔량 ${pend.toLocaleString()}`;
   } else if (pend != null && pend > 0 && age >= 60) {
     cls = 'bm-chip--warn';
     txt = `⚠ 잔량 ${pend.toLocaleString()} — 일 신호 없음 ${Math.round(age / 60)}분`;
@@ -50,6 +65,11 @@ function StateChip() {
   } else {
     txt = `쉼 · 마지막 일 ${age < 90 ? Math.round(age) + '초' : Math.round(age / 60) + '분'} 전`;
   }
+  return { cls, txt };
+}
+
+function StateChip() {
+  const { cls, txt } = useWorkState();
   return (
     <div className={`bm-chip ${cls}`}
          title="마지막 일 이벤트 나이로 계산한 정직한 상태 — 어두운데 «일하는 중»이면 시각화 결함, «잔량인데 신호 없음»이면 서버 공백">
@@ -363,6 +383,9 @@ function holoDots(): { x: number; y: number; r: number; o: number }[] {
 }
 
 export function BrainMap() {
+  // v26-B — 코어 밑 상태 문구: 스크린샷마다 칩이 잘려 «진실»이 빠졌다.
+  // 사람이 뇌를 찍으면 반드시 담기는 자리(dobbin 글자 밑)에 같은 값을 쓴다.
+  const work = useWorkState();
   const [m, setM] = useState<Map | null>(null);
   // 🔴 노드 **객체**를 잡으면 지도가 갱신돼도 상세칸이 옛 값을 보였다 (A18)
   //    — id 만 잡고 렌더마다 지금 지도에서 찾는다.
@@ -1058,6 +1081,10 @@ export function BrainMap() {
             <circle cx={CX} cy={CY} r={5} className="bm-core__dot" />
             <text x={CX} y={CY + 44} textAnchor="middle" className="bm-core__lab">
               dobbin</text>
+            <text x={CX} y={CY + 60} textAnchor="middle"
+                  className={`bm-core__state bm-core__state--${
+                    work.cls.replace('bm-chip--', '')}`}>
+              {work.txt}</text>
           </g>
 
           <g>

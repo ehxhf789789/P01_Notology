@@ -366,3 +366,8 @@
 }
 .bm-core__flash--self { stroke: #c084fc; }
 @media (prefers-reduced-motion: reduce) { .bm-halofade { animation: none; } }
+
+/* v26-B — 코어 밑 상태 문구 (칩과 같은 값 · 캡처에 항상 담긴다) */
+.bm-core__state { font-size: 10px; fill: #7c8598; }
+.bm-core__state--work { fill: #6ee7a8; }
+.bm-core__state--warn { fill: #fbbf24; }
