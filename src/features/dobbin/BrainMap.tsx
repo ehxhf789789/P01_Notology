@@ -556,6 +556,69 @@ export function BrainMap() {
   const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, rings) : {}),
                      [m, shownNodes, rings]);
   const pos = useMemo(() => (m ? place(shownNodes, lb) : {}), [shownNodes, lb]);
+  // 🔴 **기반층을 얼린다** (2026-09-13 · 한빈 «웹 렌더링 렉»). 노드 ~400 +
+  //    이음 ~1,200 을 hover·빛·자국(0.7초)마다 React 가 전부 다시 diff 하던
+  //    것이 지도 버벅임의 몸통 — 기반층은 판(m)이 바뀔 때만 다시 짓고,
+  //    빛·hover·선택은 아래 얇은 덧층이 그린다. useMemo 가 같은 엘리먼트
+  //    참조를 돌려주면 React 는 그 서브트리 diff 를 통째로 건너뛴다.
+  const baseLayer = useMemo(() => {
+    if (!m) return null;
+    const byId: Record<string, Node> = {};
+    m.nodes.forEach(n => { byId[n.id] = n; });
+    return (
+      <g>
+        {m.edges.map((e, i) => {
+          if (!showCall && (e.kind === '부름' || e.kind === '사슬')) return null;
+          if (!shownIds.has(e.a) || !shownIds.has(e.b)) return null;
+          const a = pos[e.a], b = pos[e.b];
+          if (!a || !b) return null;
+          const na = byId[e.a], nb = byId[e.b];
+          const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
+            !== (nb.layer ?? m.regions[nb.region]?.layer);
+          const cls = `bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'}`
+            + (cross ? ' bm-edge--cross' : '')
+            + (e.grade === 'static' ? ' bm-edge--static' : '');
+          const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
+          const d = `M${a.x},${a.y} Q${mx2},${my2 - (cross ? 26 : 12)} ${b.x},${b.y}`;
+          return <path key={i} d={d} className={cls} fill="none" />;
+        })}
+        {shownNodes.map(n => {
+          const p = pos[n.id]; if (!p) return null;
+          const s = STATUS[n.status] || STATUS.dark;
+          const ghost = n.kind === '계획';
+          const base = n.kind === '접힘' ? 5.5
+                     : n.kind === '갈래' ? 2.4
+                     : n.kind === '계획' ? 1.8
+                     : n.kind === '걸음' ? 1.3
+                     : 1.6;
+          return (
+            <g key={n.id} className={`bm-node bm-node--${n.kind}`}
+               onClick={() => setPickId(prev => (prev === n.id ? null : n.id))}
+               onMouseEnter={() => setHover(n.id)}
+               onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
+              <circle cx={p.x} cy={p.y} r={9} fill="transparent" />
+              <circle cx={p.x} cy={p.y} r={base}
+                      className={n.status === 'building' ? 'bm-build' : undefined}
+                      strokeDasharray={ghost ? '2 2' : undefined}
+                      fill={ghost ? 'none' : s.c}
+                      stroke={ghost ? s.c : 'none'}
+                      strokeWidth={ghost ? 1 : 0}
+                      opacity={n.status === 'dark' || n.status === 'idle'
+                               ? 0.3 : 0.8}>
+                <title>{`${n.label || n.id} · ${s.t}`}</title>
+              </circle>
+              {(n.kind === '접힘' || n.kind === '갈래') && (
+                <text className="bm-tag" x={p.x} y={p.y - (base + 5)}
+                      textAnchor="middle">
+                  {n.label || n.id}
+                </text>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  }, [m, pos, shownNodes, shownIds, showCall]);
   // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
   //    같은 엽 안에서 «가까이 찍힌» 둘을 이어 321개를 그렸는데, 서버가 보낸
   //    진짜 이음 107개와 **겹치는 것이 하나도 없었다**. 사람이 본 428선 중
@@ -866,75 +929,47 @@ export function BrainMap() {
             );
           })}
 
-          {/* 이음 — 사슬(옅게) · 공급(가늘게) · 오배선(붉게) */}
+          {/* 이음+노드 기반층 — 판(m)이 바뀔 때만 다시 짓는다 (위 baseLayer) */}
+          {baseLayer}
+
+          {/* 🔴 덧층 — 빛·hover·선택만. 몇십 개뿐이라 0.7초 갱신이 공짜다.
+              «원자 크기» 규율(2026-09-11)은 그대로: 평시 점, 활성만 커진다. */}
           {m.edges.map((e, i) => {
-            if (!showCall && (e.kind === '부름' || e.kind === '사슬')) return null;
+            if (!(litSet.has(e.a) || litSet.has(e.b))) return null;
             if (!shownIds.has(e.a) || !shownIds.has(e.b)) return null;
+            if (!showCall && (e.kind === '부름' || e.kind === '사슬')) return null;
             const a = pos[e.a], b = pos[e.b];
             if (!a || !b) return null;
-            const on = litSet.has(e.a) || litSet.has(e.b);
             const na = nodeById[e.a], nb = nodeById[e.b];
-            // 층을 건너는 이음 — 자료가 들어와 답으로 나가는 길이다
-            // 서버가 노드마다 layer 를 보낸다 — 재계산 대신 그 값 (두 벌 금지)
             const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
               !== (nb.layer ?? m.regions[nb.region]?.layer);
-            const cls = `bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'}`
-              + (cross ? ' bm-edge--cross' : '') + (on ? ' bm-edge--on' : '')
-              // 🔴 "static" = 코드에 있다(정적 분석) — 실측 이음과 굵기로 가른다
-              + (e.grade === 'static' ? ' bm-edge--static' : '');
             const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
             const d = `M${a.x},${a.y} Q${mx2},${my2 - (cross ? 26 : 12)} ${b.x},${b.y}`;
-            return <path key={i} d={d} className={cls} fill="none" />;
+            return <path key={`on${i}`} d={d} fill="none"
+                         className={`bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'} bm-edge--on`} />;
           })}
-
-          {/* 노드 */}
-          {shownNodes.map(n => {
+          {[...new Set([...lit, hover, pick?.id].filter(Boolean))].map(id => {
+            const n = nodeById[id as string]; if (!n) return null;
             const p = pos[n.id]; if (!p) return null;
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
-            const active = on || hover === n.id || pick?.id === n.id;
-            {/* 🔴 **원자 크기** (한빈 2026-09-11: *"노드가 너무 커서 디자인이
-                구리다. 원자처럼 작게 — 분포만 보이게, 활성화될 때만 어떤
-                신경인지 강조."*). 평시 ~2px 점: 자리(호 구획)가 갈래를,
-                점의 색이 **상태**를 말한다 — 굵은 원에 두르던 상태 테두리는
-                이 크기에서 안 읽혀서, 채움 자체를 상태색으로 바꿨다.
-                활성화(발화·hover·선택)에만 커지고 이름이 붙는다. */}
-            const base = n.kind === '접힘' ? 5.5
-                       : n.kind === '갈래' ? 2.4
-                       : n.kind === '계획' ? 1.8
-                       : n.kind === '걸음' ? 1.3
-                       : 1.6;
-            const r = active ? Math.max(base * 2.6, 5.5) : base;
             const ghost = n.kind === '계획';
+            const r = Math.max((n.kind === '접힘' ? 5.5 : 1.6) * 2.6, 5.5);
             return (
-              <g key={n.id} className={`bm-node bm-node--${n.kind}${on ? ' bm-node--fire' : ''}`}
-                 onClick={() => setPickId(pickId === n.id ? null : n.id)}
-                 onMouseEnter={() => setHover(n.id)}
-                 onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
-                {/* 2px 점은 못 누른다 — 보이지 않는 넉넉한 과녁 */}
-                <circle cx={p.x} cy={p.y} r={9} fill="transparent" />
+              <g key={`ov-${n.id}`} className={`bm-node${on ? ' bm-node--fire' : ''}`}
+                 pointerEvents="none">
                 {on && <circle cx={p.x} cy={p.y} r={16} fill="url(#bmglow)" />}
                 <circle cx={p.x} cy={p.y} r={r}
-                        className={n.status === 'building' ? 'bm-build' : undefined}
                         strokeDasharray={ghost ? '2 2' : undefined}
                         fill={ghost ? 'none' : s.c}
                         stroke={pick?.id === n.id ? '#fff'
-                                : ghost ? s.c
-                                : active ? `hsl(${m.regions[n.region]?.hue ?? 210} 80% 70%)`
-                                : 'none'}
-                        strokeWidth={active ? 1.4 : ghost ? 1 : 0}
-                        filter={on ? 'url(#bmlit)' : undefined}
-                        opacity={active ? 1
-                                 : n.status === 'dark' || n.status === 'idle'
-                                 ? 0.3 : 0.8}>
-                  <title>{`${n.label || n.id} · ${s.t}`}</title>
-                </circle>
-                {(n.kind === '접힘' || n.kind === '갈래' || active) && (
-                  <text className={`bm-tag${on ? ' bm-tag--on' : ''}`} x={p.x}
-                        y={p.y - (r + 5)} textAnchor="middle">
-                    {n.label || n.id}
-                  </text>
-                )}
+                                : `hsl(${m.regions[n.region]?.hue ?? 210} 80% 70%)`}
+                        strokeWidth={1.4}
+                        filter={on ? 'url(#bmlit)' : undefined} />
+                <text className={`bm-tag${on ? ' bm-tag--on' : ''}`} x={p.x}
+                      y={p.y - (r + 5)} textAnchor="middle">
+                  {n.label || n.id}
+                </text>
               </g>
             );
           })}
