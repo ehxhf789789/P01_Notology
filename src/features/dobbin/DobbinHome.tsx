@@ -108,6 +108,11 @@ export function DobbinHome() {
       // 브리핑이 말하는 것들이 바뀌면 다시 읽는다
       // 🔴 `brainmap-changed` 를 뺐다 — 뇌 지도가 바뀐 것은 **브리핑과 무관**
       //    한데, 관문 한 판마다 3.5초짜리 `/api/briefing` 을 덩달아 읽었다.
+      // v26 델타푸시 — inbox-changed 가 잔량 참값(pending)을 실어 오면
+      //    재조회 없이 칩만 즉시 갱신한다 (사건→픽셀 <300ms 예산).
+      if (ev?.kind === 'inbox-changed' && typeof ev.pending === 'number') {
+        setBrief((prev: any) => (prev ? { ...prev, inbox: ev.pending } : prev));
+      }
       // 🔴 소화 중 inbox-changed 가 분당 ~10회 — 그때마다 브리핑을 다시
       //    읽으면 그물+렌더가 계속 돈다 (2026-09-13). 30초 조리개.
       if (['tended', 'memos-changed', 'inbox-changed',

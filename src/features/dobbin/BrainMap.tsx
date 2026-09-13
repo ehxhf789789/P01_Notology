@@ -312,6 +312,11 @@ export function BrainMap() {
    *  별도로."*). 평시엔 이름을 안 그려 겹침이 0이 된다. */
   const [regHover, setRegHover] = useState<string | null>(null);
   const [lit, setLit] = useState<string[]>([]);
+  // v26 유기화(P-D): 발화 나이·도약 펄스 — 일괄 소등 대신 개별 페이드
+  const litAtRef = useRef<Record<string, number>>({});
+  const lastFireRef = useRef<{ id: string; at: number } | null>(null);
+  const [pulses, setPulses] = useState<{ k: string; x1: number; y1: number;
+    x2: number; y2: number; at: number }[]>([]);
   /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
   const [trace, setTrace] = useState<Trace[]>([]);
   // 🔴 늦게 열거나 끊겼다 붙으면 그 사이 자국이 영영 없었다 (2026-09-11) —
@@ -469,15 +474,13 @@ export function BrainMap() {
       if (!nerveIds.length && !organs.length) return;
       // 🔴 **접는다** — 신경과 기관 이름이 겹치면 「신경 2개」라 적고 1개만
       //    나열하던 어긋남이 여기서 났다.
-      setLit([...new Set([...nerveIds, ...organs])]); setPulse(p => p + 1);
+      light([...new Set([...nerveIds, ...organs])]);
       setTurn({ trace, refs: (Array.isArray(d) ? 0 : d?.refs ?? 0),
                 llm: Array.isArray(d) ? false : !!d?.llm,
                 level: Array.isArray(d) ? null : (d?.level ?? null),
                 // 🔴 목록도 그때 붙잡는다 — 살아 있는 lit 을 읽으면 5.2초 뒤
                 //    빈 괄호가 되고, 다음 사건이 앞 턴 괄호에 섞였다 (A4)
                 organs, nerves: nerveIds.length, list: nerveIds });
-      if (timer.current) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(() => setLit([]), 5200);
     };
     window.addEventListener('dobbin:fired', on as EventListener);
     // 🔴 **실시간** (v11 D1 · 한빈 «대화하거나 판단할 때 실시간으로»).
@@ -490,13 +493,79 @@ export function BrainMap() {
     //    사건은 버퍼에 모으고 0.7초에 한 번만 상태를 만진다 — halo 지연은
     //    최대 0.7초로 «실시간» 체감 그대로다.
     const buf: any[] = [];
-    const off = onLive((ev: any) => {
-      if (ev?.kind === 'reconnected') { backfill(); return; }
-      if (ev?.kind) buf.push(ev);
-    });
-    const flush = window.setInterval(() => {
+    // v26 델타푸시 P-A — 고정 0.7s 묶음이 사슬을 «점멸»로 만들었다.
+    // 2층 렌더(기반 동결) 덕에 덧층 갱신이 값싸져 150ms 적응형으로:
+    // 한가하면 즉시(leading), 몰리면 150ms 에 한 번(trailing).
+    let lastFlush = 0;
+    let flushTimer: number | null = null;
+    const doFlush = () => {
+      lastFlush = Date.now();
       if (!buf.length) return;
       const evs = buf.splice(0);
+      applyEvents(evs);
+    };
+    const off = onLive((ev: any) => {
+      if (ev?.kind === 'reconnected') { backfill(); return; }
+      if (!ev?.kind) return;
+      buf.push(ev);
+      const since = Date.now() - lastFlush;
+      if (since >= 150) doFlush();
+      else if (flushTimer == null) {
+        flushTimer = window.setTimeout(() => {
+          flushTimer = null;
+          doFlush();
+        }, 150 - since);
+      }
+    });
+    // v26 유기화 — 점등 공용 경로: 나이 도장·도약 펄스·개별 페이드
+    const prune = () => {
+      const now = Date.now();
+      setLit(prev => prev.filter(id => now - (litAtRef.current[id] || 0) < 5000));
+      setPulses(prev => prev.filter(pp => now - pp.at < 1200));
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(prune, 2500);
+    };
+    const light = (ids: string[]) => {
+      if (!ids.length) return;
+      const now = Date.now();
+      const newPulses: typeof pulses = [];
+      for (const id of ids) {
+        litAtRef.current[id] = now;
+        const prevF = lastFireRef.current;
+        const a = prevF && pos[prevF.id];
+        const b = pos[id];
+        // 8초 안의 연쇄 발화 — 전기신호가 노드 사이를 «건너간다»
+        if (prevF && a && b && prevF.id !== id && now - prevF.at < 8000) {
+          newPulses.push({ k: `${prevF.id}>${id}@${now}`,
+                           x1: a.x, y1: a.y, x2: b.x, y2: b.y, at: now });
+        }
+        lastFireRef.current = { id, at: now };
+      }
+      setLit(prev => [...new Set([...prev, ...ids])]);
+      if (newPulses.length) setPulses(prev => [...prev.slice(-8), ...newPulses]);
+      setPulse(p => p + 1);
+      if (timer.current) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(prune, 2500);
+    };
+    const applyEvents = (evs: any[]) => {
+      // v26 P-C — 지도 노드 델타: 재구축 diff 가 오면 350KB 재조회 없이
+      // 그 노드들만 패치한다 (색 반영이 심박 대기 없이 초 단위).
+      const deltas = evs.filter(e => e.kind === 'brainmap-delta');
+      if (deltas.length) {
+        setM(prev => {
+          if (!prev) return prev;
+          const st: Record<string, any> = {};
+          let stock = prev.stock;
+          for (const d of deltas) {
+            (d.nodes || []).forEach((x: any) => { st[x.id] = x; });
+            if (d.stock) stock = { ...stock, ...d.stock };
+          }
+          return { ...prev, stock,
+                   nodes: prev.nodes.map(n => st[n.id]
+                     ? { ...n, status: st[n.id].status,
+                         why: st[n.id].why || n.why } : n) };
+        });
+      }
       // 자국부터 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다
       setTrace(prev => mergeTrace(prev, evs.map(ev => ({
         ts: Math.round(ev.at || Date.now() / 1000),
@@ -517,16 +586,11 @@ export function BrainMap() {
           ids.push(byName[`sse:${ev.kind}`]);
         }
       }
-      if (ids.length) {
-        setLit(prev => [...new Set([...prev, ...ids])]);
-        setPulse(p => p + 1);
-        if (timer.current) window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setLit([]), 5200);
-      }
-    }, 700);
+      light(ids);
+    };
     return () => {
       window.removeEventListener('dobbin:fired', on as EventListener);
-      window.clearInterval(flush);
+      if (flushTimer != null) window.clearTimeout(flushTimer);
       try { off?.(); } catch { /* 구독 해제가 막혀도 화면은 산다 */ }
     };
   }, [m, byName]);
@@ -960,7 +1024,9 @@ export function BrainMap() {
             return (
               <g key={`ov-${n.id}`} className={`bm-node${on ? ' bm-node--fire' : ''}`}
                  pointerEvents="none">
-                {on && <circle cx={p.x} cy={p.y} r={16} fill="url(#bmglow)" />}
+                {on && <circle key={`h@${litAtRef.current[n.id] || 0}`}
+                               className="bm-halofade"
+                               cx={p.x} cy={p.y} r={16} fill="url(#bmglow)" />}
                 <circle cx={p.x} cy={p.y} r={r}
                         strokeDasharray={ghost ? '2 2' : undefined}
                         fill={ghost ? 'none' : s.c}
@@ -975,10 +1041,25 @@ export function BrainMap() {
               </g>
             );
           })}
+          {/* v26 P-D — 전기신호 도약: 직전 발화 노드에서 다음 노드로 한 번
+              흐르는 점 (animateMotion 0.5s · prune 이 1.2s 뒤 걷는다) */}
+          {pulses.map(pp => (
+            <circle key={pp.k} r={2.6} className="bm-pulse">
+              <animateMotion dur="0.5s" fill="freeze"
+                path={`M${pp.x1},${pp.y1} L${pp.x2},${pp.y2}`} />
+            </circle>
+          ))}
         </svg>
         {lit.length > 0 && (
           <div className="brainmap__live" key={pulse}>
-            just fired: {lit.map(x => enOf[x] || x).join(' → ')}
+            just fired: {[...lit]
+              .sort((a, b) => (litAtRef.current[b] || 0) - (litAtRef.current[a] || 0))
+              .slice(0, 6)
+              .map((x, i) => (
+                <span key={x} style={{ opacity: Math.max(0.35, 1 - i * 0.13) }}>
+                  {i > 0 ? ' ← ' : ''}{enOf[x] || x}
+                </span>
+              ))}
           </div>
         )}
       </div>

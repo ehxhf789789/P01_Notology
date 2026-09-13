@@ -311,3 +311,11 @@
   font-size: 11.5px; opacity: .82; margin: 2px 0 4px;
 }
 .bm-stock b { font-weight: 600; color: hsl(205 80% 72%); margin-left: 3px; }
+
+/* v26 P-D — 유기적 발화: halo 개별 페이드 · 도약 펄스 */
+.bm-halofade { animation: bmhalofade 4.5s linear forwards; }
+@keyframes bmhalofade { from { opacity: 1; } to { opacity: 0; } }
+.bm-pulse { fill: #9ae6ff; filter: drop-shadow(0 0 4px rgba(154, 230, 255, .9));
+            animation: bmpulsefade 1.1s linear forwards; }
+@keyframes bmpulsefade { 0% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bm-pulse { display: none; } }
