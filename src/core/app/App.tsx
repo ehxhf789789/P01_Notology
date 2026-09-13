@@ -688,6 +688,26 @@ function App() {
   // 무거운 전체 리프레시의 45초 조리개 (아래 onLive 주석 참조)
   const heavyRef = useRef<{ last: number; timer: number | null }>(
     { last: 0, timer: null });
+  // v26-B — 낡은 번들 감지 (한빈 09-13: «반영된 건지 안 된 건지 혼동» ×3회).
+  // 열 때 본 배포 도장과 5분마다 대조 — 새 판이 올라왔으면 조용한 띠 하나.
+  const [staleBuild, setStaleBuild] = useState(false);
+  useEffect(() => {
+    let first: string | null = null;
+    let dead = false;
+    const look = async () => {
+      try {
+        const r = await fetch('/app/.build-stamp.json', { cache: 'no-store' });
+        const j = await r.json();
+        const cur = String(j.built_at || j.source_commit || '');
+        if (!cur || dead) return;
+        if (first == null) first = cur;
+        else if (cur !== first) setStaleBuild(true);
+      } catch { /* 도장을 못 읽어도 앱은 산다 */ }
+    };
+    look();
+    const t = window.setInterval(look, 300000);
+    return () => { dead = true; window.clearInterval(t); };
+  }, []);
   // Ctrl+K → dobbin 홈 (구패널을 지우며 재연결 · 2026-09-11)
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -753,6 +773,18 @@ function App() {
   return (
     <AppInitializer>
       <AppLayout />
+      {staleBuild && (
+        <div style={{ position: 'fixed', bottom: 10, left: '50%',
+                      transform: 'translateX(-50%)', zIndex: 9999,
+                      background: 'rgba(30,41,59,.95)', color: '#fbbf24',
+                      border: '1px solid rgba(251,191,36,.5)',
+                      borderRadius: 10, padding: '6px 14px', fontSize: 13,
+                      cursor: 'pointer' }}
+             onClick={() => window.location.reload()}
+             title="새 판이 배포됐습니다 — 이 화면은 낡은 번들입니다">
+          ⟳ 새 판이 배포됨 — 눌러서 새로고침
+        </div>
+      )}
     </AppInitializer>
   );
 }
