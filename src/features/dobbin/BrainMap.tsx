@@ -383,9 +383,6 @@ function holoDots(): { x: number; y: number; r: number; o: number }[] {
 }
 
 export function BrainMap() {
-  // v26-B — 코어 밑 상태 문구: 스크린샷마다 칩이 잘려 «진실»이 빠졌다.
-  // 사람이 뇌를 찍으면 반드시 담기는 자리(dobbin 글자 밑)에 같은 값을 쓴다.
-  const work = useWorkState();
   const [m, setM] = useState<Map | null>(null);
   // 🔴 노드 **객체**를 잡으면 지도가 갱신돼도 상세칸이 옛 값을 보였다 (A18)
   //    — id 만 잡고 렌더마다 지금 지도에서 찾는다.
@@ -1081,10 +1078,7 @@ export function BrainMap() {
             <circle cx={CX} cy={CY} r={5} className="bm-core__dot" />
             <text x={CX} y={CY + 44} textAnchor="middle" className="bm-core__lab">
               dobbin</text>
-            <text x={CX} y={CY + 60} textAnchor="middle"
-                  className={`bm-core__state bm-core__state--${
-                    work.cls.replace('bm-chip--', '')}`}>
-              {work.txt}</text>
+
           </g>
 
           <g>
@@ -1152,7 +1146,7 @@ export function BrainMap() {
                     style={{ fill: `hsl(${L.hue} 70% 74%)` }}>
                 {/* L.n 은 접힘 뒤 수 — census 전체 수가 정답 (A2) */}
                 {L.label}<tspan className="bm-region-n">
-                  {` ${c?.칸 ?? L.n}`}{c && c.모듈 ? ` · 모듈 ${c.모듈}` : ''}</tspan>
+                  {` ${c?.칸 ?? L.n}`}{c && c.모듈 ? ` · Modules ${c.모듈}` : ''}</tspan>
               </text>
             );
           })}
