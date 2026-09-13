@@ -74,7 +74,7 @@ type Node = {
 type Edge = { a: string; b: string; kind: string; n?: number;
   /** "static" = 코드에 있다(정적 분석) — 실측된 이음과 다르다 */
   grade?: string };
-type Region = { label: string; cx: number; cy?: number; hue: number; layer?: string | null };
+type Region = { label: string; cx: number; cy?: number; hue: number; layer?: string | null; core?: boolean };
 type Layer = { label: string; cy: number; hue: number; why?: string };
 type Map = {
   regions: Record<string, Region>; layers?: Record<string, Layer>;
@@ -193,6 +193,7 @@ const STATUS: Record<string, { c: string; t: string }> = {
   ok:       { c: '#3ecf8e', t: '의도대로 돈다' },
   part:     { c: '#e3b341', t: '일부만' },
   red:      { c: '#f0574a', t: '오배선 — 고칠 것' },
+  fires:    { c: '#a3e635', t: '운영에서 발화함 — 벤치 측정은 아직' },
   dark:     { c: '#6b7280', t: '아직 못 잼' },
   idle:     { c: '#586074', t: '요즘 안 돌았다' },
   nomeas:   { c: '#7c8598', t: '재는 자가 없다' },
@@ -245,6 +246,8 @@ const EQUIP_RING: [number, number] = [288, 334];
 
 type Lobe = { cx: number; cy: number; rx: number; ry: number; hue: number;
               label: string; n: number; equip: boolean;
+              /** 기질(core) 로브 — 첫 노드는 정확히 중심에 (한빈: «정중앙») */
+              core?: boolean;
               /** 호 구획 — 뇌 안 영역만 갖는다 (장비 선반은 없다) */
               arc?: { a0: number; a1: number; r0: number; r1: number } };
 
@@ -257,6 +260,15 @@ function lobes(nodes: Node[], regions: Record<string, Region>,
   const perLayer: Record<string, [string, number][]> = {};
   Object.entries(byR).forEach(([r, list]) => {
     const reg = regions[r]; if (!reg) return;
+    // v26-B ② — 기질(core) 영역은 두뇌 중앙 로브다. 서버가 선언한 속성
+    // (regions[r].core)이 기하를 정한다 — 노드 이름 특례 0 (한빈: «규칙
+    // 기반으로 생성·관리»). LLM·임베딩은 모든 연합 신경이 그 위에서 도는
+    // 기질이라 영역 자체가 없던 것이 결함이었다.
+    if (reg.core) {
+      out[r] = { cx: CX, cy: CY, rx: 52, ry: 52, hue: reg.hue,
+                 label: reg.label, n: list.length, equip: false, core: true };
+      return;
+    }
     const equip = list[0]?.equip ?? !reg.layer;
     if (equip || !reg.layer || !rings[reg.layer]) {
       // 🔴 **장비도 뇌를 중심으로** (한빈 2026-09-11: *"장비 부분 노드도
@@ -310,6 +322,11 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
         const th = a0 + (a1 - a0) * (0.09 + 0.82 * u);
         const rr = r0 + (r1 - r0) * (0.16 + 0.68 * v);
         pos[n.id] = { x: CX + rr * Math.cos(th), y: CY + rr * Math.sin(th) };
+      } else if (L.core) {
+        // 기질 — 첫 노드(llm)는 정중앙, 형제(임베딩 등)는 좁은 고리로
+        const a = i * 2.399963;
+        const rr = i === 0 ? 0 : 20 + 7 * Math.sqrt(i);
+        pos[n.id] = { x: L.cx + rr * Math.cos(a), y: L.cy + rr * Math.sin(a) };
       } else {
         const a = i * 2.399963;                       // 황금각 (선반)
         const t = Math.sqrt((i + 0.5) / list.length);
@@ -318,11 +335,6 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
       }
     });
   });
-  // v26-B P2 — LLM 은 기질(substrate)이라 두뇌 **중앙**이 맞다 (한빈:
-  // «llm 신경은 두뇌 중앙에 있어야 하는 것 아닌가»). 기관 로브 구석에서
-  // 코어 바로 아래 고정 좌표로 특례 배치 — 발화하면 코어 링과 겹쳐
-  // «심장»으로 보인다.
-  if (pos['기관:llm']) pos['기관:llm'] = { x: CX, y: CY + 62 };
   return pos;
 }
 
@@ -467,6 +479,8 @@ export function BrainMap() {
 
   /** 자국은 이름(`판본`)으로 오고 노드 id 는 이름표가 붙었다(`신경:판본`).
    *  둘을 잇는다 — 안 이으면 말을 걸어도 아무 데도 안 켜진다. */
+  const mRef = useRef(m);
+  mRef.current = m;
   const byName = useMemo(() => {
     const o: Record<string, string> = {};
     (m?.nodes || []).forEach(n => {
@@ -503,7 +517,15 @@ export function BrainMap() {
     });
     return o;
   }, [m]);
+  const byNameRef = useRef(byName);
+  byNameRef.current = byName;
+  const posRef = useRef<Record<string, { x: number; y: number }>>({});
   // 말을 걸면 그 턴에 울린 신경이 번쩍인다
+  // 🔴 v26-B ① — 이 effect 는 의존성이 없다(구독 안정). 전 판은
+  //    [m, byName] 의존이라 **델타·재조회가 setM 을 할 때마다 구독이
+  //    헐리고 flush 큐가 버려졌다** — «무반응 → 파문 → 몰림»의 무반응은
+  //    유휴가 아니라 이 버그가 제조한 침묵이었다. m·byName·pos 는 ref 로
+  //    읽는다 (큐·타이머가 상태 갱신에 살아남는다 — 사건 유실 0).
   useEffect(() => {
     const on = (e: Event) => {
       const d = (e as CustomEvent).detail as
@@ -520,9 +542,9 @@ export function BrainMap() {
       const firedNames = trace.flatMap(t =>
         [...String(t).matchAll(/신경 «([^»]+)» 발화/g)].map(x => x[1]));
       const nerveIds = [...new Set([...ids, ...firedNames])]
-        .map(x => byName[x] || x);
+        .map(x => byNameRef.current[x] || x);
       const organs = [...new Set(nerveIds.flatMap(nid =>
-        (m?.edges || []).filter(e => e.kind === '공급' && e.b === nid)
+        (mRef.current?.edges || []).filter(e => e.kind === '공급' && e.b === nid)
           .map(e => e.a)))];
       if (!nerveIds.length && !organs.length) return;
       // 🔴 **접는다** — 신경과 기관 이름이 겹치면 「신경 2개」라 적고 1개만
@@ -598,8 +620,8 @@ export function BrainMap() {
       for (const id of ids) {
         litAtRef.current[id] = now;
         const prevF = lastFireRef.current;
-        const a = prevF && pos[prevF.id];
-        const b = pos[id];
+        const a = prevF && posRef.current[prevF.id];
+        const b = posRef.current[id];
         // 8초 안의 연쇄 발화 — 전기신호가 노드 사이를 «건너간다»
         if (prevF && a && b && prevF.id !== id && now - prevF.at < 8000) {
           newPulses.push({ k: `${prevF.id}>${id}@${now}`,
@@ -651,7 +673,7 @@ export function BrainMap() {
           const id = ev.nerve
             || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
           if (id) {
-            const nid = byName[id] || id;       // `판본` → `신경:판본`
+            const nid = byNameRef.current[id] || id;       // `판본` → `신경:판본`
             // v26 — LLM 생성 심박(4s)·단계 발화는 «도는 중» 이다: 심박이
             // 갱신하는 10s sticky — 생성 10~90s 내내 halo 가 산다
             if (ev.nerve) {
@@ -662,20 +684,26 @@ export function BrainMap() {
         } else if (ev.kind === 'tending' && ev.step) {
           // 🔴 이 분기가 `sse` 분기보다 앞이어야 한다 (2026-09-11 전수 대조)
           //    — 뒤에 두면 MOTOR 의 sse="tending" 이 먹어 걸음 점등이 죽는다.
-          const wid = byName[ev.step] || `걸음:${ev.step}`;
+          const wid = byNameRef.current[ev.step] || `걸음:${ev.step}`;
           if (ev.phase === 'start') {
             stickyRef.current[wid] = { since: Date.now(), ttl: 120000 };
           }
           else delete stickyRef.current[wid];       // 끝 — 자연 페이드로
           ids.push(wid);
-        } else if (byName[`sse:${ev.kind}`]) {
+        } else if (byNameRef.current[`sse:${ev.kind}`]) {
           // notology 조작·사람 손(`act:*`) — 서버가 노드에 실어 보낸 `sse` 로만
-          ids.push(byName[`sse:${ev.kind}`]);
+          ids.push(byNameRef.current[`sse:${ev.kind}`]);
         }
       }
-      // 지도 재구축(brainmap-changed)·델타 도착 — 코어에서 퍼지는 파문 1회
-      if (evs.some(e => e.kind === 'brainmap-changed') || deltaIds.length) {
-        setCoreFlash(f => f + 1);
+      // v26-B ① — 부기(지도 장부 갱신) 파문은 걷었다: 인지 사건이 아니다
+      // (한빈: «파동의 의미가 뭔가»). 파문은 뜻이 있는 하나만 — 자가공학
+      // (dobbin 이 방금 제 신경을 고쳤다 · 보라).
+      for (const ev of evs) {
+        if (ev.kind === 'self-engineering') {
+          setCoreFlash(f => f + 1);
+          (ev.nodes || []).forEach((nid: string) =>
+            ids.push(byNameRef.current[nid] || nid));
+        }
       }
       light([...ids, ...deltaIds.slice(0, 14)]);
     };
@@ -684,7 +712,7 @@ export function BrainMap() {
       if (flushTimer != null) window.clearTimeout(flushTimer);
       try { off?.(); } catch { /* 구독 해제가 막혀도 화면은 산다 */ }
     };
-  }, [m, byName]);
+  }, []);
 
   // 🔴 **접는다** (2026-09-10). 제품 모듈 220개를 다 올리니 노드가 439다 —
   //    다 그리면 못 읽고, 안 그리면 거짓말이다(45/158 만 그리던 자리).
@@ -712,6 +740,7 @@ export function BrainMap() {
   const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, rings) : {}),
                      [m, shownNodes, rings]);
   const pos = useMemo(() => (m ? place(shownNodes, lb) : {}), [shownNodes, lb]);
+  posRef.current = pos;
   // 🔴 **기반층을 얼린다** (2026-09-13 · 한빈 «웹 렌더링 렉»). 노드 ~400 +
   //    이음 ~1,200 을 hover·빛·자국(0.7초)마다 React 가 전부 다시 diff 하던
   //    것이 지도 버벅임의 몸통 — 기반층은 판(m)이 바뀔 때만 다시 짓고,
@@ -1018,7 +1047,7 @@ export function BrainMap() {
               <g className="bm-core__think">
                 {coreFlash > 0 && (
                   <circle key={coreFlash} cx={CX} cy={CY} r={34}
-                          className="bm-core__flash" />
+                          className="bm-core__flash bm-core__flash--self" />
                 )}
                 <circle cx={CX} cy={CY} r={38} className="bm-core__spin" />
                 <circle cx={CX} cy={CY} r={46} className="bm-core__spin bm-core__spin--rev" />

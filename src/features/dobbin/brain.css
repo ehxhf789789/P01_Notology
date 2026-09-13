@@ -314,7 +314,7 @@
 
 /* v26 P-D — 유기적 발화: halo 개별 페이드 · 도약 펄스 */
 .bm-halofade { animation: bmhalofade 4.5s linear forwards; }
-@keyframes bmhalofade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes bmhalofade { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.15); } }
 .bm-pulse { fill: #9ae6ff; filter: drop-shadow(0 0 4px rgba(154, 230, 255, .9));
             animation: bmpulsefade 1.1s linear forwards; }
 @keyframes bmpulsefade { 0% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; } }
@@ -354,3 +354,15 @@
 }
 .bm-chip--work { color: #6ee7a8; border-color: rgba(110, 231, 168, .45); }
 .bm-chip--warn { color: #fbbf24; border-color: rgba(251, 191, 36, .5); }
+
+/* v26-B ③ — halo 등장(점화)·퇴장(퍼지며 잦아듦) · ①' 자가공학 보라 파문 */
+.bm-halofade {
+  animation: bmhaloin .25s ease-out, bmhalofade 4.5s ease-out .25s forwards;
+  transform-origin: center; transform-box: fill-box;
+}
+@keyframes bmhaloin {
+  0% { opacity: 0; transform: scale(.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+.bm-core__flash--self { stroke: #c084fc; }
+@media (prefers-reduced-motion: reduce) { .bm-halofade { animation: none; } }
