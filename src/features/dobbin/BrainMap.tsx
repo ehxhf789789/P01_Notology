@@ -705,8 +705,10 @@ export function BrainMap() {
           // 🔴 이 분기가 `sse` 분기보다 앞이어야 한다 (2026-09-11 전수 대조)
           //    — 뒤에 두면 MOTOR 의 sse="tending" 이 먹어 걸음 점등이 죽는다.
           const wid = byNameRef.current[ev.step] || `걸음:${ev.step}`;
-          if (ev.phase === 'start') {
-            stickyRef.current[wid] = { since: Date.now(), ttl: 120000 };
+          // v26-B — 걸음 심박(beat 8s): 돌고 있는 동안 sticky 가 산다.
+          // start 도 20s — beat 가 곧 이어 오므로 120s 는 과했다.
+          if (ev.phase === 'start' || ev.phase === 'beat') {
+            stickyRef.current[wid] = { since: Date.now(), ttl: 20000 };
           }
           else delete stickyRef.current[wid];       // 끝 — 자연 페이드로
           ids.push(wid);
