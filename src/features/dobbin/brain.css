@@ -2,7 +2,7 @@
    🔴 앞 판은 없는 변수(--bg2)를 써서 어두운 화면에 흰 상자가 떴다.
       여기서는 이 앱이 실제로 정의한 변수만 쓴다 (--bg-base·--text-primary
       ·--border-color·--bg-tertiary) 그리고 fallback 은 반투명으로 둔다. */
-.brainmap { margin-top: 12px; }
+.brainmap { margin-top: 12px; position: relative; }
 .brainmap h3 { font-size: 13px; margin: 0 0 6px; display: flex; gap: 8px;
   align-items: baseline; color: var(--text-primary, inherit); }
 .brainmap__sum { font-weight: 400; font-size: 11px;
@@ -344,3 +344,13 @@
   100% { opacity: 0;   transform: scale(3.2); }
 }
 @media (prefers-reduced-motion: reduce) { .bm-core__flash { display: none; } }
+
+/* v26-B P1-C — 정직한 상태 칩 */
+.bm-chip {
+  position: absolute; left: 12px; bottom: 12px; z-index: 5;
+  padding: 4px 10px; border-radius: 12px; font-size: 12px;
+  background: rgba(20, 30, 48, .8); color: #9fb3cc;
+  border: 1px solid rgba(125, 211, 252, .25); pointer-events: auto;
+}
+.bm-chip--work { color: #6ee7a8; border-color: rgba(110, 231, 168, .45); }
+.bm-chip--warn { color: #fbbf24; border-color: rgba(251, 191, 36, .5); }

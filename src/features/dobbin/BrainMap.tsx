@@ -12,6 +12,51 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { onLive } from '../../web/liveSync';
+
+// v26-B P1-C — 정직한 상태 칩 (한빈: «진짜 유휴인지 시각화 누락인지
+// 혼동스럽다»). 마지막 «일 이벤트» 나이 + 잔량으로 지도가 스스로 말한다:
+// 어두운데 «일하는 중»이면 시각화 결함, «잔량인데 신호 없음»이면 서버 공백
+// — 혼동 자체가 사라진다. 1s 틱은 이 작은 칩만 다시 그린다 (렉 규율).
+const WORK_KINDS = new Set(['thinking', 'tending', 'tended', 'inbox-changed',
+  'note-changed', 'vault-changed', 'brainmap-delta', 'brainmap-changed',
+  'upload', 'errand-changed']);
+function StateChip() {
+  const [, force] = useState(0);
+  const lastRef = useRef<number>(0);
+  const pendRef = useRef<number | null>(null);
+  useEffect(() => {
+    const off = onLive((ev: { kind?: string; pending?: number }) => {
+      if (!ev?.kind) return;
+      if (typeof ev.pending === 'number') pendRef.current = ev.pending;
+      if (WORK_KINDS.has(ev.kind) || ev.kind.startsWith('act')) {
+        lastRef.current = Date.now();
+      }
+    });
+    const t = window.setInterval(() => force(x => x + 1), 1000);
+    return () => { off?.(); window.clearInterval(t); };
+  }, []);
+  const age = lastRef.current ? (Date.now() - lastRef.current) / 1000 : Infinity;
+  const pend = pendRef.current;
+  let cls = 'bm-chip--idle';
+  let txt: string;
+  if (age < 30) {
+    cls = 'bm-chip--work';
+    txt = `일하는 중 · ${Math.max(1, Math.round(age))}초 전`;
+  } else if (pend != null && pend > 0 && age >= 60) {
+    cls = 'bm-chip--warn';
+    txt = `⚠ 잔량 ${pend.toLocaleString()} — 일 신호 없음 ${Math.round(age / 60)}분`;
+  } else if (!isFinite(age)) {
+    txt = '이벤트 대기 중';
+  } else {
+    txt = `쉼 · 마지막 일 ${age < 90 ? Math.round(age) + '초' : Math.round(age / 60) + '분'} 전`;
+  }
+  return (
+    <div className={`bm-chip ${cls}`}
+         title="마지막 일 이벤트 나이로 계산한 정직한 상태 — 어두운데 «일하는 중»이면 시각화 결함, «잔량인데 신호 없음»이면 서버 공백">
+      {txt}
+    </div>
+  );
+}
 import './brain.css';
 
 type Node = {
@@ -273,6 +318,11 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
       }
     });
   });
+  // v26-B P2 — LLM 은 기질(substrate)이라 두뇌 **중앙**이 맞다 (한빈:
+  // «llm 신경은 두뇌 중앙에 있어야 하는 것 아닌가»). 기관 로브 구석에서
+  // 코어 바로 아래 고정 좌표로 특례 배치 — 발화하면 코어 링과 겹쳐
+  // «심장»으로 보인다.
+  if (pos['기관:llm']) pos['기관:llm'] = { x: CX, y: CY + 62 };
   return pos;
 }
 
@@ -833,6 +883,7 @@ export function BrainMap() {
       {/* 🔴 판단 계기 (v18) — 지도는 관측이지 성적이 아니다. 실측 장부
           (retrieval_bench.json)만 읽고 측정일을 함께 보인다 — 낡으면
           날짜가 낡았다고 말한다. 장부가 없으면 «아직 못 잼». */}
+      <StateChip />
       {m.bench !== undefined && (
         <div className="brainmap__stock"
              title="판단 계기 — 검색 벤치가 제 손으로 쓴 장부 (측정일 포함)">
