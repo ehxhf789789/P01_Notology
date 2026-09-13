@@ -90,6 +90,7 @@ export function DobbinHome() {
   //    0개로 주는데 화면이 **열었을 때의 답을 붙들고** 있었다 — 뇌 지도에서
   //    고친 것과 **같은 결함**이 여기 그대로 있었다 (`useEffect(…, [])`).
   //    dobbin 이 일하면 브리핑도 바뀐다 — 그때 다시 읽는다.
+  const pullRef = useRef<number>(0);
   useEffect(() => {
     let dead = false;
     const pull = () => {
@@ -107,8 +108,16 @@ export function DobbinHome() {
       // 브리핑이 말하는 것들이 바뀌면 다시 읽는다
       // 🔴 `brainmap-changed` 를 뺐다 — 뇌 지도가 바뀐 것은 **브리핑과 무관**
       //    한데, 관문 한 판마다 3.5초짜리 `/api/briefing` 을 덩달아 읽었다.
+      // 🔴 소화 중 inbox-changed 가 분당 ~10회 — 그때마다 브리핑을 다시
+      //    읽으면 그물+렌더가 계속 돈다 (2026-09-13). 30초 조리개.
       if (['tended', 'memos-changed', 'inbox-changed',
-           'initiate'].includes(ev?.kind)) pull();
+           'initiate'].includes(ev?.kind)) {
+        const now = Date.now();
+        if (now - (pullRef.current || 0) > 30000) {
+          pullRef.current = now;
+          pull();
+        }
+      }
     });
     const beat = window.setInterval(pull, 60000);
     return () => {

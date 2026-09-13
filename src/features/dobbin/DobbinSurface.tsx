@@ -63,11 +63,15 @@ export function DobbinSurface() {
   const stepsRef = useRef<string[]>([]);
   useEffect(() => {
     if (!busy) { setThought(null); return; }
+    let lastSet = 0;
     return onLive(ev => {
       if (ev.kind === 'thinking' && typeof ev.text === 'string') {
         const s = stepsRef.current;
         if (s[s.length - 1] !== ev.text && s.length < 20) s.push(ev.text);
-        setThought(ev.text);
+        // 🔴 소화 중 생각 사건이 초당 ~1.7건 — 그때마다 setThought 면
+        //    대화판 전체가 갈린다 (2026-09-13 버벅임 전수). 0.8초 조리개.
+        const now = Date.now();
+        if (now - lastSet > 800) { lastSet = now; setThought(ev.text); }
       }
     });
   }, [busy]);
