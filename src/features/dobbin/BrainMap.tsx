@@ -406,8 +406,35 @@ export function BrainMap() {
     const o: Record<string, string> = {};
     (m?.nodes || []).forEach(n => {
       if (n.label) o[n.label] ??= n.id;
+      // 🔴 라벨이 영문화돼도 발화 자국·SSE 는 한국어 id 로 온다 — `ko`
+      //    (원래 이름)와 id 의 맨 이름(`신경:판본`→`판본`)을 함께 잇는다.
+      const ko = (n as { ko?: string }).ko;
+      if (ko) o[ko] ??= n.id;
+      const bare = n.id.includes(':') ? n.id.slice(n.id.indexOf(':') + 1) : '';
+      if (bare) o[bare] ??= n.id;
       o[n.id] = n.id;
       if (n.sse) o[`sse:${n.sse}`] = n.id;
+    });
+    return o;
+  }, [m]);
+  // 표시용 — id(한국어)를 영문 라벨로. 티커·괄호가 쓴다.
+  const enOf = useMemo(() => {
+    const o: Record<string, string> = {};
+    (m?.nodes || []).forEach(n => {
+      if (n.label) {
+        o[n.id] = n.label;
+        const bare = n.id.includes(':') ? n.id.slice(n.id.indexOf(':') + 1) : '';
+        if (bare) {
+          const kind = n.id.slice(0, n.id.indexOf(':'));
+          const kindEn: Record<string, string> = {
+            '신경': 'nerve', '조작': 'act', '걸음': 'step', '기관': 'organ',
+          };
+          o[n.id] = `${kindEn[kind] || kind}:${n.label}`;
+          o[bare] ??= n.label;
+        }
+        const ko = (n as { ko?: string }).ko;
+        if (ko) o[ko] ??= n.label;
+      }
     });
     return o;
   }, [m]);
@@ -905,7 +932,7 @@ export function BrainMap() {
         </svg>
         {lit.length > 0 && (
           <div className="brainmap__live" key={pulse}>
-            방금 울린 것: {lit.join(' → ')}
+            just fired: {lit.map(x => enOf[x] || x).join(' → ')}
           </div>
         )}
       </div>
