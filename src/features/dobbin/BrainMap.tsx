@@ -567,6 +567,14 @@ export function BrainMap() {
       // v26 P-C — 지도 노드 델타: 재구축 diff 가 오면 350KB 재조회 없이
       // 그 노드들만 패치한다 (색 반영이 심박 대기 없이 초 단위).
       const deltas = evs.filter(e => e.kind === 'brainmap-delta');
+      // v26 — 상태가 바뀐 노드는 눈에 보이게 발화한다 (한빈: «brainmap
+      // changed 도 애니메이션 발화가 필요»). diff 는 바뀐 것만 싣는다.
+      const deltaIds: string[] = [];
+      if (deltas.length) {
+        for (const d of deltas) {
+          (d.nodes || []).forEach((x: any) => { deltaIds.push(String(x.id)); });
+        }
+      }
       if (deltas.length) {
         setM(prev => {
           if (!prev) return prev;
@@ -615,7 +623,11 @@ export function BrainMap() {
           ids.push(byName[`sse:${ev.kind}`]);
         }
       }
-      light(ids);
+      // 지도 재구축(brainmap-changed)·델타 도착 — 코어에서 퍼지는 파문 1회
+      if (evs.some(e => e.kind === 'brainmap-changed') || deltaIds.length) {
+        setCoreFlash(f => f + 1);
+      }
+      light([...ids, ...deltaIds.slice(0, 14)]);
     };
     return () => {
       window.removeEventListener('dobbin:fired', on as EventListener);
@@ -632,6 +644,7 @@ export function BrainMap() {
   //    화면이 실뭉치가 됐다. `부름`(464)은 «코드에 있다»일 뿐 그 턴에 무슨
   //    일이 있었나를 말하지 않는다 — 기본으로 접고, 켜면 보인다.
   //    ⚠️ 접는 것과 **없애는 것**은 다르다. 수는 범례에 그대로 적힌다.
+  const [coreFlash, setCoreFlash] = useState(0);
   const [showCall, setShowCall] = useState(false);
   // 🔴 접힘 기계를 걷었다 (2026-09-11 3차 검토 — K=9999 라 도달 불가인데
   //    lit/pickId 의존성이 남아 **사건마다 446노드 전면 재배치**를 시켰다).
@@ -952,6 +965,10 @@ export function BrainMap() {
                  (한빈: 시각 효과가 없으면 중단된 것처럼 보인다). CSS 회전 —
                  JS 프레임 0. lit 은 sticky·심박이 살아 있는 동안 비지 않는다 */
               <g className="bm-core__think">
+                {coreFlash > 0 && (
+                  <circle key={coreFlash} cx={CX} cy={CY} r={34}
+                          className="bm-core__flash" />
+                )}
                 <circle cx={CX} cy={CY} r={38} className="bm-core__spin" />
                 <circle cx={CX} cy={CY} r={46} className="bm-core__spin bm-core__spin--rev" />
               </g>

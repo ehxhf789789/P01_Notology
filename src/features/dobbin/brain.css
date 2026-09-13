@@ -332,3 +332,15 @@
 @keyframes bmspinrev { to { transform: rotate(-360deg); } }
 @keyframes bmbreathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .bm-core__think { display: none; } }
+
+/* v26 — 지도 재구축·노드 델타 도착의 파문 (1회, 자기 소멸) */
+.bm-core__flash {
+  fill: none; stroke: #7dd3fc; stroke-width: 2; opacity: 0;
+  animation: bmflash 1.6s ease-out forwards;
+  transform-origin: center; transform-box: fill-box;
+}
+@keyframes bmflash {
+  0%   { opacity: .85; transform: scale(1); }
+  100% { opacity: 0;   transform: scale(3.2); }
+}
+@media (prefers-reduced-motion: reduce) { .bm-core__flash { display: none; } }
