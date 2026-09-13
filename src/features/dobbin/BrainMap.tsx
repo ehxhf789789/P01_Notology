@@ -315,6 +315,9 @@ export function BrainMap() {
   // v26 유기화(P-D): 발화 나이·도약 펄스 — 일괄 소등 대신 개별 페이드
   const litAtRef = useRef<Record<string, number>>({});
   const lastFireRef = useRef<{ id: string; at: number } | null>(null);
+  // «도는 중» 걸음 — 시작 신호로 붙고 끝 신호·120s 로 떨어진다. prune 이
+  // litAt 을 되찍어 주므로 도는 동안 halo 가 숨쉬듯 이어진다.
+  const stickyRef = useRef<Record<string, number>>({});
   const [pulses, setPulses] = useState<{ k: string; x1: number; y1: number;
     x2: number; y2: number; at: number }[]>([]);
   /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
@@ -520,7 +523,12 @@ export function BrainMap() {
     // v26 유기화 — 점등 공용 경로: 나이 도장·도약 펄스·개별 페이드
     const prune = () => {
       const now = Date.now();
-      setLit(prev => prev.filter(id => now - (litAtRef.current[id] || 0) < 5000));
+      for (const [id, since] of Object.entries(stickyRef.current)) {
+        if (now - since > 120000) delete stickyRef.current[id];
+        else litAtRef.current[id] = now;          // 도는 중 — 계속 산다
+      }
+      setLit(prev => prev.filter(id => stickyRef.current[id]
+        || now - (litAtRef.current[id] || 0) < 5000));
       setPulses(prev => prev.filter(pp => now - pp.at < 1200));
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(prune, 2500);
@@ -580,7 +588,10 @@ export function BrainMap() {
         } else if (ev.kind === 'tending' && ev.step) {
           // 🔴 이 분기가 `sse` 분기보다 앞이어야 한다 (2026-09-11 전수 대조)
           //    — 뒤에 두면 MOTOR 의 sse="tending" 이 먹어 걸음 점등이 죽는다.
-          ids.push(byName[ev.step] || `걸음:${ev.step}`);
+          const wid = byName[ev.step] || `걸음:${ev.step}`;
+          if (ev.phase === 'start') stickyRef.current[wid] = Date.now();
+          else delete stickyRef.current[wid];       // 끝 — 자연 페이드로
+          ids.push(wid);
         } else if (byName[`sse:${ev.kind}`]) {
           // notology 조작·사람 손(`act:*`) — 서버가 노드에 실어 보낸 `sse` 로만
           ids.push(byName[`sse:${ev.kind}`]);
