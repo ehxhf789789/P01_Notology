@@ -476,48 +476,50 @@ export function BrainMap() {
     // 🔴 **실시간** (v11 D1 · 한빈 «대화하거나 판단할 때 실시간으로»).
     //    답이 끝난 뒤가 아니라 **생각하는 도중** 켠다 — SSE 의 `thinking`
     //    걸음이 0.4초 안에 온다. 대화가 아닐 때(자율 걸음)도 같은 통로다.
+    // 🔴 **묶음 갱신** (2026-09-13 · 한빈 «플랫폼 자체가 버벅거린다»).
+    //    소화가 도는 동안 SSE 가 초당 ~1.7건 — 사건마다 setTrace/setLit 을
+    //    치면 400노드 SVG 가 초당 1.7회 통째로 다시 그려져 **탭 전체가
+    //    갈렸다** (서버 API 는 0.02~0.04초로 무죄 — 병목은 브라우저).
+    //    사건은 버퍼에 모으고 0.7초에 한 번만 상태를 만진다 — halo 지연은
+    //    최대 0.7초로 «실시간» 체감 그대로다.
+    const buf: any[] = [];
     const off = onLive((ev: any) => {
-      // 재접속 — 지도는 fetch 효과가, **자국은 여기서** 백필로 메운다
       if (ev?.kind === 'reconnected') { backfill(); return; }
-      // 🔴 **자국부터 남기고** 불을 켠다 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다.
-      if (ev?.kind) {
-        setTrace(prev => mergeTrace(prev, [{
-          ts: Math.round(ev.at || Date.now() / 1000),
-          kind: String(ev.kind), raw: ev,
-        }]));
-      }
-      if (ev?.kind === 'thinking') {
-        const id = ev.nerve
-          || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
-        if (!id) return;
-        const nid = byName[id] || id;      // `판본` → `신경:판본`
-        setLit(prev => (prev.includes(nid) ? prev : [...prev, nid]));
-        setPulse(p => p + 1);
-        if (timer.current) window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setLit([]), 5200);
-      } else if (ev?.kind === 'tending' && ev.step) {
-        // 🔴 **이 분기가 `sse` 분기보다 앞이어야 한다** (2026-09-11 전수 대조).
-        //    뒤에 두면, 서버 MOTOR 표에 누가 `sse="tending"` 을 붙이는 순간
-        //    앞 분기가 먹어 **걸음 51개 점등이 통째로 죽는다** — 순서가 곧
-        //    계약인데 어디에도 안 적혀 있었다.
-        //    (역사: 전에는 쏘는 자가 0곳이라 걸음이 영영 안 켜졌고, timer 도
-        //    없어 켜졌더라도 안 꺼졌을 것이다 — 2026-09-10 에 고쳤다.)
-        const id = byName[ev.step] || `걸음:${ev.step}`;
-        setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
-        setPulse(p => p + 1);
-        if (timer.current) window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setLit([]), 5200);
-      } else if (ev?.kind && byName[`sse:${ev.kind}`]) {
-        // notology 조작·사람 손(`act:*`) — **서버가 노드에 실어 보낸 `sse`** 로만
-        const id = byName[`sse:${ev.kind}`];
-        setLit(prev => (prev.includes(id) ? prev : [...prev, id]));
-        setPulse(p => p + 1);
-        if (timer.current) window.clearTimeout(timer.current);
-        timer.current = window.setTimeout(() => setLit([]), 5200);
-      }
+      if (ev?.kind) buf.push(ev);
     });
+    const flush = window.setInterval(() => {
+      if (!buf.length) return;
+      const evs = buf.splice(0);
+      // 자국부터 — 빛은 5.2초 뒤 꺼지지만 자국은 남는다
+      setTrace(prev => mergeTrace(prev, evs.map(ev => ({
+        ts: Math.round(ev.at || Date.now() / 1000),
+        kind: String(ev.kind), raw: ev,
+      }))));
+      const ids: string[] = [];
+      for (const ev of evs) {
+        if (ev.kind === 'thinking') {
+          const id = ev.nerve
+            || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
+          if (id) ids.push(byName[id] || id);   // `판본` → `신경:판본`
+        } else if (ev.kind === 'tending' && ev.step) {
+          // 🔴 이 분기가 `sse` 분기보다 앞이어야 한다 (2026-09-11 전수 대조)
+          //    — 뒤에 두면 MOTOR 의 sse="tending" 이 먹어 걸음 점등이 죽는다.
+          ids.push(byName[ev.step] || `걸음:${ev.step}`);
+        } else if (byName[`sse:${ev.kind}`]) {
+          // notology 조작·사람 손(`act:*`) — 서버가 노드에 실어 보낸 `sse` 로만
+          ids.push(byName[`sse:${ev.kind}`]);
+        }
+      }
+      if (ids.length) {
+        setLit(prev => [...new Set([...prev, ...ids])]);
+        setPulse(p => p + 1);
+        if (timer.current) window.clearTimeout(timer.current);
+        timer.current = window.setTimeout(() => setLit([]), 5200);
+      }
+    }, 700);
     return () => {
       window.removeEventListener('dobbin:fired', on as EventListener);
+      window.clearInterval(flush);
       try { off?.(); } catch { /* 구독 해제가 막혀도 화면은 산다 */ }
     };
   }, [m, byName]);
