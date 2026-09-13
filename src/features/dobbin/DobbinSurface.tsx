@@ -148,7 +148,7 @@ export function DobbinSurface() {
       try {
         r = await ask();
       } catch {
-        dobbinActions.push({ role: 'assistant',
+        dobbinActions.push({ role: 'assistant', at: Date.now(),
           content: '서버가 잠깐 숨을 고르는 듯합니다 — 다시 보냅니다.' });
         await new Promise(res => setTimeout(res, 2000));
         r = await ask();                    // 두 번째도 던지면 아래 catch 로
