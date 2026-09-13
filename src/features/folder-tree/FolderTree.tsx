@@ -154,13 +154,38 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     // 🔴 **어느 보관소를 열었는지 알려 준다** (2026-08-25). `notes.vault_path`
     //    는 뿌리표가 없는 상대경로라, 안 주면 서버가 **두 뿌리를 합쳐 센다** —
     //    실측: 배지 08_Contacts **125** 인데 목록은 **0개 노트**였다.
-    const load = () => invoke<Record<string, number>>('note_counts', { root: vaultPath })
-      .then(c => { if (!dead) setServerCounts(c || {}); })
-      .catch(() => {});
+    // 🔴 **무필터 원신호 청취가 note_counts 폭풍을 만들었다** (2026-09-13
+    //    실측: 부팅 한 번에 같은 인자 note_counts 40여 발 — thinking 사건
+    //    (초당 ~1.7건)마다 재호출 → 서버 큐가 잠겨 부팅 17.5초·전 조작
+    //    버벅임). 배지가 바뀔 사건만 듣고, 20초 창에 한 번만 센다.
+    let inflight = false;
+    let last = 0;
+    let t: number | null = null;
+    const load = () => {
+      if (inflight) return;
+      inflight = true;
+      last = Date.now();
+      invoke<Record<string, number>>('note_counts', { root: vaultPath })
+        .then(c => { if (!dead) setServerCounts(c || {}); })
+        .catch(() => {})
+        .finally(() => { inflight = false; });
+    };
     load();
-    const h = () => load();
+    const KINDS = ['vault-changed', 'note-changed', 'shelf-changed',
+                   'file-changed', 'tended', 'inbox-changed', 'reconnected'];
+    const h = (e: Event) => {
+      const k = (e as CustomEvent).detail?.kind as string;
+      if (!KINDS.includes(k)) return;
+      const since = Date.now() - last;
+      if (since > 20000) load();
+      else if (t == null) {
+        t = window.setTimeout(() => { t = null; load(); },
+                              Math.max(1000, 20000 - since));
+      }
+    };
     window.addEventListener('dobbin:live', h);
-    return () => { dead = true; window.removeEventListener('dobbin:live', h); };
+    return () => { dead = true; if (t != null) window.clearTimeout(t);
+                   window.removeEventListener('dobbin:live', h); };
   }, [vaultPath]);
 
   // Precompute note counts for all folders to avoid expensive recalculations during render

@@ -49,9 +49,14 @@ export function ClusterReview() {
   //    만나는 「있는데 안 불린다」이고, 이번엔 내 손이다.
   useEffect(() => {
     void load();
+    let last = 0;
     const h = (e: Event) => {
       const k = (e as CustomEvent).detail?.kind;
       if (!k || k === 'vault-changed' || k === 'tended' || k === 'inbox-changed') {
+        // 소화 중 inbox-changed 분당 ~10회 — 30초 조리개 (2026-09-13)
+        const now = Date.now();
+        if (now - last < 30000) return;
+        last = now;
         void load();
       }
     };

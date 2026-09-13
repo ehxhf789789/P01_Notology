@@ -43,17 +43,30 @@ async function load() {
   }
 }
 
+// 🔴 무필터로 모든 SSE 사건(thinking 초당 ~1.7건)마다 load() — 알림 fetch
+//    폭풍의 한 갈래였다 (2026-09-13). 알림이 바뀔 사건만 + 15초 조리개.
+let liveLast = 0;
+function onLiveEvt(e: Event) {
+  const k = (e as CustomEvent).detail?.kind as string;
+  if (!['memos-changed', 'inbox-changed', 'tended', 'initiate',
+        'reconnected'].includes(k)) return;
+  const now = Date.now();
+  if (now - liveLast < 15000) return;      // POLL 이 곧 따라온다
+  liveLast = now;
+  void load();
+}
+
 function start() {
   if (timer) return;
   void load();
   timer = setInterval(load, POLL_MS);
-  window.addEventListener('dobbin:live', load);
+  window.addEventListener('dobbin:live', onLiveEvt);
   window.addEventListener('dobbin:notices-seen', emit);
 }
 function stop() {
   if (!timer) return;
   clearInterval(timer); timer = null;
-  window.removeEventListener('dobbin:live', load);
+  window.removeEventListener('dobbin:live', onLiveEvt);
   window.removeEventListener('dobbin:notices-seen', emit);
 }
 
