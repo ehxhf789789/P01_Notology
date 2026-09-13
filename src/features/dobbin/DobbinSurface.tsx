@@ -126,14 +126,33 @@ export function DobbinSurface() {
     try {
       const turns = [...useDobbinStore.getState().messages]
         .map(m => ({ role: m.role, content: m.content }));
-      const r = await fetch('/v1/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json',
-                   // 🔴 **내가 할 수 있는 일을 알린다** (MCP 꼴, clientTools.ts).
-                   //    이게 없으면 dobbin은 못 하는 것을 하겠다고 말하게 된다.
-                   'X-Client-Tools': clientTools().join(',') },
-        // model 은 규약이다 — ui_e2e 가 「요청 몸이 규약과 같은가」를 문다
-        body: JSON.stringify({ model: 'dobbin', messages: turns }) });
+      // 🔴 **타임아웃 + 1회 자동 재시도** (v25 웹감사 A1 · 한빈: «서버에
+      //    닿지 못했다»). 수리 배포의 재기동 창(5~15초)이나 순간 웨지에
+      //    사람이 실패 문구를 보지 않게 — 2초 뒤 한 번은 조용히 다시 민다.
+      //    타임아웃 120s: 없으면 서버가 행일 때 스피너가 영원히 돈다.
+      const ask = () => {
+        const ab = new AbortController();
+        const kill = window.setTimeout(() => ab.abort(), 120000);
+        return fetch('/v1/chat/completions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json',
+                     // 🔴 **내가 할 수 있는 일을 알린다** (MCP 꼴, clientTools.ts).
+                     //    이게 없으면 dobbin은 못 하는 것을 하겠다고 말하게 된다.
+                     'X-Client-Tools': clientTools().join(',') },
+          // model 은 규약이다 — ui_e2e 가 「요청 몸이 규약과 같은가」를 문다
+          body: JSON.stringify({ model: 'dobbin', messages: turns }),
+          signal: ab.signal,
+        }).finally(() => window.clearTimeout(kill));
+      };
+      let r: Response;
+      try {
+        r = await ask();
+      } catch {
+        dobbinActions.push({ role: 'assistant',
+          content: '서버가 잠깐 숨을 고르는 듯합니다 — 다시 보냅니다.' });
+        await new Promise(res => setTimeout(res, 2000));
+        r = await ask();                    // 두 번째도 던지면 아래 catch 로
+      }
       const j = await r.json();
       const msg = j?.choices?.[0]?.message;
       dobbinActions.push({ role: 'assistant',
