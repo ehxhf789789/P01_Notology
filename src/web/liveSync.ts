@@ -51,10 +51,25 @@ export function startLive(): void {
   if (source) return;
   watchBuild();
   let everBroke = false;
+  // v26-B 감시견 — SSE 는 **오류 없이 굳을 수** 있다 (실측: 탭이 조용히
+  // 멎고 강력새로고침만 살렸다 — onerror 가 안 오면 재접속 로직이 영원히
+  // 안 돈다). 서버가 20s 마다 실이벤트 ping 을 보내므로, 55s 무신호면
+  // 소켓이 굳은 것 — 제 손으로 끊고 다시 붙는다.
+  let lastMsg = Date.now();
+  window.setInterval(() => {
+    if (source && Date.now() - lastMsg > 55000) {
+      everBroke = true;
+      try { source.close(); } catch { /* 이미 죽었을 수 있다 */ }
+      source = null;
+      retry = 1000;
+      open();
+    }
+  }, 15000);
   const open = () => {
     source = new EventSource('/api/events');
     source.onopen = () => {
       retry = 1000;
+      lastMsg = Date.now();
       // 🔴 **끊긴 사이 사건은 영영 유실이다** (2026-09-11 신호 경로 전수 —
       //    SSE 에 Last-Event-ID 재전송이 없다). 다시 붙었을 때 리스너들에게
       //    「재접속」을 알려 각자 다시 읽게 한다 — 유실을 재조회로 메운다.
@@ -65,6 +80,7 @@ export function startLive(): void {
       }
     };
     source.onmessage = (e) => {
+      lastMsg = Date.now();
       try {
         const ev = JSON.parse(e.data);
         handlers.forEach((h) => { try { h(ev); } catch { /* 한 곳이 죽어도 나머지는 돈다 */ } });
