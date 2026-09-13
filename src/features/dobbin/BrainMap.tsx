@@ -562,7 +562,9 @@ export function BrainMap() {
   //    빛·hover·선택은 아래 얇은 덧층이 그린다. useMemo 가 같은 엘리먼트
   //    참조를 돌려주면 React 는 그 서브트리 diff 를 통째로 건너뛴다.
   const baseLayer = useMemo(() => {
-    if (!m) return null;
+    // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
+    //    가 터졌고 앱 전체가 죽었다 (ui_e2e pageerror 실측)
+    if (!m?.nodes?.length || !m.edges) return null;
     const byId: Record<string, Node> = {};
     m.nodes.forEach(n => { byId[n.id] = n; });
     return (
