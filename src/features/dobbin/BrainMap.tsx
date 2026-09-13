@@ -317,7 +317,7 @@ export function BrainMap() {
   const lastFireRef = useRef<{ id: string; at: number } | null>(null);
   // «도는 중» 걸음 — 시작 신호로 붙고 끝 신호·120s 로 떨어진다. prune 이
   // litAt 을 되찍어 주므로 도는 동안 halo 가 숨쉬듯 이어진다.
-  const stickyRef = useRef<Record<string, number>>({});
+  const stickyRef = useRef<Record<string, { since: number; ttl: number }>>({});
   const [pulses, setPulses] = useState<{ k: string; x1: number; y1: number;
     x2: number; y2: number; at: number }[]>([]);
   /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
@@ -523,15 +523,23 @@ export function BrainMap() {
     // v26 유기화 — 점등 공용 경로: 나이 도장·도약 펄스·개별 페이드
     const prune = () => {
       const now = Date.now();
-      for (const [id, since] of Object.entries(stickyRef.current)) {
-        if (now - since > 120000) delete stickyRef.current[id];
+      for (const [id, st] of Object.entries(stickyRef.current)) {
+        if (now - st.since > st.ttl) delete stickyRef.current[id];
         else litAtRef.current[id] = now;          // 도는 중 — 계속 산다
       }
-      setLit(prev => prev.filter(id => stickyRef.current[id]
-        || now - (litAtRef.current[id] || 0) < 5000));
-      setPulses(prev => prev.filter(pp => now - pp.at < 1200));
+      setLit(prev => {
+        const next = prev.filter(id => stickyRef.current[id]
+          || now - (litAtRef.current[id] || 0) < 5000);
+        return next.length === prev.length ? prev : next;
+      });
+      setPulses(prev => (prev.length
+        ? prev.filter(pp => now - pp.at < 1200) : prev));
+      // 유휴 정지 가드 — 살아 있는 것이 없으면 루프를 세운다 (light 가
+      // 다시 깨운다). 없으면 2.5s 마다 영원히 재렌더한다 (렉 규율).
+      const alive = Object.keys(stickyRef.current).length > 0
+        || Object.values(litAtRef.current).some(t => now - t < 6000);
       if (timer.current) window.clearTimeout(timer.current);
-      timer.current = window.setTimeout(prune, 2500);
+      timer.current = alive ? window.setTimeout(prune, 2500) : null;
     };
     const light = (ids: string[]) => {
       if (!ids.length) return;
@@ -584,12 +592,22 @@ export function BrainMap() {
         if (ev.kind === 'thinking') {
           const id = ev.nerve
             || /신경 «([^»]+)» 발화/.exec(String(ev.text || ''))?.[1];
-          if (id) ids.push(byName[id] || id);   // `판본` → `신경:판본`
+          if (id) {
+            const nid = byName[id] || id;       // `판본` → `신경:판본`
+            // v26 — LLM 생성 심박(4s)·단계 발화는 «도는 중» 이다: 심박이
+            // 갱신하는 10s sticky — 생성 10~90s 내내 halo 가 산다
+            if (ev.nerve) {
+              stickyRef.current[nid] = { since: Date.now(), ttl: 10000 };
+            }
+            ids.push(nid);
+          }
         } else if (ev.kind === 'tending' && ev.step) {
           // 🔴 이 분기가 `sse` 분기보다 앞이어야 한다 (2026-09-11 전수 대조)
           //    — 뒤에 두면 MOTOR 의 sse="tending" 이 먹어 걸음 점등이 죽는다.
           const wid = byName[ev.step] || `걸음:${ev.step}`;
-          if (ev.phase === 'start') stickyRef.current[wid] = Date.now();
+          if (ev.phase === 'start') {
+            stickyRef.current[wid] = { since: Date.now(), ttl: 120000 };
+          }
           else delete stickyRef.current[wid];       // 끝 — 자연 페이드로
           ids.push(wid);
         } else if (byName[`sse:${ev.kind}`]) {
@@ -929,6 +947,15 @@ export function BrainMap() {
 
           {/* dobbin 코어 — 중심. 상태가 아니라 자리다 (얼굴은 히어로에 있다) */}
           <g className="bm-core" aria-hidden="true">
+            {lit.length > 0 && (
+              /* v26 — 무엇이든 도는 동안 코어가 쉼 없이 «생각 중» 을 돈다
+                 (한빈: 시각 효과가 없으면 중단된 것처럼 보인다). CSS 회전 —
+                 JS 프레임 0. lit 은 sticky·심박이 살아 있는 동안 비지 않는다 */
+              <g className="bm-core__think">
+                <circle cx={CX} cy={CY} r={38} className="bm-core__spin" />
+                <circle cx={CX} cy={CY} r={46} className="bm-core__spin bm-core__spin--rev" />
+              </g>
+            )}
             <circle cx={CX} cy={CY} r={30} className="bm-core__halo" />
             <circle cx={CX} cy={CY} r={17} className="bm-core__ring" />
             <circle cx={CX} cy={CY} r={5} className="bm-core__dot" />
