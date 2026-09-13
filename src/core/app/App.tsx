@@ -685,6 +685,9 @@ function AppLayout() {
 }
 
 function App() {
+  // 무거운 전체 리프레시의 45초 조리개 (아래 onLive 주석 참조)
+  const heavyRef = useRef<{ last: number; timer: number | null }>(
+    { last: 0, timer: null });
   // Ctrl+K → dobbin 홈 (구패널을 지우며 재연결 · 2026-09-11)
   useEffect(() => {
     const h = (e: KeyboardEvent) => {
@@ -721,11 +724,29 @@ function App() {
           || ev.kind === 'memos-changed' || ev.kind === 'inbox-changed'
           || ev.kind === 'note-changed' || ev.kind === 'shelf-changed'
           || ev.kind === 'reconnected') {
-        refreshActions.incrementSearchRefresh();
-        refreshActions.refreshCalendar();
-        refreshActions.incrementOntologyRefresh();
-        contentCacheActions.invalidateAll();
-        fileTreeActions.refreshFileTree();
+        // 🔴 **묶어서 한 번만** (2026-09-13 · 한빈 «사용 불편할 정도로
+        //    버벅»). 소화가 도는 동안 inbox-changed 가 분당 ~10회 —
+        //    그때마다 invalidateAll+트리 재조회+검색·달력·온톨로지
+        //    리프레시가 돌아 앱 전체가 갈렸다. 2-14-14 가 «전체 리로드가
+        //    버퍼링의 정체» 라며 없앤 병이 이 길로 되살아난 것.
+        //    45초 창에 한 번만 돌린다 — reconnected(유실 복구)만 즉시.
+        const run = () => {
+          heavyRef.current.last = Date.now();
+          refreshActions.incrementSearchRefresh();
+          refreshActions.refreshCalendar();
+          refreshActions.incrementOntologyRefresh();
+          contentCacheActions.invalidateAll();
+          fileTreeActions.refreshFileTree();
+        };
+        const since = Date.now() - heavyRef.current.last;
+        if (ev.kind === 'reconnected' || since > 45000) {
+          run();
+        } else if (heavyRef.current.timer == null) {
+          heavyRef.current.timer = window.setTimeout(() => {
+            heavyRef.current.timer = null;
+            run();
+          }, Math.max(1000, 45000 - since));
+        }
       }
     });
   }, []);   // Ctrl+K — 어디서든 dobbin을 부른다

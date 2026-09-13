@@ -353,6 +353,7 @@ export function BrainMap() {
     //    ② 앞 요청이 도는 중이면 **또 부르지 않는다**.
     let inflight = false;
     let timer: number | null = null;
+    const lastBuiltRef = { current: '' as string };
     const raw = () => {
       if (inflight) return;
       inflight = true;
@@ -365,6 +366,12 @@ export function BrainMap() {
       .then(r => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
       .then(j => {
         if (dead || !j) return;
+        // 🔴 같은 판이면 다시 안 그린다 (2026-09-13) — 60초 심박마다
+        //    350KB 판을 setM 하면 400노드 SVG 가 통째로 재렌더된다.
+        //    built_at 이 그대로면 서버 캐시 적중 = 화면도 그대로가 맞다.
+        const ba = (j as { built_at?: string }).built_at;
+        if (ba && ba === lastBuiltRef.current) { setErr(null); return; }
+        if (ba) lastBuiltRef.current = ba;
         setM(j as Map);
         setErr(null);
         // 🔴 fetch 시각이 아니라 **지은 시각** — 거짓 신선도 금지
