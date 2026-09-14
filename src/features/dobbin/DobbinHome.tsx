@@ -111,7 +111,16 @@ export function DobbinHome() {
       // v26 델타푸시 — inbox-changed 가 잔량 참값(pending)을 실어 오면
       //    재조회 없이 칩만 즉시 갱신한다 (사건→픽셀 <300ms 예산).
       if (ev?.kind === 'inbox-changed' && typeof ev.pending === 'number') {
-        setBrief((prev: any) => (prev ? { ...prev, inbox: ev.pending } : prev));
+        // v29 — 칩(inbox)만 갈고 문장을 얼려 두면 「투입구 3304」 칩과
+        // 「2517건이 기다립니다」 문장이 한 화면에서 딴말을 한다 (한빈
+        // 지적). 서버 문장의 그 수도 같은 델타로 갈아끼운다 — 자는 하나다.
+        setBrief((prev: any) => (prev ? {
+          ...prev, inbox: ev.pending,
+          say: typeof prev.say === 'string'
+            ? prev.say.replace(/투입구에 \d+건이 기다립니다/,
+                               `투입구에 ${ev.pending}건이 기다립니다`)
+            : prev.say,
+        } : prev));
       }
       // 🔴 소화 중 inbox-changed 가 분당 ~10회 — 그때마다 브리핑을 다시
       //    읽으면 그물+렌더가 계속 돈다 (2026-09-13). 30초 조리개.
