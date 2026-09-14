@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import type { NoteMetadata } from '../types';
+import { invalidateNoteList } from '../noteListCache';
 
 // Optimistic note patch: allows instant UI updates before Tantivy indexing completes
 export interface NotePatch {
@@ -41,6 +42,7 @@ export const useRefreshStore = create<RefreshState>()(
 
     // Increment search refresh trigger
     incrementSearchRefresh: () => {
+      invalidateNoteList();          // v29-B — 공유 노트 목록 캐시를 낡음 표시
       set((state) => ({ searchRefreshTrigger: state.searchRefreshTrigger + 1 }));
     },
 
@@ -66,6 +68,7 @@ export const useRefreshStore = create<RefreshState>()(
 
     // Batch refresh: increment multiple triggers in a single set() to reduce re-renders
     batchRefresh: (options) => {
+      if (options.search) invalidateNoteList();   // v29-B
       set((state) => ({
         ...(options.search ? { searchRefreshTrigger: state.searchRefreshTrigger + 1 } : {}),
         ...(options.calendar ? { calendarRefreshTrigger: state.calendarRefreshTrigger + 1 } : {}),

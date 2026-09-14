@@ -2,6 +2,7 @@
 import { FACET_NAMESPACES } from '../../core/types/tagOntology';
 import { useAttachmentStore } from '../attachments/stores/attachmentStore';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, type CSSProperties } from 'react';
+import { cachedNoteList, getNoteList } from '../../core/noteListCache';
 import { searchCommands, utilCommands } from '../../core/services/tauriCommands';
 import { FilePlus, Filter, Search as SearchIcon, X as XIcon, ArrowUpDown, WholeWord, Library } from 'lucide-react';
 import { useHoverStore, hoverActions } from '../hover-windows/stores/hoverStore';
@@ -156,6 +157,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const [attachmentsQuery, setAttachmentsQuery] = useState('');
   const [mode, setMode] = useState<SearchMode>('frontmatter');
   const [notes, setNotes] = useState<NoteMetadata[]>([]);
+  // v29-B — «불러오는 중»과 «결과 없음»을 가른다 (조용한 빈 판 금지)
+  const [notesState, setNotesState] = useState<'loading' | 'ok'>('loading');
   const [contentResults, setContentResults] = useState<SearchResult[]>([]);
   // attachmentResults state retired 2026-05-20 — `<AttachmentsTab>` v2
   // reads from the AttachmentRef index (`useAttachmentStore`) directly.
@@ -327,10 +330,16 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     };
 
     try {
-      const results = await searchCommands.queryNotes(filter);
+      // v29-B — 공유 캐시: 리마운트 직후에도 손에 있는 판을 즉시 그린다.
+      //   (전에는 매번 전 서고 1.37MB 를 새로 받는 동안 «결과 없음»이 섰다)
+      const cached = cachedNoteList(filter);
+      if (cached) { setNotes(cached); setNotesState('ok'); }
+      const results = await getNoteList(filter);
       setNotes(results);
+      setNotesState('ok');
     } catch (err) {
       console.error('Failed to query notes:', err);
+      setNotesState('ok');            // 실패도 «불러오는 중» 에 얼려두지 않는다
     }
   }, []);
 
@@ -479,8 +488,11 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         //    폴더들과 나란히 섞인다. 1-3의 *"탐색기로 찾을 수 있어야 한다"* 가
         //    무너진다. 폴더가 폴더인 이유는 **그 안에 든 것을 감추기 때문**이다.
         //
-        //    서버가 이미 직계만 준다(`query_notes` 의 folder 필터). 여기서는
-        //    한 겹 더 확인만 한다 — 하위 폴더의 **폴더노트**는 문이므로 남긴다.
+        //    ⚠️ v29-B 정정: 이 화면은 folder 필터를 **보내지 않는다** —
+        //    전체 목록을 공유 캐시(noteListCache)로 받아 여기 JS 가 직계를
+        //    거른다 (컨테이너 전환 즉시성). 서버 필터는 NoteFilter.folder 로
+        //    열려 있고 부분 조회(모바일 등)가 쓴다. 아래 확인이 유일한
+        //    직계 판정이다 — 하위 폴더의 **폴더노트**는 문이므로 남긴다.
         const relativePath = normPath.slice(prefix.length + 1);
         const depth = relativePath.split('/').length;
         if (depth > 1) {
@@ -1680,7 +1692,8 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
             {filteredNotes.length === 0 ? (
               <div className="search-grid-row search-empty-row">
                 <div className="search-td search-empty">
-                  {searchIndexing ? t('indexInitializing', language) : t('noResults', language)}
+                  {searchIndexing ? t('indexInitializing', language)
+        : notesState === 'loading' ? t('trashLoading', language) : t('noResults', language)}
                 </div>
               </div>
             ) : (() => {

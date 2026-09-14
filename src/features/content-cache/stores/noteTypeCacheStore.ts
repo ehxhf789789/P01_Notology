@@ -5,6 +5,7 @@ import { fileLookupActions } from '../../../core/stores/fileLookupStore';
 import { contentCacheActions } from './contentCacheStore';
 import { useTemplateStore } from '../../templates/stores/templateStore';
 import type { NoteMetadata } from '../../../core/types';
+import { getNoteList } from '../../../core/noteListCache';
 
 // Track in-flight lazy fetches to avoid duplicate requests
 const pendingTypeFetches = new Set<string>();
@@ -52,7 +53,7 @@ export const useNoteTypeCacheStore = create<NoteTypeCacheState>()((set, get) => 
     set({ isLoading: true });
 
     try {
-      const notes = await searchCommands.queryNotes({});
+      const notes = await getNoteList({});   // v29-B — 공유 캐시 (이중 fetch 제거)
       const newCache = new Map<string, string>();
 
       // 5.0.5a-migration — build the registered-types set from the
@@ -206,7 +207,7 @@ export const useNoteTypeCacheStore = create<NoteTypeCacheState>()((set, get) => 
     const target = legacyType.trim().toLowerCase();
     if (!target) return [];
     try {
-      const notes = await searchCommands.queryNotes({});
+      const notes = await getNoteList({});   // v29-B — 공유 캐시 (이중 fetch 제거)
       return notes
         .filter(n => (n.note_type || '').toString().trim().toLowerCase() === target)
         .map(n => n.path);

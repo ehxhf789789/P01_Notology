@@ -205,6 +205,10 @@ export interface SearchResult {
 }
 
 export interface NoteFilter {
+  /** v29-B — 서버 query_notes 가 구현하는 폴더 필터 (vault_api.py:1931).
+   *  전체 목록 캐시(noteListCache)가 주력이라 컨테이너 화면은 아직 안
+   *  쓰지만, 모바일 등 부분 조회가 쓸 수 있게 칸을 연다. */
+  folder?: string;
   note_type?: string;
   tags?: string[];
   created_after?: string;
