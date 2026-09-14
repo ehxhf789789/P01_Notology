@@ -367,3 +367,9 @@
 .bm-core__state { font-size: 10px; fill: #7c8598; }
 .bm-core__state--work { fill: #6ee7a8; }
 .bm-core__state--warn { fill: #fbbf24; }
+
+/* v29 — 기반 이음 캔버스 층. svg(투명 배경) 밑에 깔린다 · GPU 합성 */
+.brainmap__edgecanvas {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none;
+}

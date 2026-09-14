@@ -12,6 +12,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { lifeTail, onLive, sseState } from '../../web/liveSync';
+import { budget as qBudget, qualityInfo } from '../../web/quality';
 
 // v26-B P1-C — 정직한 상태 칩 (한빈: «진짜 유휴인지 시각화 누락인지
 // 혼동스럽다»). 마지막 «일 이벤트» 나이 + 잔량으로 지도가 스스로 말한다:
@@ -112,7 +113,7 @@ function StateChip() {
     } catch { /* 판을 못 읽어도 진단은 나간다 */ }
     const heap = (performance as { memory?: { usedJSHeapSize: number } })
       .memory?.usedJSHeapSize;
-    setDiag(`판 ${stamp} · 모션줄임 ${rm ? '켜짐(OS)' : '꺼짐'} · SSE ${
+    setDiag(`${qualityInfo()} ｜ 판 ${stamp} · 모션줄임 ${rm ? '켜짐(OS)' : '꺼짐'} · SSE ${
       ['연결중', '열림', '닫힘'][sseState()] ?? '없음'} · heap ${
       heap ? Math.round(heap / 1048576) + 'MB' : '?'} ｜ ${
       lifeTail(4).join(' → ') || '(생애 기록 없음)'}`);
@@ -698,8 +699,11 @@ export function BrainMap() {
         }
         lastFireRef.current = { id, at: now };
       }
-      setLit(prev => [...new Set([...prev, ...ids])]);
-      if (newPulses.length) setPulses(prev => [...prev.slice(-8), ...newPulses]);
+      const qb = qBudget();                     // v29 — 기기 적응 표현 예산
+      setLit(prev => [...new Set([...prev, ...ids])].slice(-qb.haloCap));
+      if (qb.pulses && newPulses.length) {
+        setPulses(prev => [...prev.slice(-8), ...newPulses]);
+      }
       setPulse(p => p + 1);
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(prune, 2500);
@@ -817,29 +821,76 @@ export function BrainMap() {
   //    것이 지도 버벅임의 몸통 — 기반층은 판(m)이 바뀔 때만 다시 짓고,
   //    빛·hover·선택은 아래 얇은 덧층이 그린다. useMemo 가 같은 엘리먼트
   //    참조를 돌려주면 React 는 그 서브트리 diff 를 통째로 건너뛴다.
+  // ── v29 — 기반 이음 Canvas 페인터. viewBox(980×700)와 같은 좌표계를
+  //    CSS 크기 배율로 재현한다 (.brainmap__svg 는 width:100%·height:auto 라
+  //    항상 같은 종횡비 — 배율은 cssW/W 하나뿐이다). 절전 단은 dpr 1.
+  const edgeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    const cv = edgeCanvasRef.current;
+    if (!cv || !m?.nodes?.length || !m.edges) return;
+    const draw = () => {
+      const cssW = cv.clientWidth, cssH = cv.clientHeight;
+      if (!cssW || !cssH) return;
+      const qb = qBudget();
+      const dpr = qb.haloCap <= 4 ? 1 : Math.min(window.devicePixelRatio || 1, 2);
+      cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+      const ctx = cv.getContext('2d');
+      if (!ctx) return;
+      const k = (cssW / W) * dpr;            // viewBox → 물리 픽셀
+      ctx.setTransform(k, 0, 0, k, 0, 0);
+      ctx.clearRect(0, 0, W, H);
+      ctx.globalAlpha = 0.5;                 // .bm-edge 전역 (brain.css:300)
+      ctx.lineCap = 'round';
+      const byId: Record<string, Node> = {};
+      m.nodes.forEach(n => { byId[n.id] = n; });
+      // brain.css 의 이음 색·점선 그대로 (폭은 전역 .7 이 덮는다)
+      const STYLE: Record<string, { c: string; d?: number[] }> = {
+        chain: { c: 'rgba(190,210,255,.10)' },
+        feed:  { c: 'rgba(160,255,220,.20)', d: [2, 3] },
+        call:  { c: 'rgba(150,190,255,.22)' },
+        gate:  { c: 'rgba(214,150,255,.24)', d: [1, 4] },
+        act:   { c: 'rgba(120,230,160,.26)' },
+        debt:  { c: 'rgba(255,138,196,.30)', d: [3, 3] },
+        bad:   { c: 'rgba(240,87,74,.55)' },
+        tree:  { c: 'rgba(255,214,140,.30)' },
+      };
+      ctx.lineWidth = 0.7;
+      for (const e of m.edges) {
+        if (!showCall && (e.kind === '부름' || e.kind === '사슬')) continue;
+        if (!shownIds.has(e.a) || !shownIds.has(e.b)) continue;
+        const a = pos[e.a], b = pos[e.b];
+        if (!a || !b) continue;
+        const na = byId[e.a], nb = byId[e.b];
+        const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
+          !== (nb.layer ?? m.regions[nb.region]?.layer);
+        const st = cross ? { c: 'rgba(155,124,255,.35)' }
+          : (STYLE[EDGE_CLS[e.kind] || 'chain'] || STYLE.chain);
+        ctx.strokeStyle = st.c;
+        ctx.setLineDash(st.d ?? []);
+        const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.quadraticCurveTo(mx2, my2 - (cross ? 26 : 12), b.x, b.y);
+        ctx.stroke();
+      }
+    };
+    draw();
+    const ro = new ResizeObserver(draw);
+    ro.observe(cv);
+    return () => ro.disconnect();
+  }, [m, pos, shownIds, showCall]);
+
   const baseLayer = useMemo(() => {
     // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
     //    가 터졌고 앱 전체가 죽었다 (ui_e2e pageerror 실측)
     if (!m?.nodes?.length || !m.edges) return null;
     const byId: Record<string, Node> = {};
     m.nodes.forEach(n => { byId[n.id] = n; });
+    // v29 — 기반 이음 ~1,300 개는 SVG DOM 이 아니라 아래 Canvas 가 그린다
+    //    (판이 바뀔 때 1회 페인트 · GPU 합성). DOM 에서 이음이 빠지면
+    //    halo·펄스 애니메이션 중의 SVG 재페인트 비용이 노드 몫만 남는다.
     return (
       <g>
-        {m.edges.map((e, i) => {
-          if (!showCall && (e.kind === '부름' || e.kind === '사슬')) return null;
-          if (!shownIds.has(e.a) || !shownIds.has(e.b)) return null;
-          const a = pos[e.a], b = pos[e.b];
-          if (!a || !b) return null;
-          const na = byId[e.a], nb = byId[e.b];
-          const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
-            !== (nb.layer ?? m.regions[nb.region]?.layer);
-          const cls = `bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'}`
-            + (cross ? ' bm-edge--cross' : '')
-            + (e.grade === 'static' ? ' bm-edge--static' : '');
-          const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
-          const d = `M${a.x},${a.y} Q${mx2},${my2 - (cross ? 26 : 12)} ${b.x},${b.y}`;
-          return <path key={i} d={d} className={cls} fill="none" />;
-        })}
         {shownNodes.map(n => {
           const p = pos[n.id]; if (!p) return null;
           const s = STATUS[n.status] || STATUS.dark;
@@ -1051,6 +1102,8 @@ export function BrainMap() {
         </div>
       )}
       <div className="brainmap__wrap">
+        <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
+                aria-hidden="true" />
         <svg viewBox={`0 0 ${W} ${H}`} className="brainmap__svg" role="img"
              aria-label="dobbin 의 뇌 지도">
           <defs>

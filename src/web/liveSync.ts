@@ -160,3 +160,45 @@ export function startLive(): void {
   };
   open();
 }
+
+// ── v29 — 화면 오류 자가 보고 (한빈: «대화창도 불러와지지 않는 등» —
+//    그런 사건이 사용자의 입이 아니라 서버 장부로 스스로 들어온다).
+//    🔴 같은 메시지는 60초에 한 번만 (클라에서도 접는다 — 오류 루프가
+//    보고 폭풍이 되면 안 된다). 보고 실패는 완전 침묵 — 순환 금지.
+const errSeen = new Map<string, number>();
+export function reportClientError(message: string, source = '', stack = ''): void {
+  try {
+    const key = message.slice(0, 120);
+    const now = Date.now();
+    const last = errSeen.get(key) ?? 0;
+    if (now - last < 60_000) return;
+    errSeen.set(key, now);
+    if (errSeen.size > 100) {
+      const oldest = [...errSeen.entries()].sort((a, b) => a[1] - b[1])[0];
+      if (oldest) errSeen.delete(oldest[0]);
+    }
+    fetch('/api/client-error', {
+      method: 'POST', keepalive: true,
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: message.slice(0, 500),
+        source: source.slice(0, 200),
+        stack: stack.slice(0, 1000),
+        url: location.pathname,
+      }),
+    }).catch(() => {});
+  } catch { /* 침묵 — 보고자는 절대 제 오류를 만들지 않는다 */ }
+}
+
+export function startErrorReporter(): void {
+  window.addEventListener('error', (e) => {
+    reportClientError(String(e.message || e.error || 'window.onerror'),
+                      `${e.filename || ''}:${e.lineno || 0}`,
+                      String(e.error?.stack || ''));
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e.reason;
+    reportClientError(`unhandledrejection: ${String(r?.message || r).slice(0, 300)}`,
+                      '', String(r?.stack || ''));
+  });
+}

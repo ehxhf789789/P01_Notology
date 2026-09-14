@@ -1,4 +1,4 @@
-import { startLive, onLive } from '../../web/liveSync';
+import { startLive, onLive, startErrorReporter } from '../../web/liveSync';
 // 🔴 구세대 우측 슬라이드 패널(DobbinPanel)은 지웠다 (2026-09-11 한빈 확정)
 //    — dobbin 홈과 기능이 중복이었다. Ctrl+K 는 홈 토글로 재연결.
 import { Ingest } from '../../features/ingest/Ingest';
@@ -722,6 +722,7 @@ function App() {
   // 🔴 변화가 오면 화면을 따라가게 한다 — 이전 화면을 보며 편집하면 덮어쓴다
   useEffect(() => {
     startLive();
+    startErrorReporter();   // v29 — 화면 오류가 서버 장부로 자가 보고
     // 🔴 **window(`dobbin:live`) 다리를 부르는 곳이 0이었다** (2026-09-11
     //    신호 경로 전수). 서버가 index.html 에 주입하는 다리에만 기대 —
     //    주입 없이 번들만 띄우면 FolderTree·IntakePanel·알림함이 전부

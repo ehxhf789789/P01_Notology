@@ -94,14 +94,25 @@ export function DobbinSurface() {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const [histState, setHistState] = useState<'loading' | 'ok' | 'error'>('loading');
+  const loadHist = useCallback((attempt = 0) => {
+    setHistState('loading');
+    // v29 — 조용한 빈 판 금지: 상태를 말하고, 한 번은 스스로 재시도한다
     fetch('/api/conversation', { method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ limit: 500 }) })
-      .then(r => r.json()).then(j => setHist(j?.messages ?? [])).catch(() => {});
+      .then(r => { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
+      .then(j => { setHist(j?.messages ?? []); setHistState('ok'); })
+      .catch(() => {
+        if (attempt < 1) window.setTimeout(() => loadHist(attempt + 1), 1500);
+        else setHistState('error');
+      });
+  }, []);
+  useEffect(() => {
+    loadHist();
     fetch('/api/conversation/days', { method: 'POST' })
       .then(r => r.json()).then(j => setDays(j?.days ?? [])).catch(() => {});
-  }, []);
+  }, [loadHist]);
 
   // 🔴 **보고 있는 자리를 뺏지 않는다.** 옛 대화를 읽는 중에 새 말이
   //    오면 아래로 끌어내리는 것은 방해다. 맨 아래에 있을 때만 따라간다.
@@ -305,7 +316,17 @@ export function DobbinSurface() {
              const el = e.currentTarget;
              setAtEnd(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
            }}>
-        {shown.length === 0 && (
+        {shown.length === 0 && histState === 'loading' && (
+          <div className="dsurf__empty">대화 기록을 불러오는 중…</div>
+        )}
+        {shown.length === 0 && histState === 'error' && (
+          <div className="dsurf__empty">
+            대화 기록을 불러오지 못했습니다.{' '}
+            <button type="button" className="dsurf__retry"
+                    onClick={() => loadHist()}>다시 시도</button>
+          </div>
+        )}
+        {shown.length === 0 && histState === 'ok' && (
           <div className="dsurf__empty">무엇이든 물어보십시오.</div>
         )}
         {shown.map((m, i) => {

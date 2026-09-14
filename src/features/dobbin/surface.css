@@ -260,3 +260,11 @@
   transition: transform .12s, background .15s;
 }
 .dsurf__input button:hover { transform: translateY(-1px); }
+
+/* v29 — 대화 기록 로드 실패 시 재시도 단추 (조용한 빈 판 금지) */
+.dsurf__retry {
+  border: 1px solid var(--border-color, #3a3f4a); border-radius: 6px;
+  background: transparent; color: inherit; padding: 2px 10px;
+  cursor: pointer; font: inherit;
+}
+.dsurf__retry:hover { background: var(--hover-bg, rgba(128,128,128,.15)); }
