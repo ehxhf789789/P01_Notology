@@ -16,6 +16,14 @@ type Handler = (ev: { kind: string; path?: string; [k: string]: unknown }) => vo
 const handlers = new Set<Handler>();
 let source: EventSource | null = null;
 let retry = 1000;
+// v26-C 블랙박스 — 연결 생애 최근 50건. 재발 보고가 원인을 싣고 오게.
+const LIFE: string[] = [];
+function life(s: string): void {
+  LIFE.push(`${new Date().toTimeString().slice(0, 8)} ${s}`);
+  if (LIFE.length > 50) LIFE.shift();
+}
+export function lifeTail(n = 5): string[] { return LIFE.slice(-n); }
+export function sseState(): number { return source ? source.readyState : -1; }
 
 export function onLive(h: Handler): () => void {
   handlers.add(h);
@@ -38,8 +46,16 @@ function watchBuild(): void {
       const { build } = await r.json();
       if (mine === null) { mine = build; return; }
       if (build && build !== mine) {
-        const editing = document.querySelector('.cm-editor.cm-focused, textarea:focus');
-        if (!editing) location.reload();
+        // v26-C — 억제는 «쓰던 글»을 지키려는 것이지 «포커스»가 아니다.
+        // 대화창을 상시 포커스로 쓰는 사람에게는 영영 리로드가 안 돌아
+        // 낡은 탭이 «멈춤 증상»으로 위장했다 (오늘 6번). 내용이 비었으면
+        // 리로드한다.
+        const el = document.querySelector(
+          '.cm-editor.cm-focused, textarea:focus, input:focus');
+        const txt = !el ? '' : ('value' in (el as HTMLInputElement)
+          ? (el as HTMLInputElement).value
+          : (el as HTMLElement).textContent || '');
+        if (!txt.trim()) { life('빌드갱신 리로드'); location.reload(); }
       }
     } catch { /* 서버가 잠깐 없을 수 있다 */ }
   };
@@ -57,6 +73,7 @@ export function startLive(): void {
   // 소켓이 굳은 것 — 제 손으로 끊고 다시 붙는다.
   let lastMsg = Date.now();
   const kick = (why: string) => {
+    life(`감시견 재접속: ${why}`);
     everBroke = true;
     console.warn(`[liveSync] 재접속 (${why}) — 마지막 신호 ${Math.round((Date.now() - lastMsg) / 1000)}s 전`);
     handlers.forEach((h) => { try { h({ kind: 'reconnecting' }); } catch { /* */ } });
@@ -71,14 +88,18 @@ export function startLive(): void {
   // 탭이 얼었다 깨어나면(브라우저 절전) 그 자리에서 되살핀다 — 15s 를
   // 기다리게 하면 사람 눈에는 «돌아왔는데도 죽어 있음»으로 보인다.
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible'
-        && Date.now() - lastMsg > 25000) kick('탭 복귀');
+    if (document.visibilityState === 'visible') {
+      life(`탭 복귀 (무신호 ${Math.round((Date.now() - lastMsg) / 1000)}s)`);
+      if (Date.now() - lastMsg > 25000) kick('탭 복귀');
+    }
   });
   const open = () => {
     source = new EventSource('/api/events');
+    life('연결 시도');
     source.onopen = () => {
       retry = 1000;
       lastMsg = Date.now();
+      life('열림');
       // 🔴 **끊긴 사이 사건은 영영 유실이다** (2026-09-11 신호 경로 전수 —
       //    SSE 에 Last-Event-ID 재전송이 없다). 다시 붙었을 때 리스너들에게
       //    「재접속」을 알려 각자 다시 읽게 한다 — 유실을 재조회로 메운다.
@@ -98,6 +119,7 @@ export function startLive(): void {
     // 🔴 끊기면 다시 붙는다. 노트북 덮개를 닫았다 열면 끊긴다 —
     //    거기서 포기하면 그때부터 이전 화면을 보게 된다.
     source.onerror = () => {
+      life(`오류(${retry}ms 뒤 재시도)`);
       everBroke = true;
       source?.close();
       source = null;

@@ -11,7 +11,7 @@
  *    말을 걸면 그 턴에 울린 신경이 **번쩍이고 신호가 사슬을 타고 흐른다**.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { onLive } from '../../web/liveSync';
+import { lifeTail, onLive, sseState } from '../../web/liveSync';
 
 // v26-B P1-C — 정직한 상태 칩 (한빈: «진짜 유휴인지 시각화 누락인지
 // 혼동스럽다»). 마지막 «일 이벤트» 나이 + 잔량으로 지도가 스스로 말한다:
@@ -77,6 +77,26 @@ function useWorkState(): { cls: string; txt: string } {
   return { cls, txt };
 }
 
+let _STAMP: string | null = null;
+function BuildTag() {
+  // v26-C — 모든 스크린샷이 제 번들을 자백한다 (낡은 탭이 «멈춤»으로
+  // 위장하던 순환의 진단 꼬리표).
+  const [st, setSt] = useState(_STAMP);
+  useEffect(() => {
+    if (_STAMP) return;
+    fetch('/app/.build-stamp.json', { cache: 'no-store' })
+      .then(r => r.json())
+      .then(j => { _STAMP = String(j.source_commit || '').slice(0, 7); setSt(_STAMP); })
+      .catch(() => { /* 없어도 산다 */ });
+  }, []);
+  return st ? (
+    <div style={{ position: 'absolute', right: 10, bottom: 10, fontSize: 9,
+                  opacity: .45, color: '#7c8598', pointerEvents: 'none' }}>
+      판 {st}
+    </div>
+  ) : null;
+}
+
 function StateChip() {
   const { cls, txt } = useWorkState();
   // v26-B — 칩 클릭 = 기기 자가진단 (한빈: «타 컴퓨터에서는 안 보인다» —
@@ -90,9 +110,13 @@ function StateChip() {
       const r = await fetch('/app/.build-stamp.json', { cache: 'no-store' });
       stamp = String((await r.json()).source_commit || '').slice(0, 7);
     } catch { /* 판을 못 읽어도 진단은 나간다 */ }
-    setDiag(`판 ${stamp} · 모션줄임 ${rm ? '켜짐(OS)' : '꺼짐'} · UA ${
-      navigator.userAgent.split(') ').pop()?.slice(0, 40)}`);
-    window.setTimeout(() => setDiag(null), 10000);
+    const heap = (performance as { memory?: { usedJSHeapSize: number } })
+      .memory?.usedJSHeapSize;
+    setDiag(`판 ${stamp} · 모션줄임 ${rm ? '켜짐(OS)' : '꺼짐'} · SSE ${
+      ['연결중', '열림', '닫힘'][sseState()] ?? '없음'} · heap ${
+      heap ? Math.round(heap / 1048576) + 'MB' : '?'} ｜ ${
+      lifeTail(4).join(' → ') || '(생애 기록 없음)'}`);
+    window.setTimeout(() => setDiag(null), 15000);
   };
   return (
     <div className={`bm-chip ${cls}`} onClick={showDiag}
@@ -960,6 +984,7 @@ export function BrainMap() {
           (retrieval_bench.json)만 읽고 측정일을 함께 보인다 — 낡으면
           날짜가 낡았다고 말한다. 장부가 없으면 «아직 못 잼». */}
       <StateChip />
+      <BuildTag />
       {m.bench !== undefined && (
         <div className="brainmap__stock"
              title="판단 계기 — 검색 벤치가 제 손으로 쓴 장부 (측정일 포함)">
