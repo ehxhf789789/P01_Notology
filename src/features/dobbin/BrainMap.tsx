@@ -79,10 +79,26 @@ function useWorkState(): { cls: string; txt: string } {
 
 function StateChip() {
   const { cls, txt } = useWorkState();
+  // v26-B — 칩 클릭 = 기기 자가진단 (한빈: «타 컴퓨터에서는 안 보인다» —
+  // 기기마다 사인이 달라, 화면이 제 기기의 사실을 직접 말해야 원격 진단이
+  // 된다). 10초 보여주고 되접는다.
+  const [diag, setDiag] = useState<string | null>(null);
+  const showDiag = async () => {
+    const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let stamp = '?';
+    try {
+      const r = await fetch('/app/.build-stamp.json', { cache: 'no-store' });
+      stamp = String((await r.json()).source_commit || '').slice(0, 7);
+    } catch { /* 판을 못 읽어도 진단은 나간다 */ }
+    setDiag(`판 ${stamp} · 모션줄임 ${rm ? '켜짐(OS)' : '꺼짐'} · UA ${
+      navigator.userAgent.split(') ').pop()?.slice(0, 40)}`);
+    window.setTimeout(() => setDiag(null), 10000);
+  };
   return (
-    <div className={`bm-chip ${cls}`}
-         title="마지막 일 이벤트 나이로 계산한 정직한 상태 — 어두운데 «일하는 중»이면 시각화 결함, «잔량인데 신호 없음»이면 서버 공백">
-      {txt}
+    <div className={`bm-chip ${cls}`} onClick={showDiag}
+         style={{ cursor: 'pointer' }}
+         title="클릭 = 이 기기의 자가진단 (판·모션 설정·브라우저)">
+      {diag ?? txt}
     </div>
   );
 }

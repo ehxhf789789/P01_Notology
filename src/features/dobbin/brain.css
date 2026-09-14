@@ -90,9 +90,7 @@
   flex-wrap: wrap; gap: 12px; color: var(--text-secondary, inherit); }
 .brainmap__legend i { width: 9px; height: 9px; border-radius: 50%;
   display: inline-block; margin-right: 5px; vertical-align: -1px; }
-@media (prefers-reduced-motion: reduce) {
-  .bm-edge--on, .bm-node--fire circle { animation: none; }
-}
+
 
 /* 좌·우 반구 이름표는 걷었다 — 그 가름이 코드에 근거가 없었다 (서버 LAYERS). */
 .bm-hemi { display: none; }
@@ -123,7 +121,7 @@
   0%,100% { opacity: .55; } 50% { opacity: 1;
     filter: drop-shadow(0 0 7px rgba(255,209,102,.9)); }
 }
-@media (prefers-reduced-motion: reduce) { .bm-build { animation: none; } }
+/* v26-B — reduced-motion 양보 걷음 (한빈: 모든 기기에서 애니메이션) */
 
 /* 이음 범례 — 색이 아니라 **선**이라 네모가 아니라 막대로 그린다 */
 .brainmap__legend--edge { margin-top: 4px; opacity: .85; }
@@ -259,9 +257,7 @@
   0% { stroke-width: 3.2; } 100% { stroke-width: 1; }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .bm-holo, .bm-holo--rev, .bm-core__dot, .bm-lobe--on { animation: none; }
-}
+
 
 /* 원자 노드 (한빈 2026-09-11 «원자처럼 작게 — 활성화 때만 강조») */
 .bm-node circle { transition: r .18s ease, opacity .18s ease; }
@@ -318,7 +314,7 @@
 .bm-pulse { fill: #9ae6ff; filter: drop-shadow(0 0 4px rgba(154, 230, 255, .9));
             animation: bmpulsefade 1.1s linear forwards; }
 @keyframes bmpulsefade { 0% { opacity: 1; } 60% { opacity: 1; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .bm-pulse { display: none; } }
+
 
 /* v26 — 코어 «생각 중» 링: 활성이 있는 동안 쉬지 않고 돈다 */
 .bm-core__spin { fill: none; stroke: rgba(124, 196, 255, .55);
@@ -331,7 +327,7 @@
 @keyframes bmspin { to { transform: rotate(360deg); } }
 @keyframes bmspinrev { to { transform: rotate(-360deg); } }
 @keyframes bmbreathe { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .bm-core__think { display: none; } }
+
 
 /* v26 — 지도 재구축·노드 델타 도착의 파문 (1회, 자기 소멸) */
 .bm-core__flash {
@@ -343,7 +339,7 @@
   0%   { opacity: .85; transform: scale(1); }
   100% { opacity: 0;   transform: scale(3.2); }
 }
-@media (prefers-reduced-motion: reduce) { .bm-core__flash { display: none; } }
+
 
 /* v26-B P1-C — 정직한 상태 칩 */
 .bm-chip {
@@ -365,7 +361,7 @@
   100% { opacity: 1; transform: scale(1); }
 }
 .bm-core__flash--self { stroke: #c084fc; }
-@media (prefers-reduced-motion: reduce) { .bm-halofade { animation: none; } }
+
 
 /* v26-B — 코어 밑 상태 문구 (칩과 같은 값 · 캡처에 항상 담긴다) */
 .bm-core__state { font-size: 10px; fill: #7c8598; }
