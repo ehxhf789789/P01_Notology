@@ -82,6 +82,8 @@ export function startLive(): void {
   // 안 돈다). 서버가 20s 마다 실이벤트 ping 을 보내므로, 55s 무신호면
   // 소켓이 굳은 것 — 제 손으로 끊고 다시 붙는다.
   let lastMsg = Date.now();
+  let lastReal = Date.now();               // 비-ping — 좀비 스트림 판별
+  let zombieBusy = false;
   const kick = (why: string) => {
     life(`감시견 재접속: ${why}`);
     everBroke = true;
@@ -93,7 +95,23 @@ export function startLive(): void {
     open();
   };
   window.setInterval(() => {
-    if (source && Date.now() - lastMsg > 55000) kick('55s 무신호');
+    if (source && Date.now() - lastMsg > 55000) { kick('55s 무신호'); return; }
+    // v26-C P-heal — **좀비 스트림 자가치유**: ping 은 오는데(연결 생존)
+    // 실이벤트가 90s 없으면, 서버 장부(/api/events/recent)와 대조해
+    // 서버가 흐르고 있으면 이 연결이 죽은 것 — 제 손으로 다시 붙는다.
+    // (실측: 산 연결의 서버측 큐가 등록부에서 이탈 — ping.in=false)
+    if (source && !zombieBusy
+        && Date.now() - lastMsg < 55000
+        && Date.now() - lastReal > 90000) {
+      zombieBusy = true;
+      fetch('/api/events/recent').then(r => r.json()).then(j => {
+        const evs = j.events || [];
+        const fresh = evs.length
+          && Date.now() / 1000 - evs[evs.length - 1].at < 30;
+        if (fresh) kick('좀비 스트림 (ping만 옴)');
+      }).catch(() => { /* 대조를 못 떠도 다음 틱에 또 본다 */ })
+        .finally(() => { zombieBusy = false; });
+    }
   }, 15000);
   // 탭이 얼었다 깨어나면(브라우저 절전) 그 자리에서 되살핀다 — 15s 를
   // 기다리게 하면 사람 눈에는 «돌아왔는데도 죽어 있음»으로 보인다.
@@ -125,6 +143,7 @@ export function startLive(): void {
         const ev = JSON.parse(e.data);
         KINDS[ev.kind] = (KINDS[ev.kind] || 0) + 1;
         if (ev.kind === 'ping') lastPing = { q: ev.q, in: ev.in, at: Date.now() };
+        else lastReal = Date.now();
         handlers.forEach((h) => { try { h(ev); } catch { /* 한 곳이 죽어도 나머지는 돈다 */ } });
       } catch { /* ping 등 */ }
     };
