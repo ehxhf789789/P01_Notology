@@ -56,15 +56,24 @@ export function startLive(): void {
   // 안 돈다). 서버가 20s 마다 실이벤트 ping 을 보내므로, 55s 무신호면
   // 소켓이 굳은 것 — 제 손으로 끊고 다시 붙는다.
   let lastMsg = Date.now();
+  const kick = (why: string) => {
+    everBroke = true;
+    console.warn(`[liveSync] 재접속 (${why}) — 마지막 신호 ${Math.round((Date.now() - lastMsg) / 1000)}s 전`);
+    handlers.forEach((h) => { try { h({ kind: 'reconnecting' }); } catch { /* */ } });
+    try { source?.close(); } catch { /* 이미 죽었을 수 있다 */ }
+    source = null;
+    retry = 1000;
+    open();
+  };
   window.setInterval(() => {
-    if (source && Date.now() - lastMsg > 55000) {
-      everBroke = true;
-      try { source.close(); } catch { /* 이미 죽었을 수 있다 */ }
-      source = null;
-      retry = 1000;
-      open();
-    }
+    if (source && Date.now() - lastMsg > 55000) kick('55s 무신호');
   }, 15000);
+  // 탭이 얼었다 깨어나면(브라우저 절전) 그 자리에서 되살핀다 — 15s 를
+  // 기다리게 하면 사람 눈에는 «돌아왔는데도 죽어 있음»으로 보인다.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible'
+        && Date.now() - lastMsg > 25000) kick('탭 복귀');
+  });
   const open = () => {
     source = new EventSource('/api/events');
     source.onopen = () => {

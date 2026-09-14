@@ -25,9 +25,11 @@ function useWorkState(): { cls: string; txt: string } {
   const lastRef = useRef<number>(0);
   const pendRef = useRef<number | null>(null);
   const touchRef = useRef<number>(0);
+  const anyRef = useRef<number>(Date.now());     // ping 포함 — 연결 생존 신호
   useEffect(() => {
     const off = onLive((ev: { kind?: string; pending?: number }) => {
       if (!ev?.kind) return;
+      anyRef.current = Date.now();
       if (typeof ev.pending === 'number') pendRef.current = ev.pending;
       if (WORK_KINDS.has(ev.kind) || ev.kind.startsWith('act')) {
         lastRef.current = Date.now();
@@ -48,10 +50,17 @@ function useWorkState(): { cls: string; txt: string } {
     };
   }, []);
   const age = lastRef.current ? (Date.now() - lastRef.current) / 1000 : Infinity;
+  const anyAge = (Date.now() - anyRef.current) / 1000;
   const pend = pendRef.current;
   let cls = 'bm-chip--idle';
   let txt: string;
-  if (age < 30) {
+  // 서버 ping 은 20s 마다 — 75s 무신호는 스트림이 죽은 것이다 (감시견이
+  // 55s 에 되살리므로, 이 문구가 오래 보이면 감시견까지 실패한 것 —
+  // 스크린샷 한 장으로 «스트림 사인가 렌더 사인가»가 갈린다).
+  if (anyAge > 75) {
+    cls = 'bm-chip--warn';
+    txt = `⚠ 신호 끊김 ${Math.round(anyAge)}초 — 재접속 시도 중`;
+  } else if (age < 30) {
     cls = 'bm-chip--work';
     txt = `일하는 중 · ${Math.max(1, Math.round(age))}초 전`;
   } else if (pend != null && pend > 0
