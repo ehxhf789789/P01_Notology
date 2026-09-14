@@ -24,6 +24,16 @@ function life(s: string): void {
 }
 export function lifeTail(n = 5): string[] { return LIFE.slice(-n); }
 export function sseState(): number { return source ? source.readyState : -1; }
+// v26-C 소크 진단 — 수신 종류 계수기 + 마지막 ping 자백(q 길이·등록 여부)
+const KINDS: Record<string, number> = {};
+let lastPing: { q?: number; in?: boolean; at?: number } = {};
+declare global { interface Window { __live?: unknown } }
+if (typeof window !== 'undefined') {
+  window.__live = {
+    tail: lifeTail, state: sseState,
+    kinds: () => ({ ...KINDS }), ping: () => ({ ...lastPing }),
+  };
+}
 
 export function onLive(h: Handler): () => void {
   handlers.add(h);
@@ -113,6 +123,8 @@ export function startLive(): void {
       lastMsg = Date.now();
       try {
         const ev = JSON.parse(e.data);
+        KINDS[ev.kind] = (KINDS[ev.kind] || 0) + 1;
+        if (ev.kind === 'ping') lastPing = { q: ev.q, in: ev.in, at: Date.now() };
         handlers.forEach((h) => { try { h(ev); } catch { /* 한 곳이 죽어도 나머지는 돈다 */ } });
       } catch { /* ping 등 */ }
     };
