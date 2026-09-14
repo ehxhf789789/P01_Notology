@@ -652,6 +652,14 @@ export function BrainMap() {
     const off = onLive((ev: any) => {
       if (ev?.kind === 'reconnected') { backfill(); return; }
       if (!ev?.kind) return;
+      // v29 — 재고 줄의 «분석대기(실물)» 를 같은 델타로 즉시 갱신 (한빈:
+      // 투입구 2202 vs 분석대기 2205 — 다음 판 재조회까지 묵던 값)
+      if (ev.kind === 'inbox-changed' && typeof ev.pending === 'number') {
+        const n = ev.pending as number;
+        setM(prev => (prev && prev.stock
+          ? { ...prev, stock: { ...prev.stock, '분석대기(실물)': n } }
+          : prev));
+      }
       buf.push(ev);
       const since = Date.now() - lastFlush;
       if (since >= 150) doFlush();
