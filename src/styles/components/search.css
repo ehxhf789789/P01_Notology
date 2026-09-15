@@ -887,6 +887,7 @@
   align-items: center;
   justify-content: center;
   padding: 24px 0;
+  height: auto;              /* v32 — 32px 클램프가 빈 문구를 헤더에 밀착시켰다 */
 }
 
 /* Table mode (attachments tab) */

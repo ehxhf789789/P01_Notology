@@ -347,6 +347,8 @@
   padding: 4px 10px; border-radius: 12px; font-size: 12px;
   background: rgba(20, 30, 48, .8); color: #9fb3cc;
   border: 1px solid rgba(125, 211, 252, .25); pointer-events: auto;
+  /* v32 — 진단 클릭 시 긴 글이 판 전체를 덮지 않게 */
+  max-width: 62%; word-break: break-all;
 }
 .bm-chip--work { color: #6ee7a8; border-color: rgba(110, 231, 168, .45); }
 .bm-chip--warn { color: #fbbf24; border-color: rgba(251, 191, 36, .5); }

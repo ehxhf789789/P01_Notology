@@ -1042,8 +1042,6 @@ export function BrainMap() {
       {/* 🔴 판단 계기 (v18) — 지도는 관측이지 성적이 아니다. 실측 장부
           (retrieval_bench.json)만 읽고 측정일을 함께 보인다 — 낡으면
           날짜가 낡았다고 말한다. 장부가 없으면 «아직 못 잼». */}
-      <StateChip />
-      <BuildTag />
       {m.bench !== undefined && (
         <div className="brainmap__stock"
              title="판단 계기 — 검색 벤치가 제 손으로 쓴 장부 (측정일 포함)">
@@ -1110,6 +1108,10 @@ export function BrainMap() {
         </div>
       )}
       <div className="brainmap__wrap">
+        {/* v32 — 칩·판도장은 wrap 자식이어야 한다 (섹션 자식이면 컨테이닝
+            블록이 섹션 전체라 범례 위에 부유 — 감사 B1/B2). */}
+        <StateChip />
+        <BuildTag />
         <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
                 aria-hidden="true" />
         <svg viewBox={`0 0 ${W} ${H}`} className="brainmap__svg" role="img"

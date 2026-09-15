@@ -139,7 +139,7 @@
   color: #e0796f; background: transparent;
   border: 1px solid color-mix(in srgb, #e0796f 55%, transparent);
 }
-@keyframes rec-pulse { 0%,100% { opacity:1 } 50% { opacity:.78 } }
+/* v32 — 중복 rec-pulse 제거 (뒤판이 이겨 앞판이 사문) */ }
 
 /* 맨 아래로 — 달력으로 옛 대화에 갔다가 돌아오는 길 */
 .dsurf__jump {
@@ -241,12 +241,15 @@
 .dsurf__input {
   padding: 8px 10px 10px;
   gap: 8px;
+  /* v32 — stretch 가 단추를 textarea 높이로 늘여 34×48 타원을 만들었다 */
+  align-items: flex-end;
 }
 .dsurf__input textarea {
   border-radius: 17px;
   padding: 8px 14px;
   border: 1px solid color-mix(in srgb, var(--accent, #4a7dbd) 22%, transparent);
-  background: rgba(255, 255, 255, .04);
+  /* v32 — 하드코드 흰빛은 라이트 테마에서 흰-위-흰이 됐다 */
+  background: color-mix(in srgb, var(--bg-tertiary, #24262d) 92%, transparent);
   transition: border-color .15s;
 }
 .dsurf__input textarea:focus {
@@ -255,11 +258,24 @@
 }
 .dsurf__input button {
   border-radius: 50%;
+  /* v32 — 진짜 원 + 중앙 정렬 (전엔 높이 미지정·베이스라인 배치로 타원·
+     아이콘 하단 쏠림) */
+  width: 34px; height: 34px; flex: 0 0 34px;
+  display: flex; align-items: center; justify-content: center;
   background: color-mix(in srgb, var(--accent, #4a7dbd) 82%, transparent);
   border: none;
+  /* v32 — 🔴 악센트색 아이콘 on 악센트 배경 = 사실상 안 보임 (감사 A1) */
+  color: #fff;
+  position: relative;
   transition: transform .12s, background .15s;
 }
-.dsurf__input button:hover { transform: translateY(-1px); }
+/* 히트 타깃 40px (2-14-2-5 규격) — 눈은 34, 손은 40 */
+.dsurf__input button::after { content: ''; position: absolute; inset: -4px; }
+.dsurf__input button:hover:not(:disabled) { transform: translateY(-1px); }
+.dsurf__input button:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--accent, #4a7dbd) 80%, white);
+  outline-offset: 2px;
+}
 
 /* v29 — 대화 기록 로드 실패 시 재시도 단추 (조용한 빈 판 금지) */
 .dsurf__retry {

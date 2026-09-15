@@ -392,18 +392,8 @@ export function DobbinSurface() {
         <div ref={endRef} />
       </div>
 
-      {/* 🔴 **녹음 중일 때만 보인다.** 평소에는 자리를 차지하지 않는다 —
-          녹음은 말로 시키는 일이지 늘 눌러야 하는 단추가 아니다. */}
-      {isRecording() && (
-        <div className="dsurf__rec">
-          <Mic size={13} />
-          <span>녹음 중 {String(Math.floor(recordingSeconds() / 60)).padStart(2, '0')}
-            :{String(recordingSeconds() % 60).padStart(2, '0')}</span>
-          <button onClick={() => runTool({ tool: 'stop_record' },
-                    (line) => dobbinActions.push({ role: 'assistant', content: line }),
-                    () => setRecTick((n) => n + 1))}>그만</button>
-        </div>
-      )}
+      {/* v32 — 녹음 표시는 전역 RecordBar 하나다 (같은 상태가 두 곳에
+          뜨던 이중 표기 제거 — 감사 B4). 그만 단추도 그 바에 있다. */}
 
 
       {/* 🔴 **맨 아래로** (사용자 요청, 2026-08-12): 달력으로 옛 날짜에
@@ -417,7 +407,14 @@ export function DobbinSurface() {
       )}
 
       <div className="dsurf__input">
-        <textarea ref={inputRef} rows={2} value={draft} placeholder="dobbin에게 묻기…  (Enter 전송)"
+        <textarea ref={inputRef} rows={2} value={draft}
+                  placeholder="dobbin에게 묻기…  (Enter 전송)"
+                  // v32 — 자동 성장 (max 6줄): 긴 말이 2줄 창에 숨지 않게
+                  onInput={(e) => {
+                    const el = e.currentTarget;
+                    el.style.height = 'auto';
+                    el.style.height = Math.min(el.scrollHeight, 6 * 21 + 16) + 'px';
+                  }}
                   onChange={e => setDraft(e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(draft); }
