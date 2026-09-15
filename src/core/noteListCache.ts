@@ -10,6 +10,7 @@
 //   같은 열쇠의 fetch 는 한 비행만 뜬다. 무효화는 refreshStore 의
 //   incrementSearchRefresh(노트 생성·삭제·이동의 중앙 관문)가 부른다.
 import { searchCommands } from './services/tauriCommands';
+import { asAuto } from '../web/core';
 import type { NoteFilter, NoteMetadata } from './types';
 
 type Entry = { at: number; notes: NoteMetadata[] };
@@ -56,7 +57,9 @@ function revalidate(key: string, filter?: NoteFilter): Promise<NoteMetadata[]> {
   const inf = inflight.get(key);
   if (inf) return inf;
   const myGen = gen;
-  const p = searchCommands.queryNotes(filter ?? {})
+  // v32 — 캐시 재검증은 자동 갱신이다 (첫 채움 포함 — 목록 fetch 자체가
+  // 사람의 «행동»은 아니고, 사람 행동은 대화·클릭·검색이 따로 센다)
+  const p = asAuto(() => searchCommands.queryNotes(filter ?? {}))
     .then((notes) => {
       if (gen === myGen) cache.set(key, { at: Date.now(), notes });
       return notes;

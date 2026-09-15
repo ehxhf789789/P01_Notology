@@ -25,7 +25,7 @@
  *    3개로 쪼개면 사람이 병목이 된다.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Loader2, Check, FolderInput, HelpCircle } from 'lucide-react';
 import { openFile, downloadUrl } from '../../web/files';
 import { selectContainer } from '../../core/stores/appActions';
@@ -102,6 +102,7 @@ export function IntakePanel({ variant = 'panel' }: { variant?: 'panel' | 'home' 
     setBusy(false);
   }, []);
 
+  const loadApertureRef = useRef<number>(0);
   useEffect(() => { load(true); }, [load]);
 
   // 새 파일이 들어오면 다시 읽는다 (SSE)
@@ -126,15 +127,26 @@ export function IntakePanel({ variant = 'panel' }: { variant?: 'panel' | 'home' 
             : [{ name: nm, state: 'reading', at: new Date().toISOString(),
                  folder: null, open: null, note: null }, ...prev]);
         }
-        load(true);
+        // v32 — 소화 중 inbox-changed 는 분당 ~10회다. 사건마다 전체
+        //   scan 을 돌리면 그 자체가 서버 부하다 — 30s 조리개 (카드의
+        //   낙관적 걸음 패치는 위에서 즉시 했다).
+        const now = Date.now();
+        if (now - (loadApertureRef.current || 0) > 30000) {
+          loadApertureRef.current = now;
+          load(true);
+        }
       }
     };
     window.addEventListener('dobbin:live', h);
     // 🔴 SSE 가 죽으면 이 판은 F5 전까지 영구 정지였다 (2026-09-11 신호 경로
     //    전수 — 폴백 0). 60초 느린 심박 — 신호가 사는 동안은 사실상 안 쓰인다.
     const beat = window.setInterval(() => { void load(); }, 60000);
-    return () => window.removeEventListener('dobbin:live', h);
+    return () => {
+      // v32 — 🔴 전 판은 clearInterval 이 return **뒤**라 도달불능:
+      //   리마운트마다 60초 폴러가 하나씩 늘어 영구 증식했다 (전수 감사).
+      window.removeEventListener('dobbin:live', h);
       window.clearInterval(beat);
+    };
   }, [load]);
 
   const answer = useCallback(async (id: number, value: string, folder?: string) => {

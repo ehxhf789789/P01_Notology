@@ -147,7 +147,11 @@ export async function invoke<T = unknown>(cmd: string, args?: Record<string, unk
 
   const r = await fetch(API, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json',
+               // v32 — 자동 갱신(SSE 반응·타이머) 구역이면 표지를 단다:
+               // 서버 governor 가 이것을 사람 손짓으로 안 센다 (자기루프
+               // 차단). 사람 클릭·검색 경로는 구역 밖이라 그대로 손짓.
+               ...(autoDepth > 0 ? { 'X-Dobbin-Auto': '1' } : {}) },
     body: JSON.stringify({ cmd, args: args ?? {} }),
   });
   if (r.status === 403) throw new Error('이 기기는 아직 승인되지 않았습니다');
@@ -156,6 +160,16 @@ export async function invoke<T = unknown>(cmd: string, args?: Record<string, unk
   if (j.unimplemented) { missingCommands.add(j.unimplemented); return null as T; }
   if (j.ok === false) throw new Error(j.detail || j.error || 'dobbin error');
   return j.result as T;
+}
+
+let autoDepth = 0;
+/** 자동 갱신 구역 — 이 안의 invoke/fetch 는 «사람 손짓»으로 안 센다. */
+export async function asAuto<T>(fn: () => Promise<T>): Promise<T> {
+  autoDepth++;
+  try { return await fn(); } finally { autoDepth--; }
+}
+export function autoHeaders(): Record<string, string> {
+  return autoDepth > 0 ? { 'X-Dobbin-Auto': '1' } : {};
 }
 
 /** 첨부·이미지는 dobbin이 서빙한다. 브라우저는 파일시스템을 모른다. */

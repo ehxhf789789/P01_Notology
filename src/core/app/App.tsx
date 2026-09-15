@@ -1,4 +1,5 @@
 import { startLive, onLive, startErrorReporter } from '../../web/liveSync';
+import { asAuto } from '../../web/core';
 // 🔴 구세대 우측 슬라이드 패널(DobbinPanel)은 지웠다 (2026-09-11 한빈 확정)
 //    — dobbin 홈과 기능이 중복이었다. Ctrl+K 는 홈 토글로 재연결.
 import { Ingest } from '../../features/ingest/Ingest';
@@ -753,11 +754,14 @@ function App() {
         //    45초 창에 한 번만 돌린다 — reconnected(유실 복구)만 즉시.
         const run = () => {
           heavyRef.current.last = Date.now();
-          refreshActions.incrementSearchRefresh();
-          refreshActions.refreshCalendar();
-          refreshActions.incrementOntologyRefresh();
-          contentCacheActions.invalidateAll();
-          fileTreeActions.refreshFileTree();
+          // v32 — SSE 반응 재조회는 «사람 손짓»이 아니다 (자동 표지)
+          void asAuto(async () => {
+            refreshActions.incrementSearchRefresh();
+            refreshActions.refreshCalendar();
+            refreshActions.incrementOntologyRefresh();
+            contentCacheActions.invalidateAll();
+            await fileTreeActions.refreshFileTree();
+          });
         };
         const since = Date.now() - heavyRef.current.last;
         if (ev.kind === 'reconnected' || since > 45000) {

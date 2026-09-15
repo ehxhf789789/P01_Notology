@@ -135,6 +135,10 @@ export function startLive(): void {
         handlers.forEach((h) => {
           try { h({ kind: 'reconnected' }); } catch { /* 한 곳이 죽어도 */ }
         });
+        try {   // v32 — 창 채널 청취자(FolderTree·IntakePanel…)에게도
+          window.dispatchEvent(new CustomEvent('dobbin:live',
+            { detail: { kind: 'reconnected' } }));
+        } catch { /* 없는 창(SSR 등)이어도 산다 */ }
       }
     };
     source.onmessage = (e) => {
@@ -145,6 +149,15 @@ export function startLive(): void {
         if (ev.kind === 'ping') lastPing = { q: ev.q, in: ev.in, at: Date.now() };
         else lastReal = Date.now();
         handlers.forEach((h) => { try { h(ev); } catch { /* 한 곳이 죽어도 나머지는 돈다 */ } });
+        // v32 P1-3 — 🔴 SSE 단일화: 'dobbin:live' 창 채널을 여기서 재발송.
+        //   전에는 서버 주입 브리지가 **둘째 EventSource** 를 열었고 그쪽엔
+        //   감시견·좀비치유가 없어 «일부 패널만 조용히 멈추는» 증상의
+        //   뿌리였다 (전수 감사). 이제 연결은 하나, 방어층도 하나다.
+        if (ev.kind !== 'ping') {
+          try {
+            window.dispatchEvent(new CustomEvent('dobbin:live', { detail: ev }));
+          } catch { /* 창이 없어도 산다 */ }
+        }
       } catch { /* ping 등 */ }
     };
     // 🔴 끊기면 다시 붙는다. 노트북 덮개를 닫았다 열면 끊긴다 —

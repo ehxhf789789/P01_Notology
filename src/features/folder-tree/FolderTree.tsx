@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import { invoke } from '../../web/core';
+import { invoke, asAuto } from '../../web/core';
 import { Folder, FolderOpen, FolderDot, FolderRoot, FolderOpenDot, ChevronsUpDown, ChevronsDownUp, FolderPlus, RefreshCw, Check, Pause, Circle, GripVertical } from 'lucide-react';
 import { useFileTree, useSelectedContainer, useVaultPath } from '../../core/stores/fileTreeStore';
 import { useContainerConfigs, useFolderStatuses, useContainerOrder, vaultConfigActions } from '../vault-config/stores/vaultConfigStore';
@@ -165,7 +165,7 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
       if (inflight) return;
       inflight = true;
       last = Date.now();
-      invoke<Record<string, number>>('note_counts', { root: vaultPath })
+      asAuto(() => invoke<Record<string, number>>('note_counts', { root: vaultPath }))
         .then(c => { if (!dead) setServerCounts(c || {}); })
         .catch(() => {})
         .finally(() => { inflight = false; });
