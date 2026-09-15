@@ -94,8 +94,17 @@ function safeLink(href: string, label: string, key: string): ReactNode {
   );
 }
 
+/** v35 W5 — 서버의 «— 근거 (N건) —» 아래는 접이로 (사용자 결정: 말로
+ *  답하고 근거는 접는다 — 전부 보존). 머리 줄 꼴은 naturalize.FOLD_HEAD
+ *  와 한 벌이다. */
+const FOLD_RE = /^— 근거 \((\d+)건\) —$/;
+
 export function Markdown({ text, refs }: { text: string; refs?: DobbinRef[] }) {
-  const lines = (text || '').split('\n');
+  const all = (text || '').split('\n');
+  const foldAt = all.findIndex((l) => FOLD_RE.test(l.trim()));
+  const lines = foldAt >= 0 ? all.slice(0, foldAt) : all;
+  const folded = foldAt >= 0 ? all.slice(foldAt + 1) : [];
+  const foldN = foldAt >= 0 ? (FOLD_RE.exec(all[foldAt].trim())?.[1] ?? '') : '';
   return (
     <>
       {lines.map((line, i) => {
@@ -119,6 +128,12 @@ export function Markdown({ text, refs }: { text: string; refs?: DobbinRef[] }) {
         }
         return <span key={i} className="md-p">{withRefs(inline(line, String(i), refs), refs)}</span>;
       })}
+      {folded.length > 0 && (
+        <details className="md-fold">
+          <summary>근거 {foldN}건</summary>
+          <Markdown text={folded.join('\n')} refs={refs} />
+        </details>
+      )}
     </>
   );
 }
