@@ -257,7 +257,7 @@ export function DobbinSurface() {
     ...hist,
     ...messages.map(m => ({ role: m.role === 'assistant' ? 'dobbin' : 'user',
                             content: m.content, at: new Date().toISOString(),
-                            choices: m.choices, refs: m.refs, trace: m.trace })),
+                            choices: m.choices, refs: m.refs, trace: m.trace, next: m.next })),
   ];
   let last = '';
 

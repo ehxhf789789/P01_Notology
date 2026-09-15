@@ -26,6 +26,8 @@ export interface DobbinMessage {
   /** 이 답을 만들며 지난 생각 걸음들 (v7 1단계) — SSE thinking 축적 또는
    *  서버 dobbin_trace. 연출이 아니라 agent.think_aloud 의 실값이다. */
   trace?: string[];
+  // v33 B1 — 「다음 걸음」 칩 (53% 생성되고 화면 도달 0이던 그 칸)
+  next?: { label: string; send: string }[];
 }
 
 /** 답변에 섞인 좌표 — `T01-정보통신-2512-0007` 꼴. 클릭해서 갈 수 있게 뽑는다. */
