@@ -28,6 +28,22 @@ export function useFrontmatter(filePath: string | null): UseFrontmatterReturn {
   const [errors, setErrors] = useState<ValidationError[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
+  // v32 P4-5 — dobbin 이 열린 노트를 재태깅해도 갱신이 ∞ 였다 (감사).
+  //   제 경로의 file-changed 만 듣고 재적재한다.
+  const [liveBump, setLiveBump] = useState(0);
+  useEffect(() => {
+    if (!filePath) return;
+    const h = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      if (d?.kind === 'file-changed' && typeof d.note === 'string'
+          && filePath.endsWith(d.note.split(':').pop() || '\u0000')) {
+        setLiveBump((n) => n + 1);
+      }
+    };
+    window.addEventListener('dobbin:live', h);
+    return () => window.removeEventListener('dobbin:live', h);
+  }, [filePath]);
+
   // Load frontmatter from file
   useEffect(() => {
     if (!filePath) return;
@@ -76,7 +92,7 @@ export function useFrontmatter(filePath: string | null): UseFrontmatterReturn {
     };
 
     loadFrontmatter();
-  }, [filePath]);
+  }, [filePath, liveBump]);
 
   // Real-time validation when frontmatter changes
   useEffect(() => {

@@ -1,4 +1,5 @@
 import { startLive, onLive, startErrorReporter } from '../../web/liveSync';
+import { ErrorBoundary } from '../ErrorBoundary';
 import { asAuto } from '../../web/core';
 // 🔴 구세대 우측 슬라이드 패널(DobbinPanel)은 지웠다 (2026-09-11 한빈 확정)
 //    — dobbin 홈과 기능이 중복이었다. Ctrl+K 는 홈 토글로 재연결.
@@ -613,7 +614,7 @@ function AppLayout() {
             </div>
           )}
           {showDobbinHome ? null : showSearch ? (
-            <Search refreshTrigger={searchRefreshTrigger} />
+            <ErrorBoundary name="Search"><Search refreshTrigger={searchRefreshTrigger} /></ErrorBoundary>
           ) : selectedContainer ? (
             <ContainerView />
           ) : (
@@ -759,7 +760,14 @@ function App() {
             refreshActions.incrementSearchRefresh();
             refreshActions.refreshCalendar();
             refreshActions.incrementOntologyRefresh();
-            contentCacheActions.invalidateAll();
+            // v32 P4-3 — 경로를 아는 사건은 그 파일만 비운다. 전소는
+            //   warm 노트 캐시를 다 버려 «사건 뒤 첫 노트 열기가 냉개»
+            //   였다 (감사 — 2-14-14 가 없앤 그 버퍼링의 잔재).
+            if (typeof (ev as any)?.note === 'string' && (ev as any).note) {
+              contentCacheActions.invalidateContent(String((ev as any).note));
+            } else {
+              contentCacheActions.invalidateAll();
+            }
             await fileTreeActions.refreshFileTree();
           });
         };

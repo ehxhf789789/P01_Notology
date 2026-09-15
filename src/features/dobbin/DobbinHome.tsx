@@ -18,6 +18,7 @@
  *    두 벌로 만들면 어긋난다 (이 저장소가 여러 번 겪은 실수).
  */
 import { useEffect, useRef, useState } from 'react';
+import { ErrorBoundary } from '../../core/ErrorBoundary';
 import { CalendarDays, Search as SearchIcon } from 'lucide-react';
 import { PenguinFace, faceOf } from './PenguinFace';
 import { BrainMap } from './BrainMap';
@@ -226,7 +227,7 @@ export function DobbinHome() {
             알림·투입이고 대화가 20.6%, 묻는 자리가 **1.6%** 였다 — 가장 자주
             할 일이 가장 작은 자리에 있었다. 알림은 아래 서랍으로 내린다. */}
         <div className="dhome__stage">
-          <BrainMap />
+          <ErrorBoundary name="BrainMap"><BrainMap /></ErrorBoundary>
           {/* 계기판은 지도 아래 — 접었다 폈다 (기본 접힘: 첫 화면의 정보
               덩어리를 42개에서 줄이는 것이 이번 재설계의 과녁이다) */}
           {brain && (
@@ -301,7 +302,7 @@ export function DobbinHome() {
               <SearchIcon size={15} />
             </button>
           </div>
-          <DobbinSurface />
+          <ErrorBoundary name="DobbinSurface"><DobbinSurface /></ErrorBoundary>
         </div>
       </div>
 

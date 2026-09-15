@@ -125,7 +125,7 @@ export function DobbinSurface() {
     if (!isRecording()) return;
     const t = setInterval(() => setRecTick((n) => n + 1), 1000);
     return () => clearInterval(t);
-  }, [recTick]);
+  }, []);   // v32 — [recTick] 이면 1초마다 인터벌을 새로 짓는다
 
   const send = useCallback(async (text: string) => {
     const t = text.trim();

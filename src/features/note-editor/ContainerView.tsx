@@ -490,6 +490,23 @@ function ContainerView() {
     }
   }, [folderNotePath, frontmatter, body, incrementSearchRefresh]);
 
+  // v32 P4-5 — dobbin 이 폴더노트를 다시 쓰면 화면이 ∞ 로 옛 몸통이었다
+  //   (감사). 제 폴더노트 경로의 file-changed 에 재적재한다.
+  const [fnBump, setFnBump] = useState(0);
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent).detail;
+      const fp = folderNotePath;
+      if (d?.kind === 'file-changed' && fp && typeof d.note === 'string'
+          && fp.endsWith(String(d.note).split(':').pop() || '\u0000')) {
+        prevContainerRef.current = null;   // 재적재 강제
+        setFnBump((n) => n + 1);
+      }
+    };
+    window.addEventListener('dobbin:live', h);
+    return () => window.removeEventListener('dobbin:live', h);
+  }, [folderNotePath]);
+
   // Load folder note when container changes
   useEffect(() => {
     const fnPath = findFolderNote();
@@ -521,7 +538,7 @@ function ContainerView() {
         console.error('ContainerView: Failed to load:', err);
         isLoadingRef.current = false;
       });
-  }, [selectedContainer, fileTree, editor, findFolderNote]);
+  }, [selectedContainer, fileTree, editor, findFolderNote, fnBump]);
 
   // Refresh decorations when fileTree changes (for wiki-link resolution)
   useEffect(() => {

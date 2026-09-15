@@ -239,7 +239,16 @@ function GraphView({ containerPath, refreshTrigger }: GraphViewProps) {
   }, [searchReady, vaultPath, containerPath, graphSettings.showAttachments]);
 
   // Load data on mount & when dependencies change
+  // v32 P4-2 — 14.5MB payload 다: 리프레시마다 무조건 재수신하면 그래프
+  //   탭이 열려만 있어도 트리거 폭마다 메인스레드 300ms 파싱이 돈다.
+  //   45s 조리개 (마운트 첫 로드는 즉시).
+  const graphApertureRef = useRef(0);
   useEffect(() => {
+    const now = Date.now();
+    if (graphApertureRef.current && now - graphApertureRef.current < 45000) {
+      return;
+    }
+    graphApertureRef.current = now;
     loadGraphData();
   }, [loadGraphData, refreshTrigger]);
 

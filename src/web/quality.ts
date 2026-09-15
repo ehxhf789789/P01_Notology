@@ -72,6 +72,16 @@ function watch(): void {
         }
       } else badStreak = 0;
     }
+    if (gaps.length === 0) {
+      // v32 — 창 하나(300프레임)를 다 재면 55초 쉬었다가 다시 잰다.
+      //   전에는 rAF 가 영원히 돌아 페이지가 rAF-idle 에 못 들고 제 부하를
+      //   제가 만들었다 (감사 P4-7). 버스트 표본으로도 강등 판정은 같다.
+      window.setTimeout(() => {
+        last = performance.now();
+        requestAnimationFrame(step);
+      }, 55000);
+      return;
+    }
     requestAnimationFrame(step);
   };
   requestAnimationFrame(step);

@@ -186,11 +186,20 @@ export const useAttachmentStore = create<AttachmentState>()(
       set({ loading: true, error: null });
       try {
         const refs = await syncV2Commands.attachmentListAll();
+        let h = 0;
+        for (const r of refs as Array<{ id: string; syncEtag?: string;
+                                        filename?: string }>) {
+          const k = r.id + '|' + (r.syncEtag ?? '') + '|' + (r.filename ?? '');
+          for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0;
+        }
+        const fp = refs.length + ':' + h;
+        const changed = fp !== (get() as any)._indexFp;
         set({
           index: buildIndex(refs),
           hydrated: true,
-          hydratedAt: Date.now(),
+          ...(changed ? { hydratedAt: Date.now() } : {}),
           loading: false,
+          ...( { _indexFp: fp } as any),
         });
         console.log(`[attachmentStore] hydrated ${refs.length} refs`);
         maybeStartUploadPolling();
@@ -200,16 +209,30 @@ export const useAttachmentStore = create<AttachmentState>()(
       }
     },
 
+    // v32 P4-1b — 내용 지문: refs 가 실제로 바뀌었을 때만 hydratedAt 을
+    //   올린다. 전에는 refresh 마다 올라 열린 편집기 전부가 10초마다
+    //   ProseMirror 전면 재장식을 했다 (감사 — 최대 지속 버벅임).
+    _indexFp: '',
+
     async refresh() {
       // refresh = hydrate without the early-return guard, used by event handlers.
       set({ loading: true, error: null });
       try {
         const refs = await syncV2Commands.attachmentListAll();
+        let h = 0;
+        for (const r of refs as Array<{ id: string; syncEtag?: string;
+                                        filename?: string }>) {
+          const k = r.id + '|' + (r.syncEtag ?? '') + '|' + (r.filename ?? '');
+          for (let i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) | 0;
+        }
+        const fp = refs.length + ':' + h;
+        const changed = fp !== (get() as any)._indexFp;
         set({
           index: buildIndex(refs),
           hydrated: true,
-          hydratedAt: Date.now(),
+          ...(changed ? { hydratedAt: Date.now() } : {}),
           loading: false,
+          ...( { _indexFp: fp } as any),
         });
         console.log(`[attachmentStore] refreshed → ${refs.length} refs`);
         maybeStartUploadPolling();
@@ -455,7 +478,11 @@ function readPersistentPending(key: string): boolean {
 //
 // Both timers stop on `vault:closed`. Cost while idle is ~0.1 req/s; the
 // command is a cheap directory scan of `.notology/attachments/refs/`.
-const AMBIENT_POLL_INTERVAL_MS = 10_000;
+// v32 P4-1 — 🔴 상시 10s 폴이 2.81MB 를 시간당 1GB 씩 나르고, refresh 가
+//   hydratedAt 을 올려 **열린 편집기 전면 재장식**을 10초마다 강제했다
+//   (전수 감사 — 최대 지속 버벅임). 사건(dobbin:live vault-changed 계열)
+//   구동 + 60s 안전벨트로 바꾼다. 업로드 중 3s 짧은 폴은 유지.
+const AMBIENT_POLL_INTERVAL_MS = 60_000;
 const UPLOAD_POLL_INTERVAL_MS = 3_000;
 let ambientPollTimer: ReturnType<typeof setInterval> | null = null;
 let uploadPollTimer: ReturnType<typeof setInterval> | null = null;
@@ -467,17 +494,39 @@ function hasUploadingRef(): boolean {
   return false;
 }
 
+let liveHandler: ((e: Event) => void) | null = null;
+let liveAperture = 0;
+
 function startAmbientPolling() {
   if (ambientPollTimer !== null) return;
   ambientPollTimer = setInterval(() => {
     void useAttachmentStore.getState().refresh();
   }, AMBIENT_POLL_INTERVAL_MS);
+  // v32 — 실시간은 사건이 끈다 (5s 조리개 — 소화 중 분당 ~10사건)
+  if (!liveHandler) {
+    liveHandler = (e: Event) => {
+      const k = (e as CustomEvent).detail?.kind;
+      if (k === 'vault-changed' || k === 'file-changed'
+          || k === 'inbox-changed') {
+        const now = Date.now();
+        if (now - liveAperture > 5000) {
+          liveAperture = now;
+          void useAttachmentStore.getState().refresh();
+        }
+      }
+    };
+    window.addEventListener('dobbin:live', liveHandler);
+  }
 }
 
 function stopAmbientPolling() {
   if (ambientPollTimer !== null) {
     clearInterval(ambientPollTimer);
     ambientPollTimer = null;
+  }
+  if (liveHandler) {
+    window.removeEventListener('dobbin:live', liveHandler);
+    liveHandler = null;
   }
 }
 

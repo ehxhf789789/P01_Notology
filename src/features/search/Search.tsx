@@ -1,5 +1,6 @@
 
 import { FACET_NAMESPACES } from '../../core/types/tagOntology';
+import { ErrorBoundary } from '../../core/ErrorBoundary';
 import { useAttachmentStore } from '../attachments/stores/attachmentStore';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, type CSSProperties } from 'react';
 import { cachedNoteList, getNoteList } from '../../core/noteListCache';
@@ -1803,7 +1804,7 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         </div>
       ) : mode === 'graph' ? (
         <Suspense fallback={<div className="graph-loading">{t('graphLoadingSearch', language)}</div>}>
-          <GraphView containerPath={containerPath} refreshTrigger={refreshTrigger} />
+          <ErrorBoundary name="GraphView"><GraphView containerPath={containerPath} refreshTrigger={refreshTrigger} /></ErrorBoundary>
         </Suspense>
       ) : null}
 

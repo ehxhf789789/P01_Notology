@@ -14,6 +14,7 @@
  * `graph` which always renders the canvas.
  */
 import { useState, useCallback, useRef, useMemo, useEffect, lazy, Suspense } from 'react';
+import { getNoteList } from '../../../core/noteListCache';
 import { Search, FileText, Clock, Paperclip, Network, Tag } from 'lucide-react';
 import { searchCommands } from '../../../core/services/tauriCommands';
 import { useFileTreeStore } from '../../../core/stores/fileTreeStore';
@@ -160,7 +161,7 @@ export default function SearchView({ onOpenNote, onOpenContainer }: Props) {
         // No backend text-on-metadata command — fetch all notes and filter
         // client-side on title + tags. Matches the desktop "frontmatter" mode
         // semantic without needing a separate Tauri command.
-        const all = await searchCommands.queryNotes({});
+        const all = await getNoteList({});   // v32 — 공유 SWR 캐시 (전엔 키입력마다 1.44MB)
         const filtered = all.filter(n =>
           n.title?.toLowerCase().includes(lower)
           || (Array.isArray(n.tags) && n.tags.some(tag => tag?.toLowerCase().includes(lower)))
