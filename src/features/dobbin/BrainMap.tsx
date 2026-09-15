@@ -874,7 +874,10 @@ export function BrainMap() {
         const st = cross ? { c: 'rgba(155,124,255,.35)' }
           : (STYLE[EDGE_CLS[e.kind] || 'chain'] || STYLE.chain);
         ctx.strokeStyle = st.c;
-        ctx.setLineDash(st.d ?? []);
+        // v34 — 서버가 가른 grade 를 읽는다: "static"(코드에 있다 — 정적
+        //   분석)은 점선, 실측된 이음은 실선. 안 읽으면 둘이 같은 선으로
+        //   보여 «심어둔 것»과 «실제로 부른 것»이 화면에서 안 갈린다.
+        ctx.setLineDash(e.grade === 'static' ? [2, 3] : (st.d ?? []));
         const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
         ctx.beginPath();
         ctx.moveTo(a.x, a.y);
