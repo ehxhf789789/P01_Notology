@@ -439,8 +439,35 @@ export const useContentCacheStore = create<ContentCacheState>()((set, get) => ({
     log('[ContentCache] Saving persistent cache...');
 
     try {
-      // Build persistent cache from in-memory cache
+      // 🔴 **캐시가 한 번 걸러 자멸하고 있었다** (v44 · 2026-09-16).
+      //
+      //    서버의 `read_meta_cache` 가 오래 빈 껍데기라 이 결함이 **보이지
+      //    않았다.** 문을 열고 재니 곧바로 드러났다:
+      //
+      //        회차 1  read_files   0회 · 0장      ← 캐시가 전부 덮었다
+      //        회차 2  read_files  53회 · 3,136장  ← 🔴 캐시가 비었다
+      //        회차 3  0회 …                        (번갈아 되풀이)
+      //
+      //    까닭: 캐시에서 온 파일은 `metadataCache` 에만 들어가고
+      //    `state.cache` 에는 **안 들어간다**(본문은 필요할 때 읽는다).
+      //    그런데 여기서 `state.cache` 만 보고 지으므로, 캐시가 잘 먹은
+      //    회차일수록 `state.cache` 가 비어 **빈 캐시를 덮어쓴다.**
+      //    잘 도는 회차가 다음 회차를 망가뜨리는 꼴이다.
+      //
+      //    → **이미 있던 것 위에 얹는다.** 이번에 디스크에서 읽은 것만
+      //      새로 쓰고, 캐시로 때운 것은 **그대로 물려준다.**
+      //
+      //    ⚠️ 무한히 자라지 않게 **이번에 실제로 본 파일만** 남긴다
+      //      (`cache` ∪ `metadataCache`) — 지워진 노트의 항목이 영원히
+      //      쌓이면 캐시를 읽는 값이 파일을 읽는 값을 넘는다.
       const entries: Record<string, PersistentCacheEntry> = {};
+      const prev = state.persistentCache?.entries;
+      if (prev) {
+        state.metadataCache.forEach((_m, filePath) => {
+          const old = prev[filePath];
+          if (old) entries[filePath] = old;
+        });
+      }
 
       state.cache.forEach((content, filePath) => {
         // Skip entries with no frontmatter and empty body (corrupted)
