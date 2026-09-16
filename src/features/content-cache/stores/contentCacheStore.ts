@@ -24,7 +24,17 @@ interface CachedContent {
 interface PersistentCacheEntry {
   mtime: number;
   frontmatter: NoteFrontmatter | null;
-  bodyPreview: string; // First 500 chars of body for quick preview
+  // 🔴 **`bodyPreview` 를 뗐다** (v46 · 2026-09-16). 한빈: *"웹 플랫폼이
+  //    왜이렇게 렉걸리고 느린가?"* — 앱을 열 때 이 캐시를 **4.17MB** 받는데
+  //    해부해 보니 **1.34MB 가 `bodyPreview`**(500자 × 3,136)였다.
+  //    그런데 읽는 자를 세니 **선언 한 줄과 저장 한 줄뿐, 0곳**이었다.
+  //    매번 1.34MB 를 싣고 아무도 안 본다
+  //    ([[built-tool-with-no-caller-is-not-shipped]] 의 전송판).
+  //
+  //    ⚠️ 옛 판이 남긴 캐시에는 이 칸이 들어 있다 — 읽기는 그대로 되고
+  //    (쓰는 쪽만 안 넣는다) 다음 저장에서 저절로 빠진다. 판번호를 올려
+  //    통째로 버리면 예열 0장을 한 번 잃는다 (그게 v44 의 성과다).
+  bodyPreview?: string;
 }
 
 interface PersistentCache {
@@ -75,7 +85,6 @@ interface ContentCacheState {
 }
 
 const CACHE_VERSION = 1;
-const BODY_PREVIEW_LENGTH = 500;
 
 //: 🔴 **미리 읽기를 한 프레임 동안 모은다** (2026-08-30).
 //    `read_files` 한 번으로 미리 데워 두면, 뒤이어 오는 `getContent` 들이
@@ -475,7 +484,6 @@ export const useContentCacheStore = create<ContentCacheState>()((set, get) => ({
         entries[filePath] = {
           mtime: content.mtime || content.timestamp,
           frontmatter: content.frontmatter,
-          bodyPreview: content.body.slice(0, BODY_PREVIEW_LENGTH),
         };
       });
 
