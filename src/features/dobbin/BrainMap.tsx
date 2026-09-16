@@ -905,10 +905,24 @@ export function BrainMap() {
         {shownNodes.map(n => {
           const p = pos[n.id]; if (!p) return null;
           const s = STATUS[n.status] || STATUS.dark;
+          // 🔴 **계획 노드가 화면에 한 점도 안 찍혔다** (v45 · 2026-09-16).
+          //    한빈: *"todo 는 여전히 노드가 생성이 안됬는데?"* — 서버는 8개를
+          //    정확히 주고 DOM 에도 8개가 있었다. 안 보인 까닭은 **그림**이다:
+          //
+          //        r=1.8 · fill=none · stroke 1px · dasharray "2 2"
+          //        → 둘레 11.3px 에 2px 조각 셋. 안티에일리어싱에 녹는다.
+          //
+          //    잘라내어 픽셀로 세니 **분홍(#ff8ac4) 0개**였다. 「그렸다」와
+          //    「보인다」는 다른 말이다 ([[renderer-fixed-is-not-file-fixed]]
+          //    의 짝 — 여기서는 DOM 은 맞는데 그림이 안 났다).
+          //
+          //    ⚠️ 유령 꼴(속 빈 점선)은 **뜻이 있다** — 계획은 아직 지은 것이
+          //    아니다. 그 뜻은 지키되 **보이게** 한다: 반지름을 키우고,
+          //    옅은 속을 넣고, 테두리를 실선으로 굵힌다.
           const ghost = n.kind === '계획';
           const base = n.kind === '접힘' ? 5.5
+                     : n.kind === '계획' ? 3.4
                      : n.kind === '갈래' ? 2.4
-                     : n.kind === '계획' ? 1.8
                      : n.kind === '걸음' ? 1.3
                      : 1.6;
           return (
@@ -919,10 +933,10 @@ export function BrainMap() {
               <circle cx={p.x} cy={p.y} r={9} fill="transparent" />
               <circle cx={p.x} cy={p.y} r={base}
                       className={n.status === 'building' ? 'bm-build' : undefined}
-                      strokeDasharray={ghost ? '2 2' : undefined}
-                      fill={ghost ? 'none' : s.c}
+                      fill={s.c}
                       stroke={ghost ? s.c : 'none'}
-                      strokeWidth={ghost ? 1 : 0}
+                      strokeWidth={ghost ? 1.4 : 0}
+                      fillOpacity={ghost ? 0.28 : 1}
                       opacity={n.status === 'dark' || n.status === 'idle'
                                ? 0.3 : 0.8}>
                 <title>{`${n.label || n.id} · ${s.t}`}</title>
