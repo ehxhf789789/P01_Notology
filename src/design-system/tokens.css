@@ -161,10 +161,10 @@
      for places that need a locked font (e.g. brand wordmark, code labels).
   */
   --primitive-font-sans:
-    "Pretendard", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
+    "Pretendard Variable", "Pretendard", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", system-ui, sans-serif;
   --primitive-font-display:
-    "Pretendard", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
+    "Pretendard Variable", "Pretendard", "Malgun Gothic", "맑은 고딕", "Apple SD Gothic Neo",
     -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", system-ui, sans-serif;
   --primitive-font-mono:
     ui-monospace, "SF Mono", "JetBrains Mono", "D2Coding",

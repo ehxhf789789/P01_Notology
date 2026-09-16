@@ -23,7 +23,23 @@ import 'tippy.js/dist/tippy.css'
 //
 // Browsers fetch only the subsets matching glyphs actually rendered
 // (unicode-range), so bundle weight stays reasonable in practice.
-import 'pretendard/dist/web/static/pretendard.css'
+// 🔴 **아홉 벌 통짜 → 가변 + 동적 서브셋** (v46 · 2026-09-16)
+//
+//    위 주석이 *"브라우저가 필요한 서브셋만 받는다"* 고 적어 두었는데
+//    **`static` 판에는 서브셋이 없다.** 실측(부팅 한 번):
+//
+//        Pretendard-Bold 773KB · SemiBold 767 · Medium 760 · Regular 748
+//        = **부팅에 3,048KB** (산출에는 아홉 벌 6.7MB 가 실린다)
+//
+//    `variable/pretendardvariable-dynamic-subset.css` 는 **한 벌**이
+//    굵기 45~920 을 다 덮고(`font-weight: 45 920`) `unicode-range` 로
+//    92조각에 갈라져 있어 **실제로 그린 글자의 조각만** 온다.
+//    쓰는 굵기는 400·500·600·650·700 인데 가변 폰트가 그 사이를 다 낸다.
+//
+//    ⚠️ 이름이 `Pretendard Variable` 이다 — `typography.ts` 가 이미 그것을
+//       **먼저** 부르고 `Pretendard` 를 그다음에 부른다. 그래서 이름 쪽은
+//       손댈 것이 없다.
+import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css'
 import '@fontsource/nanum-gothic'
 import '@fontsource/noto-sans-kr'
 // Initialize editor pool early for fast hover window opening
