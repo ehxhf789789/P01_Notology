@@ -474,7 +474,16 @@ export const useContentCacheStore = create<ContentCacheState>()((set, get) => ({
       if (prev) {
         state.metadataCache.forEach((_m, filePath) => {
           const old = prev[filePath];
-          if (old) entries[filePath] = old;
+          // 🔴 **물려줄 때 `bodyPreview` 를 떼어낸다** (v46 · 2026-09-16).
+          //    쓰는 쪽에서만 안 넣었더니 **하나도 안 줄었다** — 이 줄이 옛
+          //    항목을 **통째로** 물려주기 때문이다 (실측: 고친 뒤에도 3,136개
+          //    전부에 들어 있었다 · 캐시 4.10MB 그대로).
+          //    캐시가 잘 먹는 회차일수록 거의 다 이 길로 오므로, 여기서
+          //    안 떼면 영영 안 빠진다.
+          if (old) {
+            const { bodyPreview: _drop, ...rest } = old;
+            entries[filePath] = rest;
+          }
         });
       }
 
