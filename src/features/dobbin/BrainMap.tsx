@@ -450,6 +450,18 @@ function tagAt(x: number, y: number, label: string): number | null {
   }
   return null;
 }
+/** 덧층(방금 울린 것)용 — **밀되 안 숨긴다.** 울리는 것은 중요하므로
+ *  자리를 못 찾아도 그린다. 🔴 장부를 **안 더럽힌다** — 덧층은 매 렌더
+ *  바뀌는데 장부에 쌓으면 다음 렌더에서 기반 이름표가 밀려난다. */
+function tagAvoid(x: number, y: number, label: string): number {
+  const w = (label || '').length * 4.6 + 4, h = 12.9;
+  for (const dy of [0, -13, 13, -26, 26]) {
+    const b = { x0: x - w / 2, x1: x + w / 2, y0: y + dy - h, y1: y + dy };
+    if (!_tagBoxes.some(o => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0))
+      return y + dy;
+  }
+  return y - 26;
+}
 
 /** 결정론 배치 — 호 구획 안에 황금비 저불일치 수열로 흩는다. */
 function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
@@ -1134,9 +1146,8 @@ export function BrainMap() {
           {ta.red ? <> · <span className="bm-dim">붉은 칸 {ta.red}</span></> : null}
           {/* 🔴 「0이어도 숨기지 않는다」를 지키되 120px 짜리 칸이 아니라
               **글자 한 칸**으로 (지도 밖 칸은 수>0 일 때만 선다). */}
-          {m.outside && (m.outside.수 ?? 0) === 0
-            ? <> · <span className="bm-dim" title="모듈이 모두 어딘가에 그려져 있다">지도 밖 0</span></>
-            : null}
+          {/* 🔴 「지도 밖 0」은 접이로 내렸다 — 계기판은 **나쁜 것 + 성적**만
+              (한빈 선택). 0 은 나쁜 것도 성적도 아니다. 사실은 접이에 남는다. */}
           {mx.명중 == null
             ? <em className="bm-dim"
                   title="nerve_run 표를 못 읽어 반사·신경 덮음·문 셈이 없다 — 조용히 숨기지 않는다 (A14)">
@@ -1155,7 +1166,8 @@ export function BrainMap() {
                 {/* 🔴 「43/45」는 96%로 읽히지만 그 45는 *신경 수*가 아니라
                     **벤치가 볼 수 있는 자극 수**다. 실제 덮음은 38/56 (68%) —
                     18개는 한 번도 안 쟀다. 두 수를 나란히 적는다. */}
-                {mx.신경전체
+                {/* 🔴 「신경 N/N」(덮음)은 성적이 아니라 **크기**다 — 접이로 */}
+                {false && mx.신경전체
                   ? <i className="bm-cov" title="반사 벤치가 한 번이라도 잰 신경 / 등록부의 신경 전체">
                       {' '}· 신경 {mx.측정}/{mx.신경전체}
                     </i>
@@ -1499,8 +1511,12 @@ export function BrainMap() {
                                 : `hsl(${m.regions[n.region]?.hue ?? 210} 80% 70%)`}
                         strokeWidth={1.4}
                         filter={on ? 'url(#bmlit)' : undefined} />
+                {/* 🔴 덧층도 자리를 피한다 — 안 하면 기반 이름표 위에 포개진다
+                    (실측 「vault-hand」×「proactive-selfcheck」). 다만 울리는
+                    것이라 **숨기지는 않는다** (`tagAvoid`). */}
                 <text className={`bm-tag${on ? ' bm-tag--on' : ''}`} x={p.x}
-                      y={p.y - (r + 5)} textAnchor="middle">
+                      y={tagAvoid(p.x, p.y - (r + 5), n.label || n.id)}
+                      textAnchor="middle">
                   {n.label || n.id}
                 </text>
               </g>
