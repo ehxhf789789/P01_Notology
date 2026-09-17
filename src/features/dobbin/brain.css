@@ -16,7 +16,15 @@
     radial-gradient(90% 70% at 50% 100%, rgba(60,90,200,.10), transparent 70%),
     #0b0f1a;
   box-shadow: inset 0 0 60px rgba(0,0,0,.6); }
-.brainmap__svg { display: block; width: 100%; height: auto; }
+/* 🔴 **스크롤을 구조로 막는다** (한빈 2026-09-17: *"좌측을 상하 스크롤하지
+   않게"*). 전 판은 `height:auto` 라 **너비가 높이를 정했고**, 지도가 남은
+   높이를 안 먹으니 부속이 늘면 곧바로 `.dhome__stage` 가 넘쳤다
+   (실측 1280×800 에서 **69px 넘침**).
+   이제 지도가 남은 높이를 먹는다 — 넘칠 수가 없다.
+   ⚠️ 폭이 넓고 높이가 짧으면 좌우 여백이 생기는데, **스크롤보다 낫다.** */
+.brainmap { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.brainmap__wrap { flex: 1 1 auto; min-height: 220px; }
+.brainmap__svg { display: block; width: 100%; height: 100%; }
 
 /* 🔴 겉선을 **두 겹**으로 준다 (한빈: «뇌의 형상 프레임 테두리가 너무 허접»).
    안쪽 채움 + 바깥 테 + 은은한 빛. 한 줄짜리 선은 도형처럼 보인다. */

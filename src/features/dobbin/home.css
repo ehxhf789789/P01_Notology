@@ -61,7 +61,9 @@
    전 판의 자리 배분은 일감 48% · 대화 20.6% · 묻는 자리 1.6% 였다. */
 .dhome__body { display: flex; flex: 1 1 auto; min-height: 0; gap: 0; }
 .dhome__stage {
-  flex: 1 1 auto; min-width: 0; overflow-y: auto;
+  /* 🔴 `auto` → `hidden` — 지도가 남은 높이를 먹으므로 넘칠 일이 없다.
+     넘치면 그것은 **결함**이고, 스크롤로 감추면 영영 안 보인다 (v50). */
+  flex: 1 1 auto; min-width: 0; overflow-y: hidden;
   display: flex; flex-direction: column; gap: 10px; padding: 12px 14px;
 }
 .dhome__chat {

@@ -330,18 +330,41 @@ const CX = W / 2, CY = (BRAIN_TOP + BRAIN_BOT) / 2;
 const RINGS: Record<string, number> = { '원심': 0, '연합': 1, '구심': 2 };
 const R_IN = 50, R_OUT = 258, R_GAP = 24;   // 중심 여백 · 바깥 한계 · 링 사이 틈
 
-/** 층별 노드 수 → 링 [안, 밖] 반지름. 두께가 √수 에 비례해 자란다. */
+/** 층별 노드 수 → 링 [안, 밖] 반지름.
+ *
+ *  🔴 **두께를 √수 로 나누던 것이 「개판」의 뿌리였다** (v50 · 2026-09-17).
+ *     링의 자리는 두께가 아니라 **넓이**(`½θ(r₁²−r₀²)`)이고 반지름이 **제곱**
+ *     으로 들어간다. √ 가중은 셈을 평탄화해 버려 실측이 이랬다:
+ *
+ *       원심 237개 → [50,114]  넓이 5,272   **131 px²/노드**
+ *       연합 172개 → [138,193]              289 px²/노드
+ *       구심  97개 → [217,258] 넓이 9,757   **602 px²/노드**   ← 4.6배
+ *
+ *     구심 링이 텅 비어 보이고 원심에 38%가 몰려 겹쳤다. 한빈님이 본
+ *     「빈 영역」의 정체는 특정 영역이 아니라 **구심 링 전체**였다.
+ *
+ *  → **넓이로 나눈다.** `r₁² − r₀² ∝ n` 이 되도록 반지름 제곱 구간을 배분하면
+ *     노드당 자리가 링마다 같아진다. 바닥(`MIN_T`)은 한 링이 실처럼 얇아지는
+ *     것만 막는다.
+ */
+const MIN_T = 26;   // 링 최소 두께 — 이보다 얇으면 점이 선처럼 뭉친다
+
 function ringGeo(counts: Record<string, number>): Record<string, [number, number]> {
   const order = Object.keys(RINGS).sort((a, b) => RINGS[a] - RINGS[b]);
-  const w = order.map(k => Math.sqrt(Math.max(counts[k] ?? 0, 4)));
-  const span = R_OUT - R_IN - R_GAP * (order.length - 1);
-  const tot = w.reduce((a, b) => a + b, 0) || 1;
+  const n = order.map(k => Math.max(counts[k] ?? 0, 4));
+  const tot = n.reduce((a, b) => a + b, 0) || 1;
+  // 쓸 수 있는 **넓이**(반지름 제곱 구간) — 틈을 빼고 남는 것
+  const gaps = R_GAP * (order.length - 1);
+  const rIn = R_IN, rOut = R_OUT - gaps;          // 틈을 미리 덜어 둔다
+  const area = rOut * rOut - rIn * rIn;
   const out: Record<string, [number, number]> = {};
-  let r = R_IN;
+  let r2 = rIn * rIn, shift = 0;
   order.forEach((k, i) => {
-    const t = Math.max(34, span * w[i] / tot);
-    out[k] = [r, Math.min(r + t, R_OUT)];
-    r += t + R_GAP;
+    let a = area * n[i] / tot;                    // 이 링이 가질 넓이
+    let r0 = Math.sqrt(r2), r1 = Math.sqrt(r2 + a);
+    if (r1 - r0 < MIN_T) { r1 = r0 + MIN_T; a = r1 * r1 - r2; }   // 바닥
+    out[k] = [r0 + shift, Math.min(r1 + shift, R_OUT)];
+    r2 += a; shift += R_GAP;
   });
   return out;
 }
@@ -411,6 +434,23 @@ function lobes(nodes: Node[], regions: Record<string, Region>,
   return out;
 }
 
+/** 이름표 자리잡기 — 겹치면 밀고, 못 밀면 `null`(안 그린다).
+ *  🔴 렌더마다 `resetTags()` 로 비운다 — 안 비우면 두 번째 렌더부터 제
+ *     이름표와 겹쳐 전부 사라진다. */
+let _tagBoxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
+function resetTags() { _tagBoxes = []; }
+function tagAt(x: number, y: number, label: string): number | null {
+  const w = (label || '').length * 4.6 + 4;      // 8.5px 글자 폭 어림
+  const h = 12.9;                                // 헤일로 포함 높이
+  for (const dy of [0, -13, 13, -26, 26]) {
+    const b = { x0: x - w / 2, x1: x + w / 2, y0: y + dy - h, y1: y + dy };
+    const hit = _tagBoxes.some(o =>
+      b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
+    if (!hit) { _tagBoxes.push(b); return y + dy; }
+  }
+  return null;
+}
+
 /** 결정론 배치 — 호 구획 안에 황금비 저불일치 수열로 흩는다. */
 function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
   const pos: Record<string, { x: number; y: number }> = {};
@@ -421,10 +461,19 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
     list.forEach((n, i) => {
       if (L.arc) {
         const { a0, a1, r0, r1 } = L.arc;
-        const u = (i * 0.6180339887) % 1;             // 황금비 — 각도
-        const v = (i * 0.7548776662) % 1;             // 플라스틱 수 — 반지름
+        // 🔴 **저불일치 쌍이 틀려 있었다** (v50 · 2026-09-17).
+        //    `1/φ`(0.6180339887)와 플라스틱 수 역수(0.7548776662)는 **2차원
+        //    저불일치 쌍이 아니다.** R₂ 수열의 올바른 짝은
+        //    `0.7548776662` 와 `0.5698402910` 이다.
+        //    옛 조합은 **lag 8** 에서 Δu=−0.0557·Δv=+0.0390 이라
+        //    `i` 와 `i+8` 이 **언제나 3.6~4.1px** 안에 떨어졌다 —
+        //    겹침이 우연이 아니라 **구조**였다. `verify` 15개를 재현하니
+        //    6쌍이 4px 안이었고, 지도 전체로는 **4px 안에 230쌍**.
+        const u = (i * 0.7548776662) % 1;             // R₂ — 각도
+        const v = (i * 0.5698402910) % 1;             // R₂ 짝 — 반지름
         const th = a0 + (a1 - a0) * (0.09 + 0.82 * u);
-        const rr = r0 + (r1 - r0) * (0.16 + 0.68 * v);
+        // 🔴 안팎 여백 32% → 20% (두께를 더 쓴다)
+        const rr = r0 + (r1 - r0) * (0.10 + 0.80 * v);
         pos[n.id] = { x: CX + rr * Math.cos(th), y: CY + rr * Math.sin(th) };
       } else if (L.core) {
         // 기질 — 첫 노드(llm)는 정중앙, 형제(임베딩 등)는 좁은 고리로
@@ -439,23 +488,9 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
       }
     });
   });
-  // 🔴 **빚은 임자 곁에 선다** (한빈 2026-09-17: *"왜 다른 노드들과 너무
-  //    디자인이 다른가?"*). 실측에서 계획 8개가 **전부 `target='빚'`**
-  //    — 이미 있는 신경(정산교정·판본·관계…)의 오배선 수리 과제인데,
-  //    임자와 무관한 장비 띠 끝에 모여 있어 **남의 것처럼** 보였다.
-  //    서버 주석이 이미 그렇게 적어 두었다: *"빚 … → **그 노드에 배지로**"*
-  //    (`brainmap.py:2454`). 이제 자리로 이행한다.
-  //    ⚠️ 배치 규칙은 안 건드린다 — 다 놓은 **뒤에** 당기기만 한다.
-  //       임자가 화면에 없으면(접힌 영역 등) 원래 자리에 그대로 둔다.
-  const owned = nodes.filter(n => n.kind === '계획' && n.target === '빚' && n.owner);
-  const per: Record<string, number> = {};
-  owned.forEach(n => {
-    const home = pos[n.owner as string];
-    if (!home) return;                       // 임자가 안 그려졌다 — 물러선다
-    const k = (per[n.owner as string] = (per[n.owner as string] ?? 0) + 1);
-    const a = -Math.PI / 4 + (k - 1) * 0.9;  // 임자 우상단에서 시계로
-    pos[n.id] = { x: home.x + 6.5 * Math.cos(a), y: home.y + 6.5 * Math.sin(a) };
-  });
+  // 🔴 **빚 끌어당김을 걷었다** (v50). 계획 노드가 이제 지도에 없다 —
+  //    「뇌 지도에는 뇌만」. 어제 이 코드가 ① 개발 큐 호를 **빈 영역**으로
+  //    만들고 ② 옮겨간 자리에서 다른 노드와 겹치게 했다 (내 회귀).
   return pos;
 }
 
@@ -861,7 +896,33 @@ export function BrainMap() {
   // 🔴 접힘 기계를 걷었다 (2026-09-11 3차 검토 — K=9999 라 도달 불가인데
   //    lit/pickId 의존성이 남아 **사건마다 446노드 전면 재배치**를 시켰다).
   //    이제 노드 = 서버가 준 전부, 재배치는 지도 자체가 바뀔 때만.
-  const shownNodes = useMemo(() => (m?.nodes ?? []) as Node[], [m]);
+  // 🔴 **뇌 지도에는 뇌만** (한빈 2026-09-17: *"Service layer, gates scorer 등
+  //    영역도 뇌 신경으로써 활성화되는게 맞나?"*).
+  //
+  //    실측: 「뇌가 아니다」고 **코드가 명시한** 영역이 넷이고 그 넷이 지도의
+  //    **19%(120개)** 였다 — `harness` 92(관문·잣대) · `service` 19(HTTP·배선,
+  //    `state`·`env`·`tools`·`page`) · `todo` 8(개발 큐 · 분홍) ·
+  //    `substrate` 1(llm).
+  //
+  //    🔴 그리고 셈이 어긋나 **30개가 유령**이었다 — 「뇌가 아니다」를
+  //    `layer=None`(영역) · `kind∈EQUIPMENT`(노드) · 장비 띠(그림) **세 가지로**
+  //    말하다 보니 `state`·`brainmap`·`nerves` 같은 기관이 뇌에도 장비에도
+  //    안 세어졌다 (626 = 뇌 456 + 조작 8 + 감각 9 + 갈래 33 + 장비 90 + **30**).
+  //
+  //    → 지도 안 = 뇌, 지도 밖 = 뇌 아님. 한 가지로 줄인다.
+  //    ⚠️ `substrate`(llm)는 남긴다 — 코드가 *"두뇌 중앙이 맞다"* 고 적어 두었고
+  //       `core:true` 라 장비 띠가 아니라 정중앙에 선다. `layer=None` 은
+  //       「성숙도 셈에서 뺀다」는 뜻이었지 「뇌가 아니다」가 아니었다.
+  //    🔴 **내린 것은 사라지지 않는다** — 계기판이 수로 말한다 (음성 대조가 문다).
+  const shownNodes = useMemo(() => {
+    const R = m?.regions ?? {};
+    return ((m?.nodes ?? []) as Node[]).filter(n => {
+      const reg = R[n.region];
+      if (!reg) return true;                       // 모르는 영역은 안 숨긴다
+      if (reg.core) return true;                   // 기질(llm) — 두뇌 중앙
+      return reg.layer != null;                    // 층이 있는 것 = 뇌
+    });
+  }, [m]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
   const rings = useMemo(() => {
     const cnt: Record<string, number> = {};
@@ -946,6 +1007,9 @@ export function BrainMap() {
     // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
     //    가 터졌고 앱 전체가 죽었다 (ui_e2e pageerror 실측)
     if (!m?.nodes?.length || !m.edges) return null;
+    // 🔴 이름표 자리 장부를 **여기서** 비운다 — 안 비우면 두 번째 렌더부터
+    //    제 이름표와 겹쳐 전부 사라진다 (v50).
+    resetTags();
     const byId: Record<string, Node> = {};
     m.nodes.forEach(n => { byId[n.id] = n; });
     // v29 — 기반 이음 ~1,300 개는 SVG DOM 이 아니라 아래 Canvas 가 그린다
@@ -1000,12 +1064,21 @@ export function BrainMap() {
                                ? 0.3 : 0.8}>
                 <title>{`${n.label || n.id} · ${s.t}`}</title>
               </circle>
-              {(n.kind === '접힘' || n.kind === '갈래') && (
-                <text className="bm-tag" x={p.x} y={p.y - (base + 5)}
-                      textAnchor="middle">
-                  {n.label || n.id}
-                </text>
-              )}
+              {/* 🔴 **이름표 겹침 방지가 없었다** (v50 · 2026-09-17).
+                  자리가 노드 좌표의 순수 함수라 다른 이름표를 한 번도 안 봤다
+                  — 실측: 「Quote Check」가 「Existence Check」 위에 **가로로
+                  100% 포개져** 둘 다 못 읽었다 (중심 x 차이 2.0px · baseline
+                  13.4px · 헤일로 포함 글자 높이 12.9px).
+                  → 놓인 상자와 견주어 ① 위/아래로 밀고 ② 그래도 겹치면
+                  **안 그린다.** 포개진 글자는 없느니만 못하다.
+                  ⚠️ `kind === '접힘'` 은 죽은 조건 — 서버가 한 번도 안 내보낸다. */}
+              {n.kind === '갈래' && (() => {
+                const ty = tagAt(p.x, p.y - (base + 5), n.label || n.id);
+                return ty == null ? null : (
+                  <text className="bm-tag" x={p.x} y={ty} textAnchor="middle">
+                    {n.label || n.id}
+                  </text>);
+              })()}
             </g>
           );
         })}
@@ -1046,8 +1119,13 @@ export function BrainMap() {
             <b className="bm-ok" title={`꺼내기 성적 — 질문 ${m.bench.n ?? '?'}개 (${m.bench.at})`}>
               검색 {Math.round(m.bench['recall@5'] * 100)}%</b>
           ) : null}
-          {m.stock?.['열린할일'] ? <> · 열린 할 일 <b>{m.stock['열린할일']}</b></> : null}
-          {m.stock?.['질문대기'] ? <> · 질문 대기 <b>{(m.stock['질문대기'] as number).toLocaleString()}</b></> : null}
+          {/* 🔴 「열린 할 일」·「질문 대기」를 걷었다 — **맨 위 카드와 겹친다**
+              (거기 「확인 부탁 1,766건 [확인하기]」로 이미 있다). 같은 수를
+              두 곳에 적으면 사람이 두 번 읽고 한 번도 안 믿는다 (v50). */}
+          {/* 🔴 뇌 아닌 것을 지도에서 내렸으므로 **여기가 그 수를 말한다** */}
+          {m.counts?.장비 ? <> · <span className="bm-dim"
+            title="관문·잣대·서비스 층 — 뇌가 아니라 지도 밖이다">
+            장비 {m.counts.장비}</span></> : null}
           {/* 🔴 여기 `tally.red`(붉은 노드 **전부**)를 「오배선」이라 불렀다.
               실측 9 중 진짜 오배선은 2이고 나머지 7은 붉은 관문 6 + 기관 1 —
               **회귀 관문의 실패가 뇌의 오배선으로 둔갑**했다. 서버가 진짜 값
@@ -1346,10 +1424,9 @@ export function BrainMap() {
           {/* ── 장비 띠 — 🔴 **뇌가 아니다.** 전 판은 관문 74 + 할 일 94 를
               뇌 안에 그려 노드의 51%가 개발 장비였다. 선을 긋고 밖에 둔다. */}
           {/* 장비 위성 호의 캡션 — 뇌 원 밖 왼쪽 아래 */}
-          <text className="bm-equip-lab" x={40} y={H - 26}>
-            장비 — 뇌가 아니다 · 바깥 호 (재는 자 {equipN.gate} · 할 일 {equipN.todo}
-            {' '}· 서비스 층 {m.nodes.filter(n => n.region === 'service').length})
-          </text>
+          {/* 🔴 장비 캡션을 걷었다 — 뇌 아닌 것(관문·서비스·개발 큐)이
+            이제 지도에 없다. 그 수는 계기판이 말한다 (v50). */}
+            
 
           {/* 영역 이름 — 누르면 아래에 「왜 적은가 · 어디까지 됐나」가 뜬다 */}
           {Object.entries(lb).map(([k, L]) => {
