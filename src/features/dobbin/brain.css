@@ -452,3 +452,15 @@
 .bm-stub { stroke: hsl(300 55% 68% / .30); stroke-width: 1; fill: none;
            pointer-events: none; }
 .bm-stub--guard { stroke: hsl(300 60% 72% / .45); }
+
+/* ── 부(部) 하위 칸 (v51 P3) ──────────────────────────────────────────
+   한빈: *"신경이 배치되는 영역을 더 세분화하여 시각화할 것."*
+   자료는 **이미 와 있었다** — `갈래:{부}` 33개 + 위계 이음 161개. 화면이
+   점 하나로만 그리고 배치는 `region` 만 봤다. 이제 호를 부마다 자른다.
+   🔴 **새 색을 만들지 않는다** — 영역 hue 그대로, 밝기·투명도만 변조. */
+.bm-sub { stroke: none; pointer-events: none; }
+.bm-subdiv { stroke: hsl(210 40% 78% / .13); stroke-width: .6;
+             pointer-events: none; }
+.bm-sublab { font-size: 6.2px; letter-spacing: .2px;
+             fill: hsl(210 30% 80% / .52); pointer-events: none;
+             paint-order: stroke; stroke: hsl(222 42% 8% / .7); stroke-width: 1.6px; }

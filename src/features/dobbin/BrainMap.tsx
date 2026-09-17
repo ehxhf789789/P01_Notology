@@ -162,6 +162,12 @@ type Node = {
   target?: string; owner?: string; grade?: string; src?: string | null;
   // 🔴 서버가 이미 보내는데 화면이 **다시 계산**하던 칸 (2026-09-11 전수 대조)
   layer?: string | null; equip?: boolean; aim?: string;
+  /** 🔴 **밖에서 오는 이음** (v51 P2). v50 이 관문·잣대·서비스·계획을 지도에서
+   *  내리며 그 이음 **223개**가 한쪽 끝을 잃고 버려졌다 — 그중 **검증 116**
+   *  은 「이 신경이 어느 관문에 지켜지는가」다. 노드는 안 올리고 **사실만**
+   *  올린다: 수·갈래·임자(8개까지)가 여기 들어온다. */
+  밖?: { n: number; kinds: Record<string, number>;
+         who: { id: string; kind: string }[] };
 };
 type Edge = { a: string; b: string; kind: string; n?: number;
   /** "static" = 코드에 있다(정적 분석) — 실측된 이음과 다르다 */
@@ -385,12 +391,40 @@ function ringGeo(counts: Record<string, number>): Record<string, [number, number
 /** 장비 위성 호 — 뇌 링 밖 아래 반원. 아래 끝 290+334=624 ≤ 700. */
 const EQUIP_RING: [number, number] = [288, 334];
 
+/** 부(部) 하위 호 — 영역 안을 **온톨로지대로** 가른 칸 하나. */
+type Sub = { key: string; label: string; n: number;
+             a0: number; a1: number; i: number; of: number };
 type Lobe = { cx: number; cy: number; rx: number; ry: number; hue: number;
               label: string; n: number; equip: boolean;
+              /** 🔴 **부 하위 호** (v51 P3 · 한빈: *"신경이 배치되는 영역을
+               *  더 세분화하여 시각화"*). 서버가 `갈래:{부}` 노드 33개와
+               *  위계 이음 161개를 **이미 보내는데** 화면이 점 하나로만
+               *  그리고 있었다 — 배치는 `region` 하나만 봤다. */
+              subs?: Sub[];
               /** 기질(core) 로브 — 첫 노드는 정확히 중심에 (한빈: «정중앙») */
               core?: boolean;
               /** 호 구획 — 뇌 안 영역만 갖는다 (장비 선반은 없다) */
               arc?: { a0: number; a1: number; r0: number; r1: number } };
+
+/** 한 영역의 노드를 **어느 칸으로 가를까** — 지어내지 않고 **있는 칸**으로.
+ *
+ *  🔴 신경이 든 영역 10개는 `부`(온톨로지 정본 `BU`·`FAMILY`)가 있다.
+ *     가장 붐비는 `cerebellum`(149 = 기관 80 + 걸음 69)에는 **부가 없다** —
+ *     거기서는 **있는 칸** `kind` 로 가른다. 없는 축을 만들지 않는다.
+ *  ⚠️ 부가 없는 노드(기관·감각 등)는 `'·'` 한 칸에 모인다 — 버리지 않는다. */
+function subKey(n: Node, mode: 'bu' | 'kind'): string {
+  if (mode === 'kind') return n.kind || '·';
+  // 🔴 **영문화가 이음을 끊었다** — 서버가 표시용으로 `label` 을 영문으로
+  //    갈고 원 이름을 `ko` 로 옮긴다(`brainmap.py`). 신경의 `부` 는 한국어라
+  //    `label` 로 묶으면 **같은 부가 둘로 갈린다** (실측: `Speech Unfold` 가
+  //    `말펴기부` 와 따로 섰다). 갈래는 **`ko` 를 먼저** 본다.
+  if (n.kind === '갈래') return ((n as any).ko ?? n.label ?? '·');
+  // 🔴 부가 없으면 **「·」로 버리지 않고** 있는 칸(`kind`)으로 부른다.
+  //    실측에서 `perception › ·` 49개가 가장 큰 칸이었는데, 그 49개는 전부
+  //    **기관**이었다 — 이름이 없는 게 아니라 **안 준 것**이다
+  //    ([[dashboard-is-itself-untested-instrument]] 의 «미분류 통» 과 같은 병).
+  return (n as any).부 || n.kind || '·';
+}
 
 function lobes(nodes: Node[], regions: Record<string, Region>,
                rings: Record<string, [number, number]>): Record<string, Lobe> {
@@ -437,10 +471,38 @@ function lobes(nodes: Node[], regions: Record<string, Region>,
     regs.forEach(([r, n2]) => {
       const span = avail * Math.max(n2, 3) / total;
       const mid = a + span / 2, rm = (r0 + r1) / 2;
+      // ── 🔴 **부 하위 호** (v51 P3). 영역 호를 **식구 수에 비례해** 부마다
+      //    자른다. 같은 부의 신경이 한 칸에 모이면 위계가 자리에서 읽힌다.
+      //    부가 하나뿐이면 자를 것이 없으므로 안 만든다 (칸막이만 늘 뿐).
+      const list = byR[r] || [];
+      const hasBu = list.some(x => (x as any).부);
+      const mode: 'bu' | 'kind' = hasBu ? 'bu' : 'kind';
+      const cnt = new Map<string, number>();
+      list.forEach(x => {
+        const k = subKey(x, mode);
+        cnt.set(k, (cnt.get(k) ?? 0) + 1);
+      });
+      // 큰 칸부터 — 차례가 바뀌면 매 렌더 자리가 흔들린다 (결정론 유지)
+      const keys = [...cnt.entries()]
+        .sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1));
+      let subs: Sub[] | undefined;
+      if (keys.length > 1) {
+        const SGAP = Math.min(0.012, span * 0.03);      // 칸막이 틈 (rad)
+        const tot2 = keys.reduce((z, [, v]) => z + v, 0) || 1;
+        const av2 = span - SGAP * (keys.length - 1);
+        let b = a;
+        subs = keys.map(([k, v], i) => {
+          const w = av2 * v / tot2;
+          const one = { key: k, label: k, n: v, a0: b, a1: b + w,
+                        i, of: keys.length };
+          b += w + SGAP;
+          return one;
+        });
+      }
       out[r] = { cx: CX + rm * Math.cos(mid), cy: CY + rm * Math.sin(mid),
                  rx: (r1 - r0) / 2, ry: (r1 - r0) / 2,
                  hue: regions[r].hue, label: regions[r].label,
-                 n: byR[r].length, equip: equipRing,
+                 n: byR[r].length, equip: equipRing, subs,
                  arc: { a0: a, a1: a + span, r0, r1 } };
       a += span + GAP;
     });
@@ -484,9 +546,27 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
   nodes.forEach(n => { (byR[n.region] ||= []).push(n); });
   Object.entries(byR).forEach(([r, list]) => {
     const L = lb[r]; if (!L) return;
+    // 🔴 **제 부 호 안에 앉힌다** (v51 P3). 전에는 영역 호 전체에 흩어서
+    //    같은 부의 신경이 반대편 끝에 떨어졌다 — 위계가 자리에서 안 읽혔다.
+    //    ⚠️ 칸 **안에서의 차례(j)** 로 수열을 돌려야 한 칸에 두 점이 겹치지
+    //    않는다. 전역 `i` 를 그대로 쓰면 칸마다 수열이 끊겨 뭉친다.
+    const subOf = new Map<string, Sub>();
+    const seen = new Map<string, number>();
+    if (L.subs) {
+      const mode: 'bu' | 'kind' = list.some(x => (x as any).부) ? 'bu' : 'kind';
+      L.subs.forEach(sb => subOf.set(sb.key, sb));
+      list.forEach(n => { (n as any).__sk = subKey(n, mode); });
+    }
     list.forEach((n, i) => {
       if (L.arc) {
-        const { a0, a1, r0, r1 } = L.arc;
+        let { a0, a1 } = L.arc;
+        const { r0, r1 } = L.arc;
+        const sb = L.subs ? subOf.get((n as any).__sk) : undefined;
+        if (sb) {
+          a0 = sb.a0; a1 = sb.a1;
+          i = seen.get(sb.key) ?? 0;              // 칸 안에서의 차례
+          seen.set(sb.key, i + 1);
+        }
         // 🔴 **저불일치 쌍이 틀려 있었다** (v50 · 2026-09-17).
         //    `1/φ`(0.6180339887)와 플라스틱 수 역수(0.7548776662)는 **2차원
         //    저불일치 쌍이 아니다.** R₂ 수열의 올바른 짝은
@@ -1087,6 +1167,25 @@ export function BrainMap() {
                onMouseEnter={() => setHover(n.id)}
                onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
               <circle cx={p.x} cy={p.y} r={9} fill="transparent" />
+              {/* 🔴 **뻗침** — 밖(관문·잣대·서비스·계획)에 임자가 있다는 표시.
+                  v50 이 그것들을 지도에서 내리며 **이음 223개가 한쪽 끝을 잃고
+                  버려졌다** — 그중 검증 116 은 「이 신경이 어느 관문에
+                  지켜지는가」다. 선을 다 그리면 스파게티가 되고 안 그리면
+                  연계가 통째로 안 보인다. 중심 반대쪽으로 **짧게** 뻗어
+                  길이가 임자 수를 말한다 (v51 P2).
+                  ⚠️ 이 블록은 한 번 **뒤에서 돌던 심술이 나무를 되돌려** 조용히
+                     사라졌다 — 관문이 도는 중엔 나무를 안 건드린다. */}
+              {n.밖 ? (() => {
+                const dx = p.x - CX, dy = p.y - CY;
+                const L2 = Math.hypot(dx, dy) || 1;
+                const len = Math.min(3 + n.밖.n * 1.1, 11);
+                const guard = !!n.밖.kinds['검증'];
+                return <line className={`bm-stub${guard ? ' bm-stub--guard' : ''}`}
+                             x1={p.x + (dx / L2) * (base + 1.2)}
+                             y1={p.y + (dy / L2) * (base + 1.2)}
+                             x2={p.x + (dx / L2) * (base + 1.2 + len)}
+                             y2={p.y + (dy / L2) * (base + 1.2 + len)} />;
+              })() : null}
               <circle cx={p.x} cy={p.y} r={base}
                       className={n.status === 'building' ? 'bm-build' : undefined}
                       fill={s.c}
@@ -1430,6 +1529,38 @@ export function BrainMap() {
 
           <g>
             {/* 엽 — 링 위의 호 구획. 발화하면 그 구획이 파동친다 (B3) */}
+          {/* 🔴 **부 이름은 그 영역에 손을 얹었을 때만** (v51 P3).
+              처음엔 늘 그렸다. 재니 **37 중 25(68%)를 `tagAt` 이 숨겼다** —
+              띠 안쪽 가장자리가 붐벼서다. 3분의 1만 뜨는 이름표는 규칙이
+              아니라 운이다. 이 화면은 이미 영역 이름에 같은 답을 내려 두었다:
+              *"평시엔 이름을 안 그린다 — 상시 라벨은 서로 겹쳤다."* 그 규율을
+              따른다. 평시엔 **띠 색과 칸막이**가 세분화를 말하고, `<title>`
+              이 하나하나를 말한다. */}
+          {Object.entries(lb).filter(([k, L]) => L.arc && L.subs && regHover === k)
+            .flatMap(([k, L]) =>
+            L.subs!.filter(sb => sb.n >= 2).map(sb => {
+              const mid = (sb.a0 + sb.a1) / 2;
+              const rr = L.arc!.r0 + (L.arc!.r1 - L.arc!.r0) * 0.5;
+              const x = CX + rr * Math.cos(mid), y = CY + rr * Math.sin(mid);
+              const yy = tagAvoid(x, y, sb.label);
+              return <text key={`sl-${k}-${sb.key}`} className="bm-sublab"
+                           x={x} y={yy} textAnchor="middle">{sb.label}</text>;
+            }))}
+
+            {/* 🔴 **부 하위 띠** (v51 P3 · 한빈 선택 «띠 색까지 달리»).
+                영역 hue 는 그대로 두고 **밝기·투명도만** 부 차례로 변조한다 —
+                새 색을 만들면 화면이 시끄러워지고 색이 뜻을 잃는다. 영역 띠
+                **아래**에 깔아 경계가 겹줄로 안 보이게 한다. */}
+            {Object.entries(lb).filter(([, L]) => L.arc && L.subs).flatMap(([k, L]) =>
+              L.subs!.map(sb => (
+                <path key={`sub-${k}-${sb.key}`}
+                      d={arcPath(sb.a0, sb.a1, L.arc!.r0, L.arc!.r1)}
+                      className="bm-sub"
+                      style={{ fill: `hsl(${L.hue} ${52 + (sb.i % 3) * 9}% `
+                                   + `${38 + (sb.i % 4) * 7}% / `
+                                   + `${(0.05 + (sb.i % 2) * 0.035).toFixed(3)})` }}>
+                  <title>{`${L.label} › ${sb.label} — ${sb.n}개`}</title>
+                </path>)))}
             {Object.entries(lb).filter(([, L]) => L.arc).map(([k, L]) => {
               const { a0, a1, r0, r1 } = L.arc!;
               const on = lit.some(id => nodeById[id]?.region === k);
@@ -1465,6 +1596,15 @@ export function BrainMap() {
             이제 지도에 없다. 그 수는 계기판이 말한다 (v50). */}
             
 
+          {/* 🔴 **부 칸막이** — 띠만으로는 어디까지가 한 부인지 안 읽힌다.
+              얇은 방사선 하나면 충분하다 (v51 P3). */}
+          {Object.entries(lb).filter(([, L]) => L.arc && L.subs).flatMap(([k, L]) =>
+            L.subs!.slice(1).map(sb => (
+              <line key={`div-${k}-${sb.key}`} className="bm-subdiv"
+                    x1={CX + L.arc!.r0 * Math.cos(sb.a0)}
+                    y1={CY + L.arc!.r0 * Math.sin(sb.a0)}
+                    x2={CX + L.arc!.r1 * Math.cos(sb.a0)}
+                    y2={CY + L.arc!.r1 * Math.sin(sb.a0)} />)))}
           {/* 영역 이름 — 누르면 아래에 「왜 적은가 · 어디까지 됐나」가 뜬다 */}
           {Object.entries(lb).map(([k, L]) => {
             const c = m.census?.[k];
