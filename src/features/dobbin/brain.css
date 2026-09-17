@@ -220,7 +220,7 @@
    형태 언어만 가져왔다 — 동심 링·눈금·입자·발광·느린 회전. 색은 현행
    파랑 계열 그대로 (한빈 확정). 🔴 도는 것은 **장식뿐**이다: 노드·이음·
    글자는 돌지 않는다 — 읽는 것이 먼저다. */
-/* 🔴 **배경 회전을 멈췄다** (한빈 2026-09-17: *"현재 배경이 회전하고 있음"*).
+/* 🔴 **회전의 중심이 낡아 «휘돌고» 있었다** (한빈 2026-09-17).
  *
  *  두 가지가 겹쳐 있었다:
  *   ① 🔴 `transform-origin` 이 **`490px 290px` — 옛 중심**이었다. v51 이 판을
@@ -228,16 +228,17 @@
  *      회전이 아니라 휘돌았다.** 안 보이던 장식이 눈에 띈 까닭이다.
  *      → 숫자를 여기 또 적지 않는다. TS 가 `--bm-cx/--bm-cy` 로 넘긴다
  *        (같은 표를 두 곳에 두면 이렇게 낡는다).
- *   ② 고쳐도 **도는 것 자체가 거슬린다** 하셨다. 장식이고 뜻이 없으므로 멈춘다
- *      — *"모니터링 및 계기판은 핵심만 명확하게. 디자인은 심플하게."*
- *
- *  ⚠️ 되살리기는 **한 줄**이다: 아래 `animation` 주석을 풀면 된다. */
+ *   ② ⚠️ 한때 **멈췄다가 되살렸다.** 첫 지적(*"배경이 회전하고 있음"*)을
+ *      「돌지 마라」로 읽고 껐는데, 다음 지적이 *"회전하지 않고 있고"* 였다.
+ *      거슬렸던 것은 **회전이 아니라 휘돎(①)** 이었다 — 중심을 고치니
+ *      96초/바퀴는 눈에 안 띈다. 🔴 **증상을 고치기 전에 원인을 먼저
+ *      고쳤어야 했다.** */
 .bm-holo {
   transform-origin: var(--bm-cx, 50%) var(--bm-cy, 50%);
   transform-box: view-box;
-  /* animation: bmspin 96s linear infinite; */   /* ← 되살리려면 이 줄 */
+  animation: bmspin 96s linear infinite;
 }
-.bm-holo--rev { /* animation-duration: 148s; animation-direction: reverse; */ }
+.bm-holo--rev { animation-duration: 148s; animation-direction: reverse; }
 @keyframes bmspin { to { transform: rotate(360deg); } }
 
 .bm-ring {
@@ -449,9 +450,13 @@
 
 /* 🔴 **뻗침** — 밖에 임자가 있다는 표시. 점 하나가 밖으로 짧게 뻗는다.
    선을 다 그리면 스파게티가 되고, 안 그리면 연계가 안 보인다. 그 사이다. */
-.bm-stub { stroke: hsl(300 55% 68% / .30); stroke-width: 1; fill: none;
-           pointer-events: none; }
-.bm-stub--guard { stroke: hsl(300 60% 72% / .45); }
+/* 🔴 **털처럼 보였다** (한빈 2026-09-17: *"배경이 이상한데?"*). 91개가 바깥
+   링에서 밖으로 뻗으니 뇌 실루엣에 **수염**이 생겼다. 뜻은 유지하되 **귀띔**
+   으로 낮춘다 — 사실은 상세 패널(`.bm-out`)이 말한다. 얹으면 또렷해진다. */
+.bm-stub { stroke: hsl(300 55% 68% / .13); stroke-width: .7; fill: none;
+           pointer-events: none; transition: stroke .15s; }
+.bm-stub--guard { stroke: hsl(300 60% 72% / .20); }
+.bm-node:hover .bm-stub { stroke: hsl(300 70% 78% / .75); stroke-width: 1.2; }
 
 /* ── 부(部) 하위 칸 (v51 P3) ──────────────────────────────────────────
    한빈: *"신경이 배치되는 영역을 더 세분화하여 시각화할 것."*

@@ -609,20 +609,6 @@ function arcPath(a0: number, a1: number, r0: number, r1: number): string {
        + `L${p(r0, a1)} A${r0},${r0} 0 ${big} 0 ${p(r0, a0)} Z`;
 }
 
-/** 홀로그램 장식 입자 — 결정론 (매 렌더 같은 자리). */
-function holoDots(): { x: number; y: number; r: number; o: number }[] {
-  const out = [];
-  for (let i = 0; i < 46; i++) {
-    const th = (i * 2.399963) % (Math.PI * 2);
-    const rr = 48 + ((i * 0.7548776662) % 1) * 214;
-    // 🔴 CSS !important 가 이 계산을 통째로 덮고 있었다 (두 벌 계산의 한쪽만
-    //    삶 · 3차 검토). 어두운 값을 **여기서** 낸다 — 한 벌.
-    out.push({ x: CX + rr * Math.cos(th), y: CY + rr * Math.sin(th),
-               r: 0.5 + ((i * 0.618034) % 1) * 0.6,
-               o: 0.06 + ((i * 0.324717) % 1) * 0.10 });
-  }
-  return out;
-}
 
 export function BrainMap() {
   const [m, setM] = useState<Map | null>(null);
@@ -1178,7 +1164,7 @@ export function BrainMap() {
               {n.밖 ? (() => {
                 const dx = p.x - CX, dy = p.y - CY;
                 const L2 = Math.hypot(dx, dy) || 1;
-                const len = Math.min(3 + n.밖.n * 1.1, 11);
+                const len = Math.min(2 + n.밖.n * 0.7, 6);   // 🔴 11 → 6 (수염)
                 const guard = !!n.밖.kinds['검증'];
                 return <line className={`bm-stub${guard ? ' bm-stub--guard' : ''}`}
                              x1={p.x + (dx / L2) * (base + 1.2)}
@@ -1481,28 +1467,17 @@ export function BrainMap() {
               먼저다. 60~140초/바퀴의 느린 회전이라 시선을 안 뺏고,
               `prefers-reduced-motion` 이면 정지한다. dobbin 홈이
               `display:none` 으로 숨으면 그리기 자체가 없어 CPU 0 이다. */}
-          <g className="bm-holo" aria-hidden="true">
-            {Object.entries(rings).map(([k, [r0, r1]]) => (
-              <g key={`ring-${k}`}>
-                <circle cx={CX} cy={CY} r={r1} className="bm-ring" />
-                <circle cx={CX} cy={CY} r={r0} className="bm-ring bm-ring--in" />
-                {/* 눈금 호 — 자비스의 그 눈금. dasharray 가 눈금을 만든다 */}
-                <circle cx={CX} cy={CY} r={(r0 + r1) / 2 + (r1 - r0) * 0.32}
-                        className="bm-ring bm-ring--tick" />
-              </g>
-            ))}
-            {holoDots().map((d, i) => (
-              <circle key={`dot-${i}`} cx={d.x} cy={d.y} r={d.r}
-                      className="bm-dust" style={{ opacity: d.o }} />
-            ))}
-          </g>
-          <g className="bm-holo bm-holo--rev" aria-hidden="true">
-            {/* 짧은 호 조각들 — 반대로 도는 겹이 깊이를 만든다 */}
-            {Object.values(rings).map(([r0, r1], i) => (
-              <circle key={`seg-${i}`} cx={CX} cy={CY} r={(r0 + r1) / 2}
-                      className="bm-ring bm-ring--seg" />
-            ))}
-          </g>
+          {/* 🔴 **배경 장식층을 걷었다** (한빈 2026-09-17: *"이왕 회전하지 않는
+              걸 보니 배경 제거."*).
+
+              걷은 것: 동심 링 테두리 · 눈금 호(dasharray) · 반대로 도는 겹 ·
+              홀로그램 먼지 46개. 전부 **장식**이고 뜻이 없었다 — 층의 경계는
+              영역 띠(`.bm-lobe`)와 부 띠(`.bm-sub`)가 이미 말한다.
+
+              ⚠️ 이 자리에서 세 번 왔다 갔다 했다: ①휘돌아서 거슬림 → 멈춤
+              ②*"회전하지 않고 있고"* → 되살림 ③*"배경 제거"* → 걷음.
+              🔴 **증상을 고치기 전에 원인(낡은 회전 중심)을 먼저 고쳤어야
+              했다.** 되살리려면 `git show` 로 이 블록을 꺼내면 된다. */}
 
           {/* dobbin 코어 — 중심. 상태가 아니라 자리다 (얼굴은 히어로에 있다) */}
           <g className="bm-core" aria-hidden="true">
