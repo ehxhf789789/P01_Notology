@@ -239,9 +239,19 @@ function mergeTrace(prev: Trace[], add: Trace[]): Trace[] {
   return out.sort((a, b) => b.ts - a.ts).slice(0, 40);
 }
 
-const W = 980, H = 700;
-/** 뇌가 차지하는 세로 — 아래 나머지는 **장비 띠**다 (뇌가 아니다). */
-const BRAIN_TOP = 24, BRAIN_BOT = 556, EQUIP_TOP = 586;
+/** 판 — 🔴 **정사각이다** (v51 · 한빈 2026-09-17: *"여백이 균일하지 않음"*).
+ *
+ *  전 판은 `980×700`(1.4:1)인데 그리는 것은 **원**(1:1)이라 여백이 이랬다:
+ *
+ *      좌 232 · 우 232 · 상 **32** · 하 **152**      ← 좌우가 위의 **7.2배**
+ *
+ *  원인이 둘이다. ⓐ 가로가 세로보다 280 넓은데 원은 그 자리를 못 쓴다.
+ *  ⓑ `CY` 를 **장비 띠 자리를 빼고** 냈다 — 그런데 **v50 이 장비를 지도에서
+ *  내렸다.** 예약만 남아 아래 150이 영구 공백이 됐다.
+ *
+ *  → 판을 정사각으로 하고 한가운데에 둔다. **좌=우 · 상=하 가 구조로 보장**
+ *    되고, 남는 여백은 창 모양 탓이지 그림 탓이 아니게 된다. */
+const W = 760, H = 760;
 
 /* 🔴 **화면의 조작 표를 버렸다** (2026-09-10). 여기 `MOTOR_SSE` 라는 두 번째
    표를 들고 있어서, 서버가 이름을 고치자 **4개는 켤 노드가 없고 4개는 영영
@@ -322,13 +332,17 @@ const STATUS: Record<string, { c: string; t: string }> = {
  * 🔴 노드 좌표는 여전히 결정론이다 (황금비 저불일치 수열) — 같은 지도를
  *    다시 열어도 같은 자리. 서버 값 계약은 한 글자도 안 바꿨다.
  */
-const CX = W / 2, CY = (BRAIN_TOP + BRAIN_BOT) / 2;
+const CX = W / 2, CY = H / 2;      // 🔴 한가운데 (전 판은 290 — 60 위였다)
 /** 링 **차례**의 계약 — 반지름은 아래 `ringGeo()` 가 **노드 수로** 계산한다
  *  (한빈 2026-09-11: *"노드가 추가되면 범위도 동적으로 넓어지고 디자인도
  *  동적으로 변화되도록"*). 열쇠는 서버 LAYERS 와 한 벌이어야 한다 (뇌계약
  *  관문이 문다). */
 const RINGS: Record<string, number> = { '원심': 0, '연합': 1, '구심': 2 };
-const R_IN = 50, R_OUT = 258, R_GAP = 24;   // 중심 여백 · 바깥 한계 · 링 사이 틈
+/** 🔴 `R_OUT` 은 **자가 정한 값**이다. 이름표가 `arc.r1 + 10` 에 가운데 정렬로
+ *  그려지므로(아래 이름표 절) 글자 절반이 더 나간다 — 반지름만 보고 못 박으면
+ *  지도 밖으로 샌다. `tools/_v51_layout.mjs` 가 「지도 밖 0 · 여백 사방 같음」
+ *  을 통과하는 값으로 잡았다. 여백 = 380 − 300 = **80** (사방 같다). */
+const R_IN = 50, R_OUT = 300, R_GAP = 24;   // 중심 여백 · 바깥 한계 · 링 사이 틈
 
 /** 층별 노드 수 → 링 [안, 밖] 반지름.
  *
@@ -968,8 +982,15 @@ export function BrainMap() {
       cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
       const ctx = cv.getContext('2d');
       if (!ctx) return;
-      const k = (cssW / W) * dpr;            // viewBox → 물리 픽셀
-      ctx.setTransform(k, 0, 0, k, 0, 0);
+      // 🔴 **가운데맞춤이 빠져 있었다** (v51 · 2026-09-17). 위 주석이
+      //    *"`height:auto` 라 배율은 `cssW/W` 하나뿐"* 이라 적었는데
+      //    **v50 이 `height:100%` 로 바꿔 그 전제를 깼다.** SVG 는
+      //    `xMidYMid meet` 로 **가운데 맞춰 letterbox** 하는데 캔버스는
+      //    안 맞춰서, 이음이 노드보다 **47~100px 위**에 그려졌다 (실측).
+      //    배율은 맞았고 **옮김만 없었다.**
+      const s = Math.min(cssW / W, cssH / H);        // meet — 작은 쪽이 이긴다
+      const ox = (cssW - W * s) / 2, oy = (cssH - H * s) / 2;
+      ctx.setTransform(s * dpr, 0, 0, s * dpr, ox * dpr, oy * dpr);
       ctx.clearRect(0, 0, W, H);
       ctx.globalAlpha = 0.5;                 // .bm-edge 전역 (brain.css:300)
       ctx.lineCap = 'round';
@@ -1322,6 +1343,10 @@ export function BrainMap() {
         <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
                 aria-hidden="true" />
         <svg viewBox={`0 0 ${W} ${H}`} className="brainmap__svg" role="img"
+             /* 🔴 장식 회전의 중심을 **여기서** 넘긴다 — css 에 숫자를 또 적으면
+                판 크기를 바꿀 때 조용히 낡는다 (v51 에 실제로 그랬다). */
+             style={{ ['--bm-cx' as string]: `${CX}px`,
+                      ['--bm-cy' as string]: `${CY}px` }}
              aria-label="dobbin 의 뇌 지도">
           <defs>
             <filter id="bmsoft" x="-40%" y="-40%" width="180%" height="180%">
