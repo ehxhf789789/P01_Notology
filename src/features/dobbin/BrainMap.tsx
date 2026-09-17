@@ -108,7 +108,8 @@ function BuildTag() {
   ) : null;
 }
 
-function StateChip() {
+function StateChip({ lit = [], enOf = {} }:
+                   { lit?: string[]; enOf?: Record<string, string> }) {
   const { cls, txt, age } = useWorkState();
   // v26-B — 칩 클릭 = 기기 자가진단 (한빈: «타 컴퓨터에서는 안 보인다» —
   // 기기마다 사인이 달라, 화면이 제 기기의 사실을 직접 말해야 원격 진단이
@@ -132,15 +133,19 @@ function StateChip() {
   // 🔴 **할 말이 없으면 아무것도 안 그린다** (한빈 2026-09-17 «거슬린다»).
   //    2-14-2-2 의 그 규율 — *조용할 때 조용한 것이 살아 있는 것에 더
   //    가깝다*. 다만 자가진단을 열었으면 그때는 보인다.
-  if (!txt && !diag) return null;
+  if (!txt && !diag && !lit.length) return null;
+  // 방금 울린 사슬 — 옛 `brainmap__live` 띠의 알맹이. 지도를 덮던 것을
+  // 같은 줄로 데려왔다. 여섯은 길어서 셋까지만.
+  const chain = lit.slice(0, 3).map(x => enOf[x] || x).join(' ← ');
   const when = isFinite(age)
     ? `마지막 일 ${age < 90 ? Math.round(age) + '초' : Math.round(age / 60) + '분'} 전`
     : '아직 신호 없음';
   return (
-    <div className={`bm-chip ${cls}`} onClick={showDiag}
-         style={{ cursor: 'pointer' }}
+    <div className={`bm-strip ${cls}`} onClick={showDiag} role="status"
+         aria-live="polite"
          title={`${when} ｜ 클릭 = 이 기기의 자가진단 (판·모션 설정·브라우저)`}>
-      {diag ?? txt}
+      <span className="bm-strip__state">{diag ?? txt}</span>
+      {!diag && chain ? <span className="bm-strip__chain">{chain}</span> : null}
     </div>
   );
 }
@@ -948,7 +953,15 @@ export function BrainMap() {
           //    ⚠️ 유령 꼴(속 빈 점선)은 **뜻이 있다** — 계획은 아직 지은 것이
           //    아니다. 그 뜻은 지키되 **보이게** 한다: 반지름을 키우고,
           //    옅은 속을 넣고, 테두리를 실선으로 굵힌다.
-          const ghost = n.kind === '계획';
+          // 🔴 **모양이 사실과 어긋나 있었다** (한빈 2026-09-17:
+          //    *"해당 영역의 노드들은 신경이 아닌가? 왜 다른 노드들과 너무
+          //    디자인이 다른가?"*). 유령 꼴의 뜻은 «아직 지은 것이 아니다»
+          //    인데, 실측하니 계획 노드 **8개 전부가 `target='빚'`** —
+          //    이미 있는 신경(정산교정·판본·관계…)의 **오배선 수리 과제**다.
+          //    「신설」은 0개였다. 서버가 `target` 을 갈라 보내는데
+          //    (`brainmap.py:2456`) 화면이 그 칸을 **모양에 0번 썼다.**
+          //    → 빚이면 다른 노드와 같은 꽉 찬 점. 유령은 신설에만.
+          const ghost = n.kind === '계획' && n.target !== '빚';
           const base = n.kind === '접힘' ? 5.5
                      : n.kind === '계획' ? 3.4
                      : n.kind === '갈래' ? 2.4
@@ -1005,15 +1018,30 @@ export function BrainMap() {
     <section className="brainmap">
       {/* 🔴 한 호흡에 못 읽는 숫자 아홉을 늘어놓지 않는다 (한빈: «글자가 잘
           보여야 함»). 뇌와 장비를 먼저 가르고, 나머지는 아래 범례가 맡는다. */}
+      {/* 🔴 **늘 보이는 것과 접는 것이 뒤바뀌어 있었다** (한빈 2026-09-17:
+          *"계기판 디자인 및 UI도 개선 필요"*). 어제 접어 버린 `stock`·`bench`
+          안에 **사람이 쓸 숫자**가 있었다 — 검색 82.9% · 열린 할 일 · 질문
+          대기. 늘 보이던 줄은 개발자 내부 셈(이음 1,425 · 장비 90 · 문 64/84)
+          이었다. 자리를 맞바꾼다 — **지우는 것이 아니라 옮기는 것**이다. */}
       <h3><span className="brainmap__ttl">뇌 지도</span>
         <span className="brainmap__sum">
-          뇌 <b>{m.counts?.뇌 ?? m.nodes.length}</b> · 이음 <b>{m.edges.length}</b>
+          {m.bench && m.bench['recall@5'] != null ? (
+            <b className="bm-ok" title={`꺼내기 성적 — 질문 ${m.bench.n ?? '?'}개 (${m.bench.at})`}>
+              검색 {Math.round(m.bench['recall@5'] * 100)}%</b>
+          ) : null}
+          {m.stock?.['열린할일'] ? <> · 열린 할 일 <b>{m.stock['열린할일']}</b></> : null}
+          {m.stock?.['질문대기'] ? <> · 질문 대기 <b>{(m.stock['질문대기'] as number).toLocaleString()}</b></> : null}
           {/* 🔴 여기 `tally.red`(붉은 노드 **전부**)를 「오배선」이라 불렀다.
               실측 9 중 진짜 오배선은 2이고 나머지 7은 붉은 관문 6 + 기관 1 —
               **회귀 관문의 실패가 뇌의 오배선으로 둔갑**했다. 서버가 진짜 값
               (`matrix.오배선`)을 보내는데 안 읽고 있었다. */}
           {mx.오배선 ? <> · <em className="bm-bad">오배선 {mx.오배선}</em></> : null}
           {ta.red ? <> · <span className="bm-dim">붉은 칸 {ta.red}</span></> : null}
+          {/* 🔴 「0이어도 숨기지 않는다」를 지키되 120px 짜리 칸이 아니라
+              **글자 한 칸**으로 (지도 밖 칸은 수>0 일 때만 선다). */}
+          {m.outside && (m.outside.수 ?? 0) === 0
+            ? <> · <span className="bm-dim" title="모듈이 모두 어딘가에 그려져 있다">지도 밖 0</span></>
+            : null}
           {mx.명중 == null
             ? <em className="bm-dim"
                   title="nerve_run 표를 못 읽어 반사·신경 덮음·문 셈이 없다 — 조용히 숨기지 않는다 (A14)">
@@ -1022,7 +1050,13 @@ export function BrainMap() {
           {mx.명중 != null
             ? <span title={`신경 ${mx.측정}개 · ${mx.잰때 || '언제인지 모름'}`
                            + ` · 출처 ${mx.출처}`}>
-                {' · '}반사 {mx.명중}/{mx.자극}
+                {/* 🔴 **「A/B」 는 성적으로 읽힌다** — 실측에서 「반사 0/3」
+                    이 0점처럼 보였는데 그것은 디버그 주행의 크기였다.
+                    서버가 v49 에서 완주 판만 쓰게 고쳤고, 화면도 **성적은
+                    %로** 적는다 (크기·덮음은 「N개 중 M개」로 따로). */}
+                {' · '}반사 {Math.round((mx.명중 / Math.max(1, mx.자극)) * 100)}%
+                <i className="bm-cov" title={`완주 판 ${mx.자극}자극 중 ${mx.명중} 명중`}>
+                  ({mx.자극}자극)</i>
                 {/* 🔴 「43/45」는 96%로 읽히지만 그 45는 *신경 수*가 아니라
                     **벤치가 볼 수 있는 자극 수**다. 실제 덮음은 38/56 (68%) —
                     18개는 한 번도 안 쟀다. 두 수를 나란히 적는다. */}
@@ -1036,33 +1070,14 @@ export function BrainMap() {
                     붙은 것은 13개다 — 나머지 49개로 나간 답은 뇌 지도에
                     **한 칸도 안 켜진다.** 사람이 보기엔 dobbin 이 아무
                     생각 없이 답한 것처럼 보인다. 그 수를 적는다. */}
-                {mx.문
-                  ? <i className="bm-gap"
-                       title="답이 나가는 자리 중 「신경 «X» 발화」 표시가 붙은 것 — 나머지로 나간 답은 지도에 안 켜진다">
-                      {' '}· 문 {mx.문표시}/{mx.문}
-                      {(mx.문 ?? 0) - (mx.문표시 ?? 0) > 0
-                        ? <em>({(mx.문 ?? 0) - (mx.문표시 ?? 0)}개 계측 밖)</em>
-                        : null}
-                    </i>
-                  : null}
+                {/* 「문 N/N」·「손·장비」·「뇌·이음」은 개발자 셈이라 아래
+                    접이로 내렸다 — **지운 것이 아니다** (`bm-inner`). */}
                 {mx.잰때 ? <i className="bm-at">({mx.잰때.slice(5)})</i> : null}
               </span>
             : null}
           {/* 🔴 **장비를 2배 적게 그리고 있었다** — 노드로는 76개인데
               `src/eval` 은 168파일·81,444줄이다 (2026-09-10). */}
-          {' '}<i className="bm-equip-n"
-                  title={m.counts?.장비파일
-                    ? `재는 자 실물: src/eval ${m.counts.장비파일}파일 · `
-                      + `${(m.counts.장비줄 ?? 0).toLocaleString()}줄 · `
-                      + `탐침 ${m.counts.탐침}개`
-                    : undefined}>
-            손 {m.counts?.조작 ?? 0} · 장비 {m.counts?.장비 ?? 0}
-            {m.counts?.장비파일
-              ? <em className="bm-equip-real">
-                  ({m.counts.장비파일}파일 · {Math.round((m.counts.장비줄 ?? 0) / 1000)}k줄)
-                </em>
-              : null}
-          </i>
+
           {/* 🔴 **갱신 시각을 적는다.** 「반사 49/51」이 17시간 낡았는데 화면에
               아무 표시가 없었다 — 낡은 수를 지금 수처럼 보이게 하면 안 된다. */}
           {at ? <i className="bm-at" title="지도를 지은 때 (서버 built_at) — 캐시가 낡으면 이 시각도 낡게 보인다">· 지음 {at}</i> : null}
@@ -1078,7 +1093,33 @@ export function BrainMap() {
           다음 회차에 못 잰다 — 그래서 **눌러서 펴는 자리**로 내렸다.
           늘 보이는 것은 제목줄 요약 한 줄뿐이다. */}
       <details className="brainmap__more">
-        <summary>재고 · 판단 계기 · 성숙도</summary>
+        <summary>계기 — 얼마나 재고 있나</summary>
+      {/* 🔴 **요약줄에서 내린 것을 여기 온전히 되살린다** — 접은 것이지
+          지운 것이 아니다 ([[dashboard-is-itself-untested-instrument]]). */}
+      <div className="brainmap__stock bm-inner">
+        <span className="bm-stock">뇌 <b>{m.counts?.뇌 ?? m.nodes.length}</b></span>
+        <span className="bm-stock">이음 <b>{m.edges.length}</b></span>
+        {mx.문 ? (
+          <span className="bm-stock"
+                title="답이 나가는 자리 중 「신경 «X» 발화」 표시가 붙은 것">
+            문 <b>{mx.문표시}/{mx.문}</b>
+            {(mx.문 ?? 0) - (mx.문표시 ?? 0) > 0
+              ? ` (${(mx.문 ?? 0) - (mx.문표시 ?? 0)}개 계측 밖)` : ''}
+          </span>) : null}
+        {mx.신경전체 ? (
+          <span className="bm-stock" title="반사 벤치가 한 번이라도 잰 신경 / 등록부 전체">
+            신경 덮음 <b>{mx.신경전체}개 중 {mx.측정}개</b></span>) : null}
+        <span className="bm-stock">손 <b>{m.counts?.조작 ?? 0}</b></span>
+        <span className="bm-stock"
+              title={m.counts?.장비파일
+                ? `재는 자 실물: src/eval ${m.counts.장비파일}파일 · `
+                  + `${(m.counts.장비줄 ?? 0).toLocaleString()}줄 · 탐침 ${m.counts.탐침}개`
+                : undefined}>
+          장비 <b>{m.counts?.장비 ?? 0}</b>
+          {m.counts?.장비파일
+            ? ` (${m.counts.장비파일}파일 · ${Math.round((m.counts.장비줄 ?? 0) / 1000)}k줄)`
+            : ''}</span>
+      </div>
       {/* 🔴 재고 축 — 쓰기 자국·성적만 그리고 **지금 쌓여 있는 것**이 수로
           0번 나오던 공백 (3차 검토). None 은 「못 읽음」로 — 0 과 다르다. */}
       {m.stock && (
@@ -1160,10 +1201,16 @@ export function BrainMap() {
         </div>
       )}
       </details>
+      {/* 🔴 **칩을 지도 밖으로 내렸다** (한빈 2026-09-17: *"실시간 창을
+          가리고 있으며"*). 어제는 글자만 고치고 **자리를 안 고쳤다** —
+          실측: 칩(65×28)이 지도 안에 앉아 `bm-equip-lab` 글자를 덮고 있었다.
+          ⚠️ 위 v32 주석(「칩은 wrap 자식이어야 한다」)은 **절대배치 전제**의
+             제약이었다. 정적 흐름으로 내리면 그 제약 자체가 사라진다 —
+             주석을 안 고치면 다음 사람이 다시 안으로 넣는다.
+          🔴 경고(끊김·잔량)는 **그대로 보인다.** 오히려 폭 65px 구석에서
+             지도 위 전폭으로 올라와 더 잘 보인다. */}
+      <StateChip lit={lit} enOf={enOf} />
       <div className="brainmap__wrap">
-        {/* v32 — 칩·판도장은 wrap 자식이어야 한다 (섹션 자식이면 컨테이닝
-            블록이 섹션 전체라 범례 위에 부유 — 감사 B1/B2). */}
-        <StateChip />
         <BuildTag />
         <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
                 aria-hidden="true" />
@@ -1343,7 +1390,7 @@ export function BrainMap() {
             const p = pos[n.id]; if (!p) return null;
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
-            const ghost = n.kind === '계획';
+            const ghost = n.kind === '계획' && n.target !== '빚';
             const r = Math.max((n.kind === '접힘' ? 5.5 : 1.6) * 2.6, 5.5);
             return (
               <g key={`ov-${n.id}`} className={`bm-node${on ? ' bm-node--fire' : ''}`}
@@ -1374,18 +1421,10 @@ export function BrainMap() {
             </circle>
           ))}
         </svg>
-        {lit.length > 0 && (
-          <div className="brainmap__live" key={pulse}>
-            just fired: {[...lit]
-              .sort((a, b) => (litAtRef.current[b] || 0) - (litAtRef.current[a] || 0))
-              .slice(0, 6)
-              .map((x, i) => (
-                <span key={x} style={{ opacity: Math.max(0.35, 1 - i * 0.13) }}>
-                  {i > 0 ? ' ← ' : ''}{enOf[x] || x}
-                </span>
-              ))}
-          </div>
-        )}
+        {/* 🔴 `brainmap__live`(378×43)도 **지도를 덮고 있었다** — 칩과
+            같은 물음(「지금 무슨 일이 일어나는가」)에 답하면서 지도 양쪽
+            구석에 따로 떠 있었다. 위 `<StateChip lit=…>` 한 줄로 합쳤다.
+            겹치는 것이 둘에서 **0** 이 된다. */}
       </div>
 
       {turn && (
@@ -1451,17 +1490,18 @@ export function BrainMap() {
           이미 그려져 있었다** — 이름 규칙이 못 가렸을 뿐 자리는 이웃으로
           잡혀 있었다. 「안 그렸다」로 읽히면 없는 할 일이 생긴다.
           두 수를 갈라 적고, 0이어도 숨기지 않는다. */}
-      {m.outside && (
-        <div className={`brainmap__detail bm-outside${
-          (m.outside.수 ?? 0) > 0 ? '' : ' bm-outside--ok'}`}>
-          {(m.outside.수 ?? 0) > 0 ? (
-            <>🔴 아직 지도 밖: <b>{m.outside.수}개 모듈</b>
-              {' · '}{(m.outside.줄수 ?? 0).toLocaleString()}줄 —
-              {' '}{(m.outside.큰것 || []).slice(0, 5)
-                    .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
-            </>
-          ) : <>지도 밖 <b>0</b> — 모듈이 모두 어딘가에 그려져 있다
-              {' '}· 미분류 칸 <b>{m.census?.미분류?.칸 ?? 0}</b></>}
+      {/* 🔴 **0 일 때는 칸을 안 세운다 — 그러나 숨기지도 않는다**
+          (한빈 2026-09-17: *"지도 밖 0 관련 창도 중요한 정보인지 모르겠음"*).
+          위 주석의 규율(「0이어도 숨기지 않는다」)은 지킨다 — 0 이면 제목줄
+          요약(`.brainmap__sum`)에 **글자로 남는다.** 실측: 이 칸이 728×120px
+          을 「0」 하나에 쓰고 있었다 (창 세로 예산의 12%). */}
+      {m.outside && (m.outside.수 ?? 0) > 0 && (
+        <div className="brainmap__detail bm-outside">
+          <>🔴 아직 지도 밖: <b>{m.outside.수}개 모듈</b>
+            {' · '}{(m.outside.줄수 ?? 0).toLocaleString()}줄 —
+            {' '}{(m.outside.큰것 || []).slice(0, 5)
+                  .map(([n, mo]) => `${mo}(${n.toLocaleString()})`).join(' · ')}
+          </>
           {(m.outside.이름밖 ?? 0) > 0 && (
             <span className="bm-outside__rule" title="이름 규칙·꾸러미가 못 가려 이웃으로 자리를 잡은 것 — 그려는 져 있다">
               {' · '}이름 규칙 밖 <b>{m.outside.이름밖}</b>
@@ -1528,12 +1568,15 @@ export function BrainMap() {
       <details className="brainmap__more">
         <summary>범례 — 색과 모양</summary>
       <div className="brainmap__legend">
-        <span title="가운데가 빈 원 = 계획(할 일) 노드. 신경·기관이 아니다">
+        {/* 🔴 어제 「도넛 = 계획(할 일)」이라 적었는데 **이제 틀린 말**이
+            된다 — 계획 중 `빚`(이미 있는 신경을 고치는 일)은 꽉 찬 점으로
+            그린다. 속 빈 것은 **아직 안 지은 것(신설)** 뿐이다. */}
+        <span title="가운데가 빈 원 = 아직 안 지은 신경(신설 계획). 있는 신경의 빚은 꽉 찬 점이다">
           <i style={{ background: 'transparent', border: '1.6px solid #ff8ac4' }} />
-          도넛 = 계획(할 일)
+          속 빈 원 = 아직 안 지음
         </span>
-        <span title="꽉 찬 원 = 신경·기관·걸음·관문">
-          <i style={{ background: '#8b5cf6' }} />꽉 찬 점 = 신경·기관
+        <span title="꽉 찬 원 = 신경·기관·걸음·관문, 그리고 있는 신경의 빚">
+          <i style={{ background: '#8b5cf6' }} />꽉 찬 점 = 신경·기관·빚
         </span>
         {Object.entries(STATUS).map(([k, v]) => (
           <span key={k}><i style={{ background: v.c }} />{v.t}</span>
