@@ -43,7 +43,12 @@ function useWorkState(): { cls: string; txt: string } {
     const touch = () => { touchRef.current = Date.now(); };
     window.addEventListener('pointerdown', touch, { passive: true });
     window.addEventListener('keydown', touch, { passive: true });
-    const t = window.setInterval(() => force(x => x + 1), 1000);
+    // 🔴 **1초 틱을 걷었다** (한빈 2026-09-17: *"「일하는중 n초 전」 UI가
+    //    거슬린다"*). 초를 1초마다 다시 그리니 숫자가 쉼 없이 오르고, 그것이
+    //    거슬림의 정체였다 — 상태가 안 바뀌어도 매초 재렌더였다.
+    //    이제 **문구가 바뀔 만한 문턱을 지날 때만** 깨운다 (30·75·90초).
+    //    ⚠️ 없애면 「쉼 → 신호 끊김」 전환을 영영 못 보므로 15초 맥은 남긴다.
+    const t = window.setInterval(() => force(x => x + 1), 15000);
     return () => {
       off?.(); window.clearInterval(t);
       window.removeEventListener('pointerdown', touch);
@@ -62,8 +67,11 @@ function useWorkState(): { cls: string; txt: string } {
     cls = 'bm-chip--warn';
     txt = `⚠ 신호 끊김 ${Math.round(anyAge)}초 — 재접속 시도 중`;
   } else if (age < 30) {
+    // 🔴 **초를 안 쓴다.** 「지금 일하는 중」이면 족하고, 몇 초 전인지는
+    //    사람이 쓸 일이 없다 (2-14-2-2: 상태가 없으면 애니메이션도 없다).
+    //    정확한 초는 hover 의 title 로만 — 못 보게 하는 게 아니라 조용히.
     cls = 'bm-chip--work';
-    txt = `일하는 중 · ${Math.max(1, Math.round(age))}초 전`;
+    txt = '일하는 중';
   } else if (pend != null && pend > 0
              && Date.now() - touchRef.current < 90000) {
     txt = `사람 우선 양보 중 · 잔량 ${pend.toLocaleString()}`;
@@ -73,9 +81,11 @@ function useWorkState(): { cls: string; txt: string } {
   } else if (!isFinite(age)) {
     txt = '이벤트 대기 중';
   } else {
-    txt = `쉼 · 마지막 일 ${age < 90 ? Math.round(age) + '초' : Math.round(age / 60) + '분'} 전`;
+    // 🔴 **쉴 때는 아무 말도 안 한다.** 조용할 때 조용한 것이 살아 있는
+    //    것에 더 가깝다 (2-14-2-2). 빈 문자열이면 칩을 안 그린다.
+    txt = '';
   }
-  return { cls, txt };
+  return { cls, txt, age, anyAge };
 }
 
 let _STAMP: string | null = null;
@@ -99,7 +109,7 @@ function BuildTag() {
 }
 
 function StateChip() {
-  const { cls, txt } = useWorkState();
+  const { cls, txt, age } = useWorkState();
   // v26-B — 칩 클릭 = 기기 자가진단 (한빈: «타 컴퓨터에서는 안 보인다» —
   // 기기마다 사인이 달라, 화면이 제 기기의 사실을 직접 말해야 원격 진단이
   // 된다). 10초 보여주고 되접는다.
@@ -119,10 +129,17 @@ function StateChip() {
       lifeTail(4).join(' → ') || '(생애 기록 없음)'}`);
     window.setTimeout(() => setDiag(null), 15000);
   };
+  // 🔴 **할 말이 없으면 아무것도 안 그린다** (한빈 2026-09-17 «거슬린다»).
+  //    2-14-2-2 의 그 규율 — *조용할 때 조용한 것이 살아 있는 것에 더
+  //    가깝다*. 다만 자가진단을 열었으면 그때는 보인다.
+  if (!txt && !diag) return null;
+  const when = isFinite(age)
+    ? `마지막 일 ${age < 90 ? Math.round(age) + '초' : Math.round(age / 60) + '분'} 전`
+    : '아직 신호 없음';
   return (
     <div className={`bm-chip ${cls}`} onClick={showDiag}
          style={{ cursor: 'pointer' }}
-         title="클릭 = 이 기기의 자가진단 (판·모션 설정·브라우저)">
+         title={`${when} ｜ 클릭 = 이 기기의 자가진단 (판·모션 설정·브라우저)`}>
       {diag ?? txt}
     </div>
   );
@@ -268,10 +285,22 @@ const STATUS: Record<string, { c: string; t: string }> = {
   idle:     { c: '#586074', t: '요즘 안 돌았다' },
   nomeas:   { c: '#7c8598', t: '재는 자가 없다' },
   unknown:  { c: '#4b5563', t: '모른다 (근거 없음)' },
-  todo:     { c: '#8b5cf6', t: '선언만 — 빈칸' },
-  planned:  { c: '#ff8ac4', t: '차례를 기다리는 할 일' },
-  building: { c: '#ffd166', t: '지금 만드는 중' },
-  fold:     { c: '#8fa6d8', t: '접혀 있다 — 눌러서 편다' },
+  // 🔴 «선언만 — 빈칸» 은 **거짓 이름이었다** (한빈 2026-09-17:
+  //    *"todo 신경은 차례를 기다리는 할일로 왜 등록되어 있는가?"*).
+  //    서버는 `brainmap.py:2208` 에서 «수용체를 안 적었다» 일 때 이 값을
+  //    준다 — 「아직 안 지었다」가 아니다. 실측 2026-09-17: 21개 중
+  //    `정서걱정` 은 문이 `memos.briefing()` 에 **실재하고 돌고 있었다**
+  //    (세는 자가 없었을 뿐) · `말투적용` 은 문도 계수기도 있는데 **자극이
+  //    안 온다**. 셋을 「빈칸」이라 부르면 고칠 자리를 잘못 짚는다.
+  todo:     { c: '#8b5cf6', t: '수용체 없음 — 못 잰다' },
+  // ⚠️ `planned`·`building` 은 **kind='계획' 노드**에 붙는다. 그 노드만
+  //    도넛으로 그려진다(`ghost`, 아래 :9xx·:13xx) — status 가 아니라
+  //    **kind** 가 모양을 정한다. 한빈님이 「핑크 도넛」으로 본 것이 이것이고,
+  //    `todo` 신경(보라 **꽉 찬** 점)과는 다른 축이다.
+  planned:  { c: '#ff8ac4', t: '차례를 기다리는 할 일 (계획 — 도넛)' },
+  building: { c: '#ffd166', t: '지금 만드는 중 (계획 — 도넛)' },
+  // 🔴 `fold` 는 서버가 **한 번도 안 내보낸다** (grep 0건) — 죽은 칸이라
+  //    걷었다. 「접힘」은 status 가 아니라 kind 로만 있다.
 };
 
 /** ── 자비스 홀로그램 배치 (v15 · 한빈 2026-09-11) ──────────────────────
@@ -1044,6 +1073,12 @@ export function BrainMap() {
         </span>
       </h3>
 
+      {/* 🔴 **접는 것과 지우는 것은 다르다** (한빈 2026-09-17: *"상단 및
+          하단의 모니터링 상태 설명 창을 더 심플하게"*). 계기판을 지우면
+          다음 회차에 못 잰다 — 그래서 **눌러서 펴는 자리**로 내렸다.
+          늘 보이는 것은 제목줄 요약 한 줄뿐이다. */}
+      <details className="brainmap__more">
+        <summary>재고 · 판단 계기 · 성숙도</summary>
       {/* 🔴 재고 축 — 쓰기 자국·성적만 그리고 **지금 쌓여 있는 것**이 수로
           0번 나오던 공백 (3차 검토). None 은 「못 읽음」로 — 0 과 다르다. */}
       {m.stock && (
@@ -1124,6 +1159,7 @@ export function BrainMap() {
           )}
         </div>
       )}
+      </details>
       <div className="brainmap__wrap">
         {/* v32 — 칩·판도장은 wrap 자식이어야 한다 (섹션 자식이면 컨테이닝
             블록이 섹션 전체라 범례 위에 부유 — 감사 B1/B2). */}
@@ -1483,7 +1519,22 @@ export function BrainMap() {
         </div>
       )}
 
+      {/* 🔴 **모양 범례가 없었다** (한빈 2026-09-17: *"타 노드와 다르게 왜
+          도넛모양인가?"*). 색 12칸을 전부 **꽉 찬 원**으로 그려 놓아서,
+          화면의 도넛·크기 차이를 설명하는 자리가 어디에도 없었다. 모양은
+          status 가 아니라 **kind** 가 정한다 — 그 표를 함께 낸다. */}
+      {/* 🔴 범례 **24칸**(상태 12 + 이음 12)이 상시 켜져 있었다 — 한 번
+          배우면 안 보는 것이 화면의 절반을 먹는다. 접는다(지우지 않는다). */}
+      <details className="brainmap__more">
+        <summary>범례 — 색과 모양</summary>
       <div className="brainmap__legend">
+        <span title="가운데가 빈 원 = 계획(할 일) 노드. 신경·기관이 아니다">
+          <i style={{ background: 'transparent', border: '1.6px solid #ff8ac4' }} />
+          도넛 = 계획(할 일)
+        </span>
+        <span title="꽉 찬 원 = 신경·기관·걸음·관문">
+          <i style={{ background: '#8b5cf6' }} />꽉 찬 점 = 신경·기관
+        </span>
         {Object.entries(STATUS).map(([k, v]) => (
           <span key={k}><i style={{ background: v.c }} />{v.t}</span>
         ))}
@@ -1538,6 +1589,7 @@ export function BrainMap() {
           );
         })}
       </div>
+      </details>
     </section>
   );
 }

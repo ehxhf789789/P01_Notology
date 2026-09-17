@@ -375,3 +375,14 @@
   position: absolute; inset: 0; width: 100%; height: 100%;
   pointer-events: none;
 }
+
+/* 🔴 «접는 것과 지우는 것은 다르다» — 한빈 2026-09-17 «더 심플하게».
+   계기판을 지우면 다음 회차에 못 잰다. 눌러서 펴는 자리로 내렸다. */
+.brainmap__more { margin: 2px 0 6px; }
+.brainmap__more > summary {
+  cursor: pointer; font-size: 11px; opacity: .55; list-style: none;
+  padding: 2px 0; user-select: none;
+}
+.brainmap__more > summary::before { content: '▸ '; }
+.brainmap__more[open] > summary::before { content: '▾ '; }
+.brainmap__more > summary:hover { opacity: .9; }
