@@ -281,3 +281,11 @@
 .dhome__chores > summary::before { content: '▸ '; }
 .dhome__chores[open] > summary::before { content: '▾ '; }
 .dhome__chore { font-size: 12px; opacity: .8; padding: 3px 0 3px 12px; line-height: 1.5; }
+
+/* 🔴 [확인하기] 를 누르면 그 자리에서 뜨는 카드 — 서랍까지 갈 일이 없다 (v50) */
+.dhome__review {
+  margin: 4px 0 6px; padding: 6px; border-radius: 10px;
+  border: 1px solid rgba(124,196,255,.3);
+  background: var(--bg-elevated, rgba(255,255,255,.03));
+  max-height: 44vh; overflow-y: auto;
+}

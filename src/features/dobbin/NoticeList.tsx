@@ -39,6 +39,10 @@ const ICON: Record<string, React.ReactNode> = {
 export const noticeGo = (to: string) => {
   if (to === 'home') uiActions.setShowDobbinHome(true);
   else if (to === 'calendar') uiActions.setShowCalendar(true);
+  // 🔴 **`'home'` 은 무일이었다** (v50) — 그 창을 보고 있으므로 이미 열려
+  //    있고, 글이 가리키는 「아래 카드」는 **닫힌 서랍** 안이었다.
+  //    `'review'` 는 카드를 **그 자리에서** 편다 (DobbinHome 이 듣는다).
+  else if (to === 'review') window.dispatchEvent(new CustomEvent('dobbin:review'));
   else void hoverActions.open(to);
 };
 

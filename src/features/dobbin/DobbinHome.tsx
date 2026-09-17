@@ -74,6 +74,16 @@ export function DobbinHome() {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [brain, setBrain] = useState<Brain | null>(null);
   const [briefOpen, setBriefOpen] = useState(false);
+  // 🔴 **상단 [확인하기] 가 아무 일도 안 했다** (한빈 2026-09-17).
+  //    `go:'home'` → `setShowDobbinHome(true)` 인데 **이미 열려 있다**.
+  //    그리고 글이 가리키는 「아래 카드」는 맨 아래 **닫힌 서랍** 안이었다.
+  //    → 이제 `'review'` 를 듣고 **그 자리에서** 카드를 편다.
+  const [reviewOpen, setReviewOpen] = useState(false);
+  useEffect(() => {
+    const on = () => setReviewOpen(true);
+    window.addEventListener('dobbin:review', on);
+    return () => window.removeEventListener('dobbin:review', on);
+  }, []);
   const { list: notices } = useNotices();
   const report = notices;
   // 홈을 연 것이 곧 «봤다» — 좌측 배지는 그때 내려간다
@@ -235,6 +245,13 @@ export function DobbinHome() {
         )}
         {/* 🔴 **빚은 사라지지 않는다 — 접힐 뿐이다.** 26자로 자르던 것을
             여기서는 **온전히** 적는다 ([[silence-is-not-evidence]]). */}
+        {/* 🔴 [확인하기] 를 누르면 **여기서** 카드가 뜬다 — 서랍까지 갈 일이
+            없다. `ClusterReview` 는 **한 벌만** 둔다 (아래 서랍에서 뺐다). */}
+        {reviewOpen && (
+          <div className="dhome__review">
+            <ClusterReview />
+          </div>
+        )}
         {chores.length > 0 && (
           <details className="dhome__chores">
             <summary>제가 스스로 고칠 것 {chores.length}건</summary>
@@ -363,7 +380,8 @@ export function DobbinHome() {
               <NoticeList list={report} />
             </section>
           )}
-          <ClusterReview />
+          {/* 🔴 `ClusterReview` 는 **맨 위 카드 자리**로 옮겼다 — 두 곳에
+              그리면 한쪽이 썩는다. [확인하기] 를 누르면 거기서 뜬다. */}
           <IntakePanel variant="home" />
         </div>
       </details>
