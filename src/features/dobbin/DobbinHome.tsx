@@ -24,7 +24,7 @@ import { PenguinFace, faceOf } from './PenguinFace';
 import { BrainMap } from './BrainMap';
 import { IntakePanel } from './IntakePanel';
 import { ClusterReview } from './ClusterReview';
-import { NoticeList } from './NoticeList';
+import { NoticeList, noticeGo } from './NoticeList';
 import { useNotices, markAllSeen } from './noticeStore';
 import { DobbinSurface } from './DobbinSurface';
 import { uiActions } from '../../core/stores/uiStore';
@@ -54,6 +54,9 @@ type Brief = {
   mood?: { mood?: string; cause?: string };
   choices?: { label: string; send: string }[];
   overdue_live?: number; today?: number; inbox?: number;
+  //: v49 — 서버가 갈래를 실어 보낸다. `say` 는 그대로 있다 (옛 소비자 보호).
+  //: `mine` = 사람이 지금 할 수 있는 것 · `chores` = dobbin 이 제 빚을 말하는 줄
+  mine?: string[]; chores?: string[];
 };
 
 /** /api/brain (v7 2단계 신설) — 없으면(옛 서버) 카드가 조용히 빠진다. */
@@ -141,7 +144,20 @@ export function DobbinHome() {
       try { off?.(); } catch { /* 해제가 막혀도 화면은 산다 */ }
     };
   }, []);
-  const say = (brief?.say || '').trim() || null;
+  // 🔴 **위아래가 거꾸로였다** (한빈 2026-09-17: *"최상단의 알림 … 크게
+  //    도움이 안됨"* → *"내가 꼭 봐야만 하는 정보를 함축하여"*).
+  //    실측 그날: 맨 위에는 사람이 **아무것도 할 수 없는** dobbin 의 빚 두
+  //    줄이 늘 떠 있었고, **한 번 누르면 끝나는 일**(「확인 부탁 1,765건」,
+  //    단추까지 달린 것)은 맨 아래 **닫힌 서랍** 안에 있었다.
+  //    → 맨 위에는 ① 사람의 일 ② 누르면 끝나는 것만. 빚은 아래 접이로.
+  const mine = (brief?.mine ?? (brief?.say ? brief.say.split('\n') : []))
+    .map(x => x.trim()).filter(Boolean);
+  const chores = (brief?.chores ?? []).map(x => x.trim()).filter(Boolean);
+  const say = mine.join('\n') || null;
+  //: 🔴 누르면 끝나는 알림 — **새로 짓지 않는다.** `notices.py` 가 이미
+  //:    `act` 를 달아 주고 `NoticeList` 가 이미 그 단추를 그린다. 맨 위로
+  //:    끌어올리기만 한다 (위 `notices` 가 이미 이 컴포넌트에 있다).
+  const actionable = (notices || []).filter(n => n.act).slice(0, 2);
   const badges: { k: string; n: number; tone: string }[] = [
     { k: '지난 기한', n: brief?.overdue_live ?? 0, tone: 'warn' },
     { k: '오늘·내일', n: brief?.today ?? 0, tone: 'info' },
@@ -181,7 +197,8 @@ export function DobbinHome() {
       {/* ── 상황판 (C4 · 한빈 ③ «심플하고 이쁘게») ──
           브리핑 띠 + 질문칸 + 배지 3덩이 → 한 카드. 할 말도 배지도 질문도
           없으면 카드 자체가 없다 (2-10-1: 빈 인사는 하지 않는다). */}
-      {(say || badges.length > 0 || !!brief?.choices?.length) && (
+      {(say || badges.length > 0 || !!brief?.choices?.length
+        || actionable.length > 0) && (
       <section className="dhome__board">
         {badges.length > 0 && (
           <div className="dhome__badges">
@@ -192,12 +209,31 @@ export function DobbinHome() {
             ))}
           </div>
         )}
+        {/* 🔴 **누르면 끝나는 것이 먼저** — 아래 서랍에 닫혀 있던 것을
+            맨 위로. 단추는 `NoticeList` 와 **같은 길**(`go`)을 쓴다. */}
+        {actionable.map(n => (
+          <div key={n.id} className="dhome__todo">
+            <span className="dhome__todo-say">{n.say}</span>
+            <button className="dhome__todo-act"
+                    onClick={() => n.act && noticeGo(n.act.go)}>
+              {n.act?.label || '확인하기'}
+            </button>
+          </div>
+        ))}
         {say && (
         <button className={`dhome__brief${briefOpen ? ' is-open' : ''}`}
                 title={briefOpen ? '접기' : '전부 보기'}
                 onClick={() => setBriefOpen(v => !v)}>
           {say}
         </button>
+        )}
+        {/* 🔴 **빚은 사라지지 않는다 — 접힐 뿐이다.** 26자로 자르던 것을
+            여기서는 **온전히** 적는다 ([[silence-is-not-evidence]]). */}
+        {chores.length > 0 && (
+          <details className="dhome__chores">
+            <summary>제가 스스로 고칠 것 {chores.length}건</summary>
+            {chores.map((c, i) => <div key={i} className="dhome__chore">{c}</div>)}
+          </details>
         )}
       {/* 🔴 **무엇을 묻는 단추인지 말한다** (한빈 2026-09-09: *"상단에 있는
           버튼 및 UI가 뭔가? 나보고 입력을 하라고 있는건가?"*). 전 판은 라벨만

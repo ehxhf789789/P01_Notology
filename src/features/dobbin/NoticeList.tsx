@@ -33,6 +33,15 @@ const ICON: Record<string, React.ReactNode> = {
   hello: <MessageCircle size={13} />,   // v8 T8 — dobbin 의 선말
 };
 
+/** 알림 단추가 가는 길 — 🔴 **한 벌만 둔다.** dobbin 홈이 「누르면 끝나는
+ *  것」을 맨 위로 올리면서 같은 길이 필요해졌다. 이벤트로 돌리면 받는 자가
+ *  없어 죽은 갈래가 된다 ([[built-tool-with-no-caller-is-not-shipped]]). */
+export const noticeGo = (to: string) => {
+  if (to === 'home') uiActions.setShowDobbinHome(true);
+  else if (to === 'calendar') uiActions.setShowCalendar(true);
+  else void hoverActions.open(to);
+};
+
 export function NoticeList({ list }: { list: Notice[] }) {
   const [seen, setSeen] = useState<Set<string>>(() =>
     new Set(JSON.parse(localStorage.getItem(SEEN_KEY) || '[]')));
@@ -47,11 +56,7 @@ export function NoticeList({ list }: { list: Notice[] }) {
     return () => clearTimeout(t);
   }, [list]);
 
-  const go = (to: string) => {
-    if (to === 'home') uiActions.setShowDobbinHome(true);
-    else if (to === 'calendar') uiActions.setShowCalendar(true);
-    else void hoverActions.open(to);
-  };
+  const go = noticeGo;
 
   if (!list.length) {
     return <div className="ntc__empty">알릴 것이 없습니다.</div>;
