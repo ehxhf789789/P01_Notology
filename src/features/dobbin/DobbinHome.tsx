@@ -157,7 +157,10 @@ export function DobbinHome() {
   //: 🔴 누르면 끝나는 알림 — **새로 짓지 않는다.** `notices.py` 가 이미
   //:    `act` 를 달아 주고 `NoticeList` 가 이미 그 단추를 그린다. 맨 위로
   //:    끌어올리기만 한다 (위 `notices` 가 이미 이 컴포넌트에 있다).
-  const actionable = (notices || []).filter(n => n.act).slice(0, 2);
+  //: 🔴 `done`(이미 한 일)은 **누를 것이 아니다** — 「ask」만 맨 위로.
+  //:    안 거르면 「그 노트 열기」 같은 구경 단추가 할 일 자리를 먹는다.
+  const actionable = (notices || [])
+    .filter(n => n.act && n.kind === 'ask').slice(0, 2);
   const badges: { k: string; n: number; tone: string }[] = [
     { k: '지난 기한', n: brief?.overdue_live ?? 0, tone: 'warn' },
     { k: '오늘·내일', n: brief?.today ?? 0, tone: 'info' },
@@ -213,7 +216,10 @@ export function DobbinHome() {
             맨 위로. 단추는 `NoticeList` 와 **같은 길**(`go`)을 쓴다. */}
         {actionable.map(n => (
           <div key={n.id} className="dhome__todo">
-            <span className="dhome__todo-say">{n.say}</span>
+            {/* ⚠️ 칸 이름은 `text` 다 (`say` 가 아니다) — 첫 판이 `n.say`
+                라 **글자가 통째로 빈 채** 단추만 떴다 (실측). 이름은
+                시스템에 물어서 쓴다 [[invented-names-ask-the-system]]. */}
+            <span className="dhome__todo-say">{n.text}</span>
             <button className="dhome__todo-act"
                     onClick={() => n.act && noticeGo(n.act.go)}>
               {n.act?.label || '확인하기'}
