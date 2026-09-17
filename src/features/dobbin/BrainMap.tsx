@@ -439,6 +439,23 @@ function place(nodes: Node[], lb: ReturnType<typeof lobes>) {
       }
     });
   });
+  // 🔴 **빚은 임자 곁에 선다** (한빈 2026-09-17: *"왜 다른 노드들과 너무
+  //    디자인이 다른가?"*). 실측에서 계획 8개가 **전부 `target='빚'`**
+  //    — 이미 있는 신경(정산교정·판본·관계…)의 오배선 수리 과제인데,
+  //    임자와 무관한 장비 띠 끝에 모여 있어 **남의 것처럼** 보였다.
+  //    서버 주석이 이미 그렇게 적어 두었다: *"빚 … → **그 노드에 배지로**"*
+  //    (`brainmap.py:2454`). 이제 자리로 이행한다.
+  //    ⚠️ 배치 규칙은 안 건드린다 — 다 놓은 **뒤에** 당기기만 한다.
+  //       임자가 화면에 없으면(접힌 영역 등) 원래 자리에 그대로 둔다.
+  const owned = nodes.filter(n => n.kind === '계획' && n.target === '빚' && n.owner);
+  const per: Record<string, number> = {};
+  owned.forEach(n => {
+    const home = pos[n.owner as string];
+    if (!home) return;                       // 임자가 안 그려졌다 — 물러선다
+    const k = (per[n.owner as string] = (per[n.owner as string] ?? 0) + 1);
+    const a = -Math.PI / 4 + (k - 1) * 0.9;  // 임자 우상단에서 시계로
+    pos[n.id] = { x: home.x + 6.5 * Math.cos(a), y: home.y + 6.5 * Math.sin(a) };
+  });
   return pos;
 }
 
