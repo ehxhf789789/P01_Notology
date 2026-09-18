@@ -371,7 +371,10 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
         cv.width = w * devicePixelRatio; cv.height = h * devicePixelRatio;
       }
       gl.viewport(0, 0, cv.width, cv.height);
-      gl.clearColor(0.027, 0.039, 0.07, 0);
+      // 🔴 ㉗A — premultiplied 규약에서 α0·RGB≠0 은 무효값: 브라우저가 이
+      //    색을 **바닥에 더해** 3D 쪽만 밝은 청색이 됐다 (두 모드 배경
+      //    불일치의 진짜 뿌리 — 모서리 1점 자는 못 봤다). 진짜 투명은 0,0,0,0.
+      gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       const tgt = morphToRef.current;
       const step = reduced ? 1 : 0.015;   // ≈1.1s — HanBin 16th: unhurried

@@ -1324,6 +1324,7 @@ export function BrainMap() {
       let drawn = 0;
       const pp = posRef.current;
       const segs: [number, number, number, number, number][] = [];
+      const segIds: [string, string][] = [];
       for (const e of m.edges) {
         if (drawn >= 160) break;
         if (!set.has(e.a) && !set.has(e.b)) continue;
@@ -1333,7 +1334,13 @@ export function BrainMap() {
         let h = 0; const key = e.a + e.b;
         for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
         segs.push([a.x, a.y, b.x, b.y, (h % 1000) / 1000]);
+        segIds.push([e.a, e.b]);
       }
+      // ㉗B — 그린 것을 자백한다: 자가 «시·종점이 노드 DOM 좌표와 같은가»를
+      //    픽셀 대조로 전수 검증할 수 있게 (viewBox 좌표 그대로).
+      (window as { __bmSegs?: unknown }).__bmSegs =
+        segs.map(([ax, ay, bx, by], i) =>
+          ({ a: segIds[i][0], b: segIds[i][1], ax, ay, bx, by }));
       ctx.strokeStyle = 'rgba(158,194,255,0.5)';
       ctx.lineWidth = 1.7 / vw.z;
       ctx.shadowColor = 'rgba(158,194,255,0.7)';
@@ -1350,7 +1357,14 @@ export function BrainMap() {
         ctx.arc(ax + (bx - ax) * f, ay + (by - ay) * f, 3.2 / vw.z, 0, Math.PI * 2);
         ctx.fill();
       }
-      // 발화 끝점 글로우 — 점 자체도 3D 처럼 살아 있게
+      // ㉗B — 광선이 «어디서 와서 어디서 끝나는지» 눈에 맺히게: 두 끝점
+      //    모두에 플레어 (비발화 쪽 끝이 1px 점이라 허공에 끊겨 보였다)
+      ctx.fillStyle = 'rgba(200,220,255,0.85)';
+      for (const [ax, ay, bx, by] of segs) {
+        ctx.beginPath(); ctx.arc(ax, ay, 2.4 / vw.z, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(bx, by, 2.4 / vw.z, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = 'rgba(255,235,168,0.95)';
       for (const id of ids) {
         const q = pp[id]; if (!q) continue;
         ctx.beginPath(); ctx.arc(q.x, q.y, 4.6 / vw.z, 0, Math.PI * 2); ctx.fill();
@@ -1935,7 +1949,7 @@ export function BrainMap() {
               scales (10/z) so it stays readable, and a coarse grid dedupes
               near-neighbours instead of the tagAt ledger (whose lifecycle
               belongs to the memoized base layer). */}
-          {zb >= 2 && view.z > 2.2 && (() => {
+          {zb === 2 && view.z > 2.2 && (() => {
             // names need real magnification — at the ?bmlod test floor
             // (z=1) they'd blanket the board (jig ⑤: 113 overlapping pairs)
             const grid = new Set<string>();
@@ -1967,9 +1981,10 @@ export function BrainMap() {
             const fs1 = 10.5 / z, fs2 = 8.5 / z;
             const occ = new Set<string>();
             const tiles: { n: Node; p: { x: number; y: number };
-                           tx: number; ty: number;
-                           bd: { r0: number; r1: number;
-                                 a0: number; a1: number } }[] = [];
+                           tx: number; ty: number; w: number; h: number;
+                           mini: boolean; bd: Band;
+                           bx0: number; by0: number; bx1: number; by1: number;
+                           rc?: number; th?: number; spanW?: number }[] = [];
             // ㉒ (한빈 22·23차) — 격자는 판의 **원형 기하**를 따른다:
             //    칸 = (반지름 껍질 i × 각도 걸음 j), 그 노드 띠의
             //    [r0,r1]×[a0,a1] 안에서만 난다. 데카르트 바둑판은 배경을
@@ -1977,84 +1992,145 @@ export function BrainMap() {
             //    모서리 전부**가 띠 안일 때다 — 폭 150/z 타일이 경계에
             //    걸치던 뿌리. 타일·글자는 수평 유지(가독 — 지도 라벨 관행),
             //    배치만 원형이다.
-            const bandOf = (nd: Node) => {
+            // ㉚ (한빈: «같은 뷰의 모든 노드가 같은 위계로») — 밴드 모델이
+            //    호(annulus)뿐이라 **타원형 영역**(memory 패치 등)의 노드가
+            //    전부 압축 라벨로 떨어졌다. 두 모델을 다 안다:
+            type Band = { arc?: { r0: number; r1: number; a0: number; a1: number };
+                          ell?: { cx: number; cy: number; rx: number; ry: number } };
+            const bandOf = (nd: Node): Band => {
               const L = lb[nd.region];
-              if (!L?.arc) return { r0: 12, r1: 78, a0: -Math.PI, a1: Math.PI };
+              if (!L) return { ell: { cx: CX, cy: CY, rx: 78, ry: 78 } };
+              if (!L.arc) return { ell: { cx: L.cx, cy: L.cy,
+                                          rx: Math.max(L.rx, 30),
+                                          ry: Math.max(L.ry, 30) } };
               const sk = (nd as { __sk?: string }).__sk;
               const sb = sk && L.subs ? L.subs.find(x => x.key === sk) : null;
-              return { a0: sb ? sb.a0 : L.arc.a0, a1: sb ? sb.a1 : L.arc.a1,
-                       r0: L.arc.r0, r1: L.arc.r1 };
+              return { arc: { a0: sb ? sb.a0 : L.arc.a0,
+                              a1: sb ? sb.a1 : L.arc.a1,
+                              r0: L.arc.r0, r1: L.arc.r1 } };
             };
             const polar = (x: number, y: number) => {
               const rr = Math.hypot(x - CX, y - CY);
               return { r: rr, th: Math.atan2(y - CY, x - CX) };
             };
-            const fits = (bd: { r0: number; r1: number; a0: number; a1: number },
-                          cx: number, cy: number) => {
-              for (const [dx, dy] of [[-TW / 2, -TH / 2], [TW / 2, -TH / 2],
-                                       [-TW / 2, TH / 2], [TW / 2, TH / 2]] as
+            const fitsEll = (e: { cx: number; cy: number; rx: number; ry: number },
+                             cx: number, cy: number, w: number, h: number) => {
+              for (const [dx, dy] of [[-w / 2, -h / 2], [w / 2, -h / 2],
+                                       [-w / 2, h / 2], [w / 2, h / 2]] as
                                        [number, number][]) {
-                const q = polar(cx + dx, cy + dy);
-                if (q.r < bd.r0 || q.r > bd.r1) return false;
-                let th = q.th;
-                if (th < bd.a0) th += Math.PI * 2;
-                if (th < bd.a0 || th > bd.a1) return false;
+                const nx = (cx + dx - e.cx) / e.rx, ny = (cy + dy - e.cy) / e.ry;
+                if (nx * nx + ny * ny > 1) return false;
               }
               return true;
             };
-            const shellH = TH + 14 / z;
+            // 🔴 ㉚ — 충돌은 «칩의 실제 bbox»끼리 잰다. 웨지는 기울어져
+            //    축정렬 bbox 가 w×h 보다 크다 — 중심거리 검사로는 겹쳤다.
+            const wedgeBox = (rcW: number, thW: number, wW: number, hW: number) => {
+              const rI = rcW - hW / 2, rO = rcW + hW / 2, sp = wW / rcW;
+              let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+              for (const [rr, tt] of [[rI, thW - sp / 2], [rI, thW + sp / 2],
+                                       [rO, thW - sp / 2], [rO, thW + sp / 2],
+                                       [rO, thW], [rI, thW]] as [number, number][]) {
+                const x = CX + rr * Math.cos(tt), y = CY + rr * Math.sin(tt);
+                x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+                x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+              }
+              return { x0, y0, x1, y1 };
+            };
+            const clashBox = (b: { x0: number; y0: number; x1: number; y1: number }) => {
+              for (const tp of tiles) {
+                if (b.x0 < tp.bx1 + 3 / z && tp.bx0 < b.x1 + 3 / z
+                    && b.y0 < tp.by1 + 3 / z && tp.by0 < b.y1 + 3 / z) return true;
+              }
+              return false;
+            };
+            const shellH = TH + 12 / z;
             const loose: { n: Node; p: { x: number; y: number } }[] = [];
             const cand = shownNodes
               .map(nd => ({ n: nd, p: pos[nd.id] }))
-              .filter(x => x.p && inVp(x.p.x, x.p.y, -10))
+              .filter(x => x.p && inVp(x.p.x, x.p.y, 20))
               .sort((x, y) => (x.n.id < y.n.id ? -1 : 1))
-              .slice(0, 60);
-            for (const { n: nd, p: pp } of cand) {
-              if (tiles.length >= 36) break;
-              const bd = bandOf(nd);
-              const nSh = Math.floor((bd.r1 - bd.r0) / shellH);
-              if (nSh < 1) { loose.push({ n: nd, p: pp }); continue; }
+              .slice(0, 110);
+            const tryArc = (nd: Node, pp: { x: number; y: number },
+                            a: NonNullable<Band['arc']>, w: number, h: number) => {
+              const sh = h + 12 / z;
+              const nSh = Math.floor((a.r1 - a.r0) / sh);
+              if (nSh < 1) return null;
               const q0 = polar(pp.x, pp.y);
-              let th0 = q0.th; if (th0 < bd.a0) th0 += Math.PI * 2;
+              let th0 = q0.th; if (th0 < a.a0) th0 += Math.PI * 2;
               const i0 = Math.max(0, Math.min(nSh - 1,
-                Math.floor((q0.r - bd.r0) / shellH)));
-              let cell: { cx: number; cy: number } | null = null;
-              outer: for (let ring = 0; ring < 7; ring++) {
+                Math.floor((q0.r - a.r0) / sh)));
+              for (let ring = 0; ring < 12; ring++) {
                 for (let di = -ring; di <= ring; di++) {
                   const i = i0 + di;
                   if (i < 0 || i >= nSh) continue;
-                  const rc = bd.r0 + shellH * (i + 0.5);
-                  const dth = (TW + 18 / z) / rc;      // 같은 껍질 이웃 비겹침
-                  const j0 = Math.round((th0 - bd.a0) / dth);
+                  const rc = a.r0 + sh * (i + 0.5);
+                  const spanW = (w + 14 / z) / rc;         // 각도 스팬 (이웃 비겹침)
+                  const j0 = Math.round((th0 - a.a0) / spanW);
                   for (let dj = -ring; dj <= ring; dj++) {
                     if (Math.max(Math.abs(di), Math.abs(dj)) !== ring) continue;
-                    const th = bd.a0 + dth * (j0 + dj + 0.5);
-                    if (th < bd.a0 || th > bd.a1) continue;
+                    const th = a.a0 + spanW * (j0 + dj + 0.5);
+                    // 웨지 스팬이 통째로 부채꼴 안 — 모양이 띠를 따르므로
+                    // 수용은 스팬 검사면 충분하다
+                    if (th - spanW / 2 < a.a0 || th + spanW / 2 > a.a1) continue;
                     const cx = CX + rc * Math.cos(th);
                     const cy = CY + rc * Math.sin(th);
                     const kk = `${nd.region}:${i}:${Math.round(th * 500)}`;
                     if (occ.has(kk)) continue;
-                    if (!fits(bd, cx, cy)) continue;
-                    // 🔴 ㉖A — 극좌표 칸은 «제 띠 안» 비겹침만 보장한다.
-                    //    이웃 띠의 격자와는 원점이 달라 경계 양쪽 칸이
-                    //    TW 보다 가까울 수 있다 (한빈 26차 실물). 놓인
-                    //    타일 전부와 AABB 대조 — ≤36개라 비용 0급.
-                    let clash = false;
-                    for (const tprev of tiles) {
-                      if (Math.abs(cx - (tprev.tx + TW / 2)) < TW + 4 / z
-                          && Math.abs(cy - (tprev.ty + TH / 2)) < TH + 4 / z) {
-                        clash = true; break;
-                      }
-                    }
-                    if (clash) continue;
-                    occ.add(kk); cell = { cx, cy }; break outer;
+                    const bb = wedgeBox(rc, th, w, h);
+                    if (clashBox(bb)) continue;
+                    occ.add(kk);
+                    return { cx, cy, rc, th, spanW: w / rc, bb };
                   }
                 }
               }
-              if (!cell) { loose.push({ n: nd, p: pp }); continue; }
-              tiles.push({ n: nd, p: pp,
-                           tx: cell.cx - TW / 2, ty: cell.cy - TH / 2,
-                           bd });
+              return null;
+            };
+            const tryEll = (nd: Node, pp: { x: number; y: number },
+                            e: NonNullable<Band['ell']>, w: number, h: number) => {
+              const gx = w + 12 / z, gy = h + 10 / z;
+              const c0 = Math.round((pp.x - e.cx) / gx);
+              const r0i = Math.round((pp.y - e.cy) / gy);
+              for (let ring = 0; ring < 12; ring++) {
+                for (let dc = -ring; dc <= ring; dc++) {
+                  for (let dr = -ring; dr <= ring; dr++) {
+                    if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
+                    const cx = e.cx + (c0 + dc) * gx, cy = e.cy + (r0i + dr) * gy;
+                    const kk = `${nd.region}:E${c0 + dc}:${r0i + dr}`;
+                    if (occ.has(kk)) continue;
+                    const bb = { x0: cx - w / 2, y0: cy - h / 2,
+                                 x1: cx + w / 2, y1: cy + h / 2 };
+                    if (!fitsEll(e, cx, cy, w, h) || clashBox(bb)) continue;
+                    occ.add(kk);
+                    return { cx, cy, bb };
+                  }
+                }
+              }
+              return null;
+            };
+            for (const { n: nd, p: pp } of cand) {
+              if (tiles.length >= 64) break;
+              const bd = bandOf(nd);
+              // 1차: 온칩 — 2차: 미니칩(같은 종족 · 이름+캡만) — 마지막: 라벨
+              let placed = false;
+              for (const [w, h, mini] of [[TW, TH, false],
+                                          [TW * 0.56, TH * 0.52, true],
+                                          [TW * 0.36, TH * 0.42, true]] as
+                                          [number, number, boolean][]) {
+                const got = bd.arc ? tryArc(nd, pp, bd.arc, w, h)
+                                   : tryEll(nd, pp, bd.ell!, w, h);
+                if (got) {
+                  tiles.push({ n: nd, p: pp, tx: got.cx - w / 2,
+                               ty: got.cy - h / 2, w, h, mini, bd,
+                               bx0: got.bb.x0, by0: got.bb.y0,
+                               bx1: got.bb.x1, by1: got.bb.y1,
+                               rc: (got as { rc?: number }).rc,
+                               th: (got as { th?: number }).th,
+                               spanW: (got as { spanW?: number }).spanW });
+                  placed = true; break;
+                }
+              }
+              if (!placed) loose.push({ n: nd, p: pp });
             }
             // ㉒ graph-paper 도 원형 — 동심 호 + 방사선 (판의 기하 그대로)
             const gridLines: ReactElement[] = [];
@@ -2079,57 +2155,62 @@ export function BrainMap() {
                         x={pp.x} y={pp.y - 5 / z} textAnchor="middle"
                         style={{ fontSize: `${8.5 / z}px` }}>
                     {nd.label || nd.id}</text>))}
-                {tiles.map(({ n: nd, p: pp, tx, ty, bd }) => {
+                {tiles.map(({ n: nd, p: pp, tx, ty, w, h, mini, bd,
+                              rc, th, spanW }) => {
                   const on = litSet.has(nd.id);
-                  const cy = ty + TH / 2;
-                  const nearX = Math.abs(pp.x - tx) < Math.abs(pp.x - (tx + TW))
-                    ? tx : tx + TW;
-                  const ins = Math.min((nd.수용체 || []).length, 4) || 1;
-                  const outs = Math.min(feedsOf.get(nd.id) ?? 0, 4);
-                  const pin = (i: number, cnt: number) =>
-                    ty + TH * (0.3 + (0.5 * i) / Math.max(1, cnt - 1 || 1));
+                  const cxT = tx + w / 2, cyT = ty + h / 2;
+                  const ins = (nd.수용체 || []).length;
+                  const outs = feedsOf.get(nd.id) ?? 0;
+                  // 호형 칩 (한빈 승인) — 띠의 호를 따라 휘는 부채꼴 조각.
+                  // 글자는 수평 유지. 타원 영역 칩은 둥근 사각을 쓴다.
+                  let shape: ReactElement;
+                  let capEl: ReactElement | null = null;
+                  if (bd.arc && rc != null && th != null && spanW != null) {
+                    const rI = rc - h / 2, rO = rc + h / 2;
+                    const t0 = th - spanW / 2, t1 = th + spanW / 2;
+                    const pt = (rr: number, tt: number) =>
+                      `${(CX + rr * Math.cos(tt)).toFixed(2)},${(CY + rr * Math.sin(tt)).toFixed(2)}`;
+                    const d = `M${pt(rO, t0)} A${rO},${rO} 0 0 1 ${pt(rO, t1)}`
+                      + ` L${pt(rI, t1)} A${rI},${rI} 0 0 0 ${pt(rI, t0)} Z`;
+                    shape = <path d={d} className="bm-tile__box" />;
+                    const rCap = rO - 2.2 / z;
+                    capEl = <path className="bm-tile__caparc"
+                      d={`M${pt(rCap, t0 + 0.004)} A${rCap},${rCap} 0 0 1 ${pt(rCap, t1 - 0.004)}`}
+                      style={{ strokeWidth: 3 / z }} />;
+                  } else {
+                    shape = <rect x={tx} y={ty} width={w} height={h}
+                                  rx={4 / z} className="bm-tile__box" />;
+                    capEl = <rect x={tx} y={ty} width={w} height={3.2 / z}
+                                  className="bm-tile__cap" />;
+                  }
+                  const bandAttr = bd.arc
+                    ? `A:${bd.arc.r0.toFixed(1)},${bd.arc.r1.toFixed(1)},${bd.arc.a0.toFixed(3)},${bd.arc.a1.toFixed(3)}`
+                    : `E:${bd.ell!.cx.toFixed(1)},${bd.ell!.cy.toFixed(1)},${bd.ell!.rx.toFixed(1)},${bd.ell!.ry.toFixed(1)}`;
                   return (
                     <g key={`tile-${nd.id}`} data-kind={nd.kind}
-                       data-band={`${bd.r0.toFixed(1)},${bd.r1.toFixed(1)},${bd.a0.toFixed(3)},${bd.a1.toFixed(3)}`}
-                       className={`bm-tile bm-tile--k${nd.kind}${on ? ' bm-tile--on' : ''}`}>
+                       data-band={bandAttr} data-mini={mini ? 1 : 0}
+                       className={`bm-tile bm-tile--k${nd.kind}${on ? ' bm-tile--on' : ''}${mini ? ' bm-tile--mini' : ''}`}>
                       <path className="bm-lead"
-                            d={`M${pp.x},${pp.y} L${pp.x},${cy} L${nearX},${cy}`} />
-                      <rect x={tx} y={ty} width={TW} height={TH}
-                            rx={3 / z} className="bm-tile__box" />
-                      <rect x={tx} y={ty} width={TW} height={3.5 / z}
-                            className="bm-tile__cap" />
-                      {Array.from({ length: ins }, (_x, i) => (
-                        <line key={`i${i}`} className="bm-tile__pin"
-                              x1={tx - 6 / z} y1={pin(i, ins)}
-                              x2={tx} y2={pin(i, ins)} />))}
-                      {Array.from({ length: Math.max(outs, 1) }, (_x, i) => (
-                        <line key={`o${i}`} className="bm-tile__pin"
-                              x1={tx + TW} y1={pin(i, Math.max(outs, 1))}
-                              x2={tx + TW + 6 / z} y2={pin(i, Math.max(outs, 1))} />))}
-                      <text className="bm-tile__name" x={tx + TW / 2}
-                            y={ty + 13 / z} textAnchor="middle"
-                            style={{ fontSize: `${fs1}px` }}>
+                            d={`M${pp.x},${pp.y} L${pp.x},${cyT} L${Math.abs(pp.x - tx) < Math.abs(pp.x - (tx + w)) ? tx : tx + w},${cyT}`} />
+                      {shape}
+                      {capEl}
+                      <text className="bm-tile__name" x={cxT}
+                            y={mini ? cyT + 3 / z : cyT - h * 0.22}
+                            textAnchor="middle"
+                            style={{ fontSize: `${(mini ? fs2 : fs1)}px` }}>
                         {nd.label || nd.id}</text>
-                      <rect x={tx + TW / 2 - 12 / z} y={ty + TH / 2 - 8 / z}
-                            width={24 / z} height={16 / z} rx={2 / z}
-                            className="bm-tile__fn" />
-                      <text className="bm-tile__fnlab" x={tx + TW / 2}
-                            y={ty + TH / 2 + 3.4 / z} textAnchor="middle"
-                            style={{ fontSize: `${fs2}px` }}>fn</text>
-                      <text className="bm-tile__meta" x={tx + 6 / z}
-                            y={ty + TH / 2 + 3 / z}
-                            style={{ fontSize: `${fs2}px` }}>
-                        in {(nd.수용체 || []).length}</text>
-                      <text className="bm-tile__meta" x={tx + TW - 6 / z}
-                            y={ty + TH / 2 + 3 / z} textAnchor="end"
-                            style={{ fontSize: `${fs2}px` }}>
-                        out {feedsOf.get(nd.id) ?? 0}</text>
-                      <text className="bm-tile__bench" x={tx + TW / 2}
-                            y={ty + TH - 7 / z} textAnchor="middle"
-                            style={{ fontSize: `${fs2}px` }}>
-                        {nd.hit != null && nd.n ? `bench ${nd.hit}/${nd.n}`
-                          : 'bench —'}
-                        {' · '}{(STATUS[nd.status] || STATUS.dark).t}</text>
+                      {!mini && <>
+                        <text className="bm-tile__meta" x={cxT} y={cyT + 3 / z}
+                              textAnchor="middle"
+                              style={{ fontSize: `${fs2}px` }}>
+                          {`in ${ins} ▸ fn ▸ out ${outs}`}</text>
+                        <text className="bm-tile__bench" x={cxT}
+                              y={cyT + h * 0.30} textAnchor="middle"
+                              style={{ fontSize: `${fs2}px` }}>
+                          {nd.hit != null && nd.n ? `bench ${nd.hit}/${nd.n}`
+                            : 'bench —'}
+                          {' · '}{(STATUS[nd.status] || STATUS.dark).t}</text>
+                      </>}
                     </g>
                   );
                 })}
