@@ -1058,6 +1058,7 @@ export function BrainMap() {
   // the bands fade out while dots fly into the brain. During a transition
   // BOTH layers render; the finished side unmounts on onMorphDone.
   const [trans, setTrans] = useState<null | 'to2d' | 'to3d'>(null);
+  const [settle, setSettle] = useState(false);   // 250ms GL fade after landing
   const go3d = (want: boolean) => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setMode3d(want); setTrans(null); return;           // instant, no theatre
@@ -1065,7 +1066,10 @@ export function BrainMap() {
     setTrans(want ? 'to3d' : 'to2d');
     if (want) setMode3d(true);        // mount GL now; SVG lingers till done
   };
-  const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
+  // W4-R (HanBin 8th: «여백이 너무 크다») — the fit view starts slightly
+  // zoomed so the board fills the frame; Z-bucket thresholds shift with it.
+  const FIT = { z: 1.18, tx: (W - 1.18 * W) / 2, ty: (H - 1.18 * H) / 2 };
+  const [view, setView] = useState(FIT);
   const viewRef = useRef(view); viewRef.current = view;
   // test handle — jigs that predate the LOD ladder measure the full dot map
   // at fit zoom via ?bmlod=2 (geometry untouched). Never set by the app.
@@ -1074,7 +1078,7 @@ export function BrainMap() {
     return Number.isFinite(v) ? Math.max(0, Math.min(3, v)) : 0;
   }, []);
   const zb = Math.max(zbFloor,
-    view.z <= 1.001 ? 0 : view.z <= 2.5 ? 1 : view.z <= 5 ? 2 : 3);
+    view.z <= 1.25 ? 0 : view.z <= 2.6 ? 1 : view.z <= 5 ? 2 : 3);
   /** visible window in content (viewBox) coords — for viewport culling */
   const vp = { x: -view.tx / view.z, y: -view.ty / view.z,
                w: W / view.z, h: H / view.z };
@@ -1133,7 +1137,7 @@ export function BrainMap() {
         const d0 = Math.hypot(prev.x - other.x, prev.y - other.y) || 1;
         const d1 = Math.hypot(cur.x - other.x, cur.y - other.y) || 1;
         zoomAt(toVb((cur.x + other.x) / 2, (cur.y + other.y) / 2), d1 / d0);
-      } else if (viewRef.current.z > 1.001) {        // pan (only when zoomed)
+      } else if (viewRef.current.z > 1.001) {        // pan (FIT is already >1)
         const r = svgRef.current?.getBoundingClientRect();
         const sc = r ? Math.min(r.width / W, r.height / H) || 1 : 1;
         const dx = (cur.x - prev.x) / sc, dy = (cur.y - prev.y) / sc;
@@ -1206,8 +1210,9 @@ export function BrainMap() {
       const ox = (cssW - W * s) / 2, oy = (cssH - H * s) / 2;
       ctx.setTransform(s * dpr, 0, 0, s * dpr, ox * dpr, oy * dpr);
       ctx.clearRect(-ox / s, -oy / s, cssW / s, cssH / s);
-      // W4 LOD — the base edge web renders from Z2 (plan: Z0/Z1 cull edges)
-      if (zbNow < 2) return;
+      // W4-R — the base edge web renders at EVERY zoom (viewport-culled);
+      // the ladder adds semantics, it never removes the map.
+      void zbNow;
       ctx.transform(vw.z, 0, 0, vw.z, vw.tx, vw.ty);   // view on top of letterbox
       ctx.globalAlpha = 0.5;                 // .bm-edge 전역 (brain.css:300)
       ctx.lineCap = 'round';
@@ -1266,9 +1271,9 @@ export function BrainMap() {
     // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
     //    가 터졌고 앱 전체가 죽었다 (ui_e2e pageerror 실측)
     if (!m?.nodes?.length || !m.edges) return null;
-    // W4 LOD — below Z2 the node dots are culled (Z0 cortex bands only,
-    // Z1 sub bands + cluster dots). Fired nerves still glow via the overlay.
-    if (zb < 2) { resetTags(); return null; }
+    // 🔴 W4-R (HanBin: «2D 모드에서 노드가 보이지 않는다») — dots render at
+    //    EVERY zoom. The ladder ADDS semantics (Z1 sub bands · Z2 names ·
+    //    Z3 blueprints); it never decides existence.
     // 🔴 이름표 자리 장부를 **여기서** 비운다 — 안 비우면 두 번째 렌더부터
     //    제 이름표와 겹쳐 전부 사라진다 (v50).
     resetTags();
@@ -1366,30 +1371,8 @@ export function BrainMap() {
       </g>
     );
   }, [m, pos, shownNodes, shownIds, showCall, zb]);
-  // W4 Z1 — aggregated cluster dots: one dot per (region·부), sized by √n.
-  // Cheap stand-in for 400 individual dots while zoomed out.
-  const clusterLayer = useMemo(() => {
-    if (zb !== 1 || !m?.nodes?.length) return null;
-    const acc: Record<string, { x: number; y: number; n: number; hue: number;
-                                label: string }> = {};
-    shownNodes.forEach(n => {
-      const pp = pos[n.id]; if (!pp) return;
-      const k = `${n.region}·${n.sub || ''}`;
-      const a = acc[k] ??= { x: 0, y: 0, n: 0,
-        hue: m.regions[n.region]?.hue ?? 210, label: n.sub || n.region };
-      a.x += pp.x; a.y += pp.y; a.n += 1;
-    });
-    return (
-      <g className="bm-clusters" aria-hidden="true">
-        {Object.entries(acc).map(([k, a]) => (
-          <circle key={k} cx={a.x / a.n} cy={a.y / a.n}
-                  r={Math.min(2.5 + Math.sqrt(a.n) * 1.1, 9)}
-                  fill={`hsl(${a.hue} 70% 62% / .5)`}>
-            <title>{`${a.label} — ${a.n}`}</title>
-          </circle>))}
-      </g>
-    );
-  }, [zb, m, shownNodes, pos]);
+  // (W4-R) Z1 cluster dots were dropped — with dots visible at every zoom
+  //  they duplicated the same information one layer up.
   // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
   //    같은 엽 안에서 «가까이 찍힌» 둘을 이어 321개를 그렸는데, 서버가 보낸
   //    진짜 이음 107개와 **겹치는 것이 하나도 없었다**. 사람이 본 428선 중
@@ -1619,31 +1602,20 @@ export function BrainMap() {
           🔴 경고(끊김·잔량)는 **그대로 보인다.** 오히려 폭 65px 구석에서
              지도 위 전폭으로 올라와 더 잘 보인다. */}
       <StateChip lit={lit} enOf={enOf} />
-      {(mode3d || trans) ? (
-        /* during ANY transition the GL layer is an absolute overlay on the
-           2D wrap beneath — dots fly while the board fades under them */
-        <div className={`brainmap__wrap brainmap__wrap--3d${trans ? ' bm-trans' : ''}`}
-             style={trans ? { position: 'absolute', inset: 0,
-                              pointerEvents: 'none', zIndex: 2,
-                              border: 'none', boxShadow: 'none',
-                              background: 'transparent' } : undefined}>
-          {!trans && <BuildTag />}
-          <Brain3D nodes={shownNodes} regions={m.regions} pos2d={pos}
-                   lit={lit} onPick={setPickId} boardW={W} boardH={H}
-                   morphTo={trans === 'to2d' ? 0 : 1}
-                   onMorphDone={trans ? () => {
-                     if (trans === 'to2d') setMode3d(false);
-                     setTrans(null);
-                   } : null} />
-          {!trans && (
+      {(mode3d && !trans) ? (
+        <div className="brainmap__wrap brainmap__wrap--3d">
+          <BuildTag />
+          <Brain3D nodes={shownNodes} chainEdges={m.edges} regions={m.regions}
+                   pos2d={pos}
+                   lit={lit} onPick={setPickId} boardW={W} boardH={H} />
           <div className="bm-zoomctl" role="group" aria-label="view">
             <button type="button" title="switch to the 2D map (semantic zoom)"
                     onClick={() => go3d(false)}>2D</button>
-          </div>)}
+          </div>
         </div>
       ) : null}
       {(!mode3d || trans) ? (
-      <div className={`brainmap__wrap bm-z${zb}${view.z > 1.001 ? ' is-zoomed' : ''}${
+      <div className={`brainmap__wrap bm-z${zb}${view.z > FIT.z + 0.001 ? ' is-zoomed' : ''}${
              trans === 'to2d' ? ' bm-fade-in' : trans === 'to3d' ? ' bm-fade-out' : ''}`}
            ref={wrapRef}>
         <BuildTag />
@@ -1825,8 +1797,7 @@ export function BrainMap() {
             // 🔴 **평시엔 이름을 안 그린다** — 상시 라벨은 서로 겹쳤다
             //    (「보관소조작」으로 뭉개진 실측 스크린샷). 영역 hover 또는
             //    선택 때만, 그때는 수치까지 함께.
-            // W4 Z0 — at fit zoom the region names ARE the map (no dots yet)
-            if (zb > 0 && regHover !== k && reg !== k) return null;
+            if (regHover !== k && reg !== k) return null;
             return (
               <text key={`lab-${k}`}
                     className={`bm-region bm-region--btn is-on`}
@@ -1843,7 +1814,6 @@ export function BrainMap() {
 
           {/* 이음+노드 기반층 — 판(m)이 바뀔 때만 다시 짓는다 (위 baseLayer) */}
           {baseLayer}
-          {clusterLayer}
           {/* W4 Z2 — nerve names for what's IN the viewport. Text counter-
               scales (10/z) so it stays readable, and a coarse grid dedupes
               near-neighbours instead of the tagAt ledger (whose lifecycle
@@ -1978,15 +1948,34 @@ export function BrainMap() {
                   onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1.6)}>+</button>
           <button type="button" title="zoom out"
                   onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1 / 1.6)}>−</button>
-          {view.z > 1.001 ? (
+          {view.z > FIT.z + 0.001 ? (
             <button type="button" title="reset"
-                    onClick={() => setView({ z: 1, tx: 0, ty: 0 })}>⤢</button>) : null}
-          <i className="bm-zoomctl__z">{view.z <= 1.001 ? '' : `×${view.z.toFixed(1)} · Z${zb}`}</i>
+                    onClick={() => setView(FIT)}>⤢</button>) : null}
+          <i className="bm-zoomctl__z">{view.z <= FIT.z + 0.001 ? '' : `×${view.z.toFixed(1)} · Z${zb}`}</i>
         </div>
         {/* 🔴 `brainmap__live`(378×43)도 **지도를 덮고 있었다** — 칩과
             같은 물음(「지금 무슨 일이 일어나는가」)에 답하면서 지도 양쪽
             구석에 따로 떠 있었다. 위 `<StateChip lit=…>` 한 줄로 합쳤다.
             겹치는 것이 둘에서 **0** 이 된다. */}
+        {/* W4-R (HanBin 7th): the morph overlay lives INSIDE this wrap —
+            anchored to the section it had a different box, so the landing
+            board was scaled/offset against the SVG. Same box = same
+            letterbox = the derived front camera lands pixel-true. */}
+        {trans ? (
+          <div className={`bm-glover${settle ? ' bm-gl-out' : ''}`}>
+            <Brain3D nodes={shownNodes} chainEdges={m.edges}
+                     regions={m.regions} pos2d={pos}
+                     lit={lit} onPick={setPickId} boardW={W} boardH={H}
+                     morphTo={trans === 'to2d' ? 0 : 1}
+                     onMorphDone={() => {
+                       if (trans === 'to2d') {
+                         setSettle(true);
+                         window.setTimeout(() => {
+                           setMode3d(false); setTrans(null); setSettle(false);
+                         }, 260);
+                       } else setTrans(null);
+                     }} />
+          </div>) : null}
       </div>
       ) : null}
 

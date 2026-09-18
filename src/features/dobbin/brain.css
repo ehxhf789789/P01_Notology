@@ -537,3 +537,5 @@
 @media (prefers-reduced-motion: reduce) {
   .bm-fade-in, .bm-fade-out { animation: none; }
 }
+.bm-gl-out { animation: bmFadeOut .25s ease both; }
+.bm-glover { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
