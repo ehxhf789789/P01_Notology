@@ -277,7 +277,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
         // ㉝ 2D diameter = the SHARED paint radius ×2 — the old per-kind
         // table predated the U1 recipe (신경 1.6 vs 3.3) and made dots
         // JUMP ×2 at the handoff (HanBin 33rd report).
-        S2.push(2 * (pt?.r ?? 2.0));
+        S2.push(2 * (pt?.r ?? 2.0) * 0.85);   // ㉞ DOT2D — 2D 와 같은 배율
         const pi = idOf.length + 1;
         idOf.push(nd.id);
         PK.push(((pi >> 16) & 255) / 255, ((pi >> 8) & 255) / 255, (pi & 255) / 255);

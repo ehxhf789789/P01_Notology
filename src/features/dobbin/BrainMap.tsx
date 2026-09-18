@@ -10,7 +10,7 @@
  *    색=상태 · 자리=영역(뇌간·전두·측두·두정·후두·언어·소뇌·겉질).
  *    말을 걸면 그 턴에 울린 신경이 **번쩍이고 신호가 사슬을 타고 흐른다**.
  */
-import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { lifeTail, onLive, sseState } from '../../web/liveSync';
 import { budget as qBudget, qualityInfo } from '../../web/quality';
 
@@ -1096,6 +1096,21 @@ export function BrainMap() {
   //    배치는 **보드 전역·한 번**이다. 칩의 월드 크기를 버킷 상수로 고정해
   //    팬·줌(버킷 안)에서 재배치가 0 — 지도처럼, 확대하면 같은 도시가
   //    커질 뿐이다. 새 신경이 오면(기하 서명 변화) 즉시 다시 짠다 (확장).
+  // ㉟ 원형 그래프페이퍼는 월드 상수다 — 커밋마다 vp 로 다시 지을 이유가
+  // 없다. 판 전체(모서리 거리 ~537)를 한 번 만들어 재조정만 시킨다.
+  const cityGrid = useMemo(() => {
+    const out: ReactElement[] = [];
+    for (let rr = 13.9; rr <= 540; rr += 13.9) {
+      out.push(<circle key={`gc${rr.toFixed(1)}`} className="bm-citygrid"
+                       fill="none" cx={CX} cy={CY} r={rr} />);
+    }
+    for (let a = -Math.PI; a < Math.PI; a += Math.PI / 36) {
+      out.push(<line key={`gs${a.toFixed(3)}`} className="bm-citygrid"
+        x1={CX + 40 * Math.cos(a)} y1={CY + 40 * Math.sin(a)}
+        x2={CX + 540 * Math.cos(a)} y2={CY + 540 * Math.sin(a)} />);
+    }
+    return out;
+  }, []);
   const city = useMemo(() => {
     type Band = { arc?: { r0: number; r1: number; a0: number; a1: number };
                   ell?: { cx: number; cy: number; rx: number; ry: number } };
@@ -1262,7 +1277,55 @@ export function BrainMap() {
   // zoomed so the board fills the frame; Z-bucket thresholds shift with it.
   const FIT = { z: 1.18, tx: (W - 1.18 * W) / 2, ty: (H - 1.18 * H) / 2 };
   const [view, setView] = useState(FIT);
-  const viewRef = useRef(view); viewRef.current = view;
+  // ㉟ 제스처 성능 (한빈 09-19: «확대 시 버벅임») — 휠·팬 사건마다
+  // setState 를 만들면 SVG 전체가 60Hz 로 React 재조정된다 (실측 Z3 팬
+  // p95 50ms). 그래서 두 길로 가른다:
+  //   · LIVE  — viewRef + zoomg transform 명령형 갱신 (프레임 비용 0급)
+  //   · 커밋  — setView 는 rAF 합류로 «LOD 버킷이 바뀌었거나 250ms 지났을
+  //             때»만 (뷰포트 컬링·글꼴 배율은 커밋에서 따라온다)
+  // 발화 등 무관한 렌더가 transform 을 커밋값으로 되돌리지 않도록
+  // useLayoutEffect 가 매 렌더 뒤 LIVE 값을 다시 얹는다.
+  const viewRef = useRef(view);
+  const committedRef = useRef(view);
+  useEffect(() => { committedRef.current = view; }, [view]);
+  const zoomGRef = useRef<SVGGElement | null>(null);
+  const commitRaf = useRef(0);
+  const commitTrail = useRef(0);
+  const lastCommit = useRef(0);
+  const zbOf = (z: number) => (z <= 1.25 ? 0 : z <= 2.6 ? 1 : z <= 5 ? 2 : 3);
+  // ㉟ 이음 캔버스는 viewRef 를 읽지만 스스로 깨어나지 못한다 — 제스처가
+  // 여기로 두드린다 (effect 가 kick 을 채워 넣는다).
+  const edgeKickRef = useRef<() => void>(() => {});
+  const applyLive = (nv: { z: number; tx: number; ty: number }) => {
+    viewRef.current = nv;
+    zoomGRef.current?.setAttribute('transform',
+      `translate(${nv.tx},${nv.ty}) scale(${nv.z})`);
+    edgeKickRef.current();
+    if (commitRaf.current) return;
+    commitRaf.current = requestAnimationFrame(() => {
+      commitRaf.current = 0;
+      const cur = viewRef.current;
+      const now = performance.now();
+      if (zbOf(cur.z) !== zbOf(committedRef.current.z)
+          || now - lastCommit.current > 300) {
+        window.clearTimeout(commitTrail.current);
+        lastCommit.current = now; setView(cur);
+      } else {
+        // 흐름이 여기서 멎으면 상태가 영영 낡는다 — 꼬리 커밋 하나
+        window.clearTimeout(commitTrail.current);
+        commitTrail.current = window.setTimeout(
+          () => setView(viewRef.current), 200);
+      }
+    });
+  };
+  const commitView = (nv: { z: number; tx: number; ty: number }) => {
+    viewRef.current = nv; setView(nv);
+  };
+  useLayoutEffect(() => {
+    const v = viewRef.current;
+    zoomGRef.current?.setAttribute('transform',
+      `translate(${v.tx},${v.ty}) scale(${v.z})`);
+  });
   // test handle — jigs that predate the LOD ladder measure the full dot map
   // at fit zoom via ?bmlod=2 (geometry untouched). Never set by the app.
   const zbFloor = useMemo(() => {
@@ -1300,11 +1363,10 @@ export function BrainMap() {
   // ⚠️ 매개변수 이름이 뇌계약 별칭(c→census · e→edges)과 겹치면 관문이
   //    유령 필드를 세운다 — at/ev 로 쓴다.
   const zoomAt = (at: { x: number; y: number }, factor: number) => {
-    setView(v => {
-      const nz = Math.min(12, Math.max(1, v.z * factor));
-      const k = nz / v.z;
-      return clampView(nz, at.x * (1 - k) + v.tx * k, at.y * (1 - k) + v.ty * k);
-    });
+    const v = viewRef.current;                        // ㉟ LIVE 기반
+    const nz = Math.min(12, Math.max(1, v.z * factor));
+    const k = nz / v.z;
+    applyLive(clampView(nz, at.x * (1 - k) + v.tx * k, at.y * (1 - k) + v.ty * k));
   };
   useEffect(() => {
     const el = wrapRef.current; if (!el) return;
@@ -1338,11 +1400,15 @@ export function BrainMap() {
         const sc = r ? Math.min(r.width / W, r.height / H) || 1 : 1;
         const dx = (cur.x - prev.x) / sc, dy = (cur.y - prev.y) / sc;
         if (Math.abs(cur.x - prev.x) + Math.abs(cur.y - prev.y) > 2) dragged = true;
-        setView(v => clampView(v.z, v.tx + dx, v.ty + dy));
+        const lv = viewRef.current;                    // ㉟ LIVE 기반
+        applyLive(clampView(lv.z, lv.tx + dx, lv.ty + dy));
       }
       ptr.set(ev.pointerId, cur);
     };
-    const onUp = (ev: PointerEvent) => { ptr.delete(ev.pointerId); };
+    const onUp = (ev: PointerEvent) => {
+      if (!ptr.delete(ev.pointerId)) return;
+      commitView(viewRef.current);                     // ㉟ 제스처 끝 커밋
+    };
     // swallow the click that ends a drag — else it toggles a node pick
     const onClick = (ev: MouseEvent) => {
       if (dragged) { ev.stopPropagation(); dragged = false; }
@@ -1465,6 +1531,7 @@ export function BrainMap() {
       raf = requestAnimationFrame(() => { raf = 0; draw(); });
     };
     kick();
+    edgeKickRef.current = kick;             // ㉟ 제스처 LIVE 경로가 두드린다
     const ro = new ResizeObserver(kick);
     ro.observe(cv);
     return () => { ro.disconnect(); if (raf) cancelAnimationFrame(raf); };
@@ -1610,7 +1677,9 @@ export function BrainMap() {
           //    → 빚이면 다른 노드와 같은 꽉 찬 점. 유령은 신설에만.
           const ghost = n.kind === '계획' && n.target !== '빚';
           const pt = nodePaint[n.id];
-          const base = (pt?.r ?? 2.0) * shrink;
+          // ㉞ 2D 점 전반 «약간 작게» (한빈 09-19) — DOT2D 0.85.
+          // GL 의 S2 경로도 같은 배율이라 손바꿈 크기 항등(㉝)이 유지된다.
+          const base = (pt?.r ?? 2.0) * shrink * 0.85;
           return (
             <g key={n.id} data-nid={n.id}
                className={`bm-node bm-node--${n.kind}`}
@@ -1957,7 +2026,7 @@ export function BrainMap() {
               (한빈: «배경이 왜 다르냐 — 파란색 유지»). */}
           {/* W4 — everything below lives in ONE transformed group; the
               transform is the whole zoom (no re-layout, GPU-composited). */}
-          <g className="bm-zoomg"
+          <g className="bm-zoomg" ref={zoomGRef}
              transform={`translate(${view.tx},${view.ty}) scale(${view.z})`}>
 
           {/* 🔴 **밑그림(동그라미)을 걷었다** (한빈 2026-09-10: *"밑배경 뇌
@@ -2161,23 +2230,9 @@ export function BrainMap() {
               || inVp(t.p.x, t.p.y, 10)).slice(0, 100);
             const vLoose = city.loose.filter(l =>
               inVp(l.p.x, l.p.y, 10)).slice(0, 30);
-            // 원형 그래프페이퍼 — 동심 호 + 방사선
-            const gridLines: ReactElement[] = [];
-            const rMax = Math.max(...[[vp.x, vp.y], [vp.x + vp.w, vp.y],
-              [vp.x, vp.y + vp.h], [vp.x + vp.w, vp.y + vp.h]]
-              .map(([x, y]) => Math.hypot(x - CX, y - CY)));
-            for (let rr = 13.9; rr <= rMax; rr += 13.9) {
-              gridLines.push(<circle key={`gc${rr.toFixed(1)}`}
-                className="bm-citygrid" fill="none" cx={CX} cy={CY} r={rr} />);
-            }
-            for (let a = -Math.PI; a < Math.PI; a += Math.PI / 36) {
-              gridLines.push(<line key={`gs${a.toFixed(3)}`} className="bm-citygrid"
-                x1={CX + 40 * Math.cos(a)} y1={CY + 40 * Math.sin(a)}
-                x2={CX + rMax * Math.cos(a)} y2={CY + rMax * Math.sin(a)} />);
-            }
             return (
               <g className="bm-city">
-                {gridLines}
+                {cityGrid}
                 {/* ㉛ — 만석 지대도 **같은 종족**: 압축 라벨 대신 점 위의
                     나노 칩. 겹침 보장은 없지만(제 점 위라 드묾) 위계가
                     갈라지지 않는다. */}
@@ -2361,7 +2416,7 @@ export function BrainMap() {
                   onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1 / 1.6)}>−</button>
           {view.z > FIT.z + 0.001 ? (
             <button type="button" title="reset"
-                    onClick={() => setView(FIT)}>⤢</button>) : null}
+                    onClick={() => commitView(FIT)}>⤢</button>) : null}
           <i className="bm-zoomctl__z">{view.z <= FIT.z + 0.001 ? '' : `×${view.z.toFixed(1)} · Z${zb}`}</i>
         </div>
         {/* 🔴 `brainmap__live`(378×43)도 **지도를 덮고 있었다** — 칩과
