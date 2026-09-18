@@ -151,6 +151,7 @@ function StateChip({ lit = [], enOf = {} }:
   );
 }
 import './brain.css';
+import { Brain3D } from './Brain3D';
 
 type Node = {
   id: string; kind: string; sub?: string; region: string; status: string;
@@ -1040,6 +1041,10 @@ export function BrainMap() {
   // everything below the current level — zooming OUT reduces render work.
   // 🔴 The base layer re-renders only when the Z *bucket* changes, never
   //    per wheel tick (the group transform is GPU-cheap).
+  // W4 — the panel opens in 3D (HanBin decision); 2D map is one toggle away.
+  // No preference memory. The SSE subscription lives above both views, so
+  // toggling never re-subscribes and activation never pauses.
+  const [mode3d, setMode3d] = useState(true);
   const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
   const viewRef = useRef(view); viewRef.current = view;
   const zb = view.z <= 1.001 ? 0 : view.z <= 2.5 ? 1 : view.z <= 5 ? 2 : 3;
@@ -1085,9 +1090,12 @@ export function BrainMap() {
     let dragged = false;
     const onDown = (e: PointerEvent) => {
       if (e.button !== 0) return;
+      // 🔴 setPointerCapture 를 쓰면 wrap 이 클릭을 통째로 삼켜 **버튼·노드
+      //    클릭이 전부 죽는다** (jig 실측: + 버튼 무반응). 캡처 없이 창
+      //    리스너로 따라가고, 이동 문턱을 넘어야 팬으로 취급한다.
+      if ((e.target as Element | null)?.closest?.('.bm-zoomctl')) return;
       ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
       dragged = false;
-      el.setPointerCapture?.(e.pointerId);
     };
     const onMove = (e: PointerEvent) => {
       const prev = ptr.get(e.pointerId); if (!prev) return;
@@ -1118,22 +1126,26 @@ export function BrainMap() {
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('pointerdown', onDown);
-    el.addEventListener('pointermove', onMove);
-    el.addEventListener('pointerup', onUp);
-    el.addEventListener('pointercancel', onUp);
+    // move/up 은 창에서 듣는다 — 밖으로 끌고 나가도 팬이 이어진다
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     el.addEventListener('click', onClick, true);
     el.addEventListener('dblclick', onDbl);
     return () => {
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('pointerdown', onDown);
-      el.removeEventListener('pointermove', onMove);
-      el.removeEventListener('pointerup', onUp);
-      el.removeEventListener('pointercancel', onUp);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
       el.removeEventListener('click', onClick, true);
       el.removeEventListener('dblclick', onDbl);
     };
+    // 🔴 wrap 은 m 이 온 뒤에야 마운트된다 — [] 의존이면 이 effect 가
+    //    wrap 없는 첫 렌더에 한 번 돌고 끝나 wheel/drag/pinch 가 전부
+    //    죽는다 (jig ④ 실측: wheel 무반응). m 유무에 다시 건다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [!!m?.nodes?.length]);
   // 🔴 **기반층을 얼린다** (2026-09-13 · 한빈 «웹 렌더링 렉»). 노드 ~400 +
   //    이음 ~1,200 을 hover·빛·자국(0.7초)마다 React 가 전부 다시 diff 하던
   //    것이 지도 버벅임의 몸통 — 기반층은 판(m)이 바뀔 때만 다시 짓고,
@@ -1580,6 +1592,17 @@ export function BrainMap() {
           🔴 경고(끊김·잔량)는 **그대로 보인다.** 오히려 폭 65px 구석에서
              지도 위 전폭으로 올라와 더 잘 보인다. */}
       <StateChip lit={lit} enOf={enOf} />
+      {mode3d ? (
+        <div className="brainmap__wrap brainmap__wrap--3d">
+          <BuildTag />
+          <Brain3D nodes={shownNodes} regions={m.regions} pos2d={pos}
+                   lit={lit} onPick={setPickId} boardW={W} boardH={H} />
+          <div className="bm-zoomctl" role="group" aria-label="view">
+            <button type="button" title="switch to the 2D map (semantic zoom)"
+                    onClick={() => setMode3d(false)}>2D</button>
+          </div>
+        </div>
+      ) : (
       <div className={`brainmap__wrap bm-z${zb}${view.z > 1.001 ? ' is-zoomed' : ''}`}
            ref={wrapRef}>
         <BuildTag />
@@ -1906,6 +1929,8 @@ export function BrainMap() {
         </svg>
         {/* W4 — zoom controls (Maps idiom: wheel/drag/dblclick/pinch also work) */}
         <div className="bm-zoomctl" role="group" aria-label="zoom">
+          <button type="button" title="back to 3D"
+                  onClick={() => setMode3d(true)}>3D</button>
           <button type="button" title="zoom in"
                   onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1.6)}>+</button>
           <button type="button" title="zoom out"
@@ -1920,6 +1945,7 @@ export function BrainMap() {
             구석에 따로 떠 있었다. 위 `<StateChip lit=…>` 한 줄로 합쳤다.
             겹치는 것이 둘에서 **0** 이 된다. */}
       </div>
+      )}
 
       {turn && (
         <div className="brainmap__turn">
