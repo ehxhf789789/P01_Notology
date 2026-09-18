@@ -377,8 +377,8 @@ const MIN_T = 26;   // 링 최소 두께 — 이보다 얇으면 점이 선처�
 
 function ringGeo(counts: Record<string, number>): Record<string, [number, number]> {
   const order = Object.keys(RINGS).sort((a, b) => RINGS[a] - RINGS[b]);
-  const n = order.map(k => Math.max(counts[k] ?? 0, 4));
-  const tot = n.reduce((a, b) => a + b, 0) || 1;
+  const ns = order.map(k => Math.max(counts[k] ?? 0, 4));
+  const tot = ns.reduce((a, b) => a + b, 0) || 1;
   // 쓸 수 있는 **넓이**(반지름 제곱 구간) — 틈을 빼고 남는 것
   const gaps = R_GAP * (order.length - 1);
   const rIn = R_IN, rOut = R_OUT - gaps;          // 틈을 미리 덜어 둔다
@@ -386,7 +386,7 @@ function ringGeo(counts: Record<string, number>): Record<string, [number, number
   const out: Record<string, [number, number]> = {};
   let r2 = rIn * rIn, shift = 0;
   order.forEach((k, i) => {
-    let a = area * n[i] / tot;                    // 이 링이 가질 넓이
+    let a = area * ns[i] / tot;                    // 이 링이 가질 넓이
     let r0 = Math.sqrt(r2), r1 = Math.sqrt(r2 + a);
     if (r1 - r0 < MIN_T) { r1 = r0 + MIN_T; a = r1 * r1 - r2; }   // 바닥
     out[k] = [r0 + shift, Math.min(r1 + shift, R_OUT)];
@@ -1102,34 +1102,36 @@ export function BrainMap() {
     return { z, tx, ty };
   };
   /** zoom about a viewBox point c: t' = c·(1 − z'/z) + t·(z'/z) */
-  const zoomAt = (c: { x: number; y: number }, factor: number) => {
+  // ⚠️ 매개변수 이름이 뇌계약 별칭(c→census · e→edges)과 겹치면 관문이
+  //    유령 필드를 세운다 — at/ev 로 쓴다.
+  const zoomAt = (at: { x: number; y: number }, factor: number) => {
     setView(v => {
       const nz = Math.min(12, Math.max(1, v.z * factor));
       const k = nz / v.z;
-      return clampView(nz, c.x * (1 - k) + v.tx * k, c.y * (1 - k) + v.ty * k);
+      return clampView(nz, at.x * (1 - k) + v.tx * k, at.y * (1 - k) + v.ty * k);
     });
   };
   useEffect(() => {
     const el = wrapRef.current; if (!el) return;
     // wheel must be non-passive to preventDefault (page would scroll)
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      zoomAt(toVb(e.clientX, e.clientY), Math.exp(-e.deltaY * 0.0015));
+    const onWheel = (ev: WheelEvent) => {
+      ev.preventDefault();
+      zoomAt(toVb(ev.clientX, ev.clientY), Math.exp(-ev.deltaY * 0.0015));
     };
     const ptr = new Map<number, { x: number; y: number }>();
     let dragged = false;
-    const onDown = (e: PointerEvent) => {
-      if (e.button !== 0) return;
+    const onDown = (ev: PointerEvent) => {
+      if (ev.button !== 0) return;
       // 🔴 setPointerCapture 를 쓰면 wrap 이 클릭을 통째로 삼켜 **버튼·노드
       //    클릭이 전부 죽는다** (jig 실측: + 버튼 무반응). 캡처 없이 창
       //    리스너로 따라가고, 이동 문턱을 넘어야 팬으로 취급한다.
-      if ((e.target as Element | null)?.closest?.('.bm-zoomctl')) return;
-      ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      if ((ev.target as Element | null)?.closest?.('.bm-zoomctl')) return;
+      ptr.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       dragged = false;
     };
-    const onMove = (e: PointerEvent) => {
-      const prev = ptr.get(e.pointerId); if (!prev) return;
-      const cur = { x: e.clientX, y: e.clientY };
+    const onMove = (ev: PointerEvent) => {
+      const prev = ptr.get(ev.pointerId); if (!prev) return;
+      const cur = { x: ev.clientX, y: ev.clientY };
       if (ptr.size === 2) {                          // pinch
         const [a, b] = [...ptr.values()];
         const other = a === prev ? b : a;
@@ -1143,16 +1145,16 @@ export function BrainMap() {
         if (Math.abs(cur.x - prev.x) + Math.abs(cur.y - prev.y) > 2) dragged = true;
         setView(v => clampView(v.z, v.tx + dx, v.ty + dy));
       }
-      ptr.set(e.pointerId, cur);
+      ptr.set(ev.pointerId, cur);
     };
-    const onUp = (e: PointerEvent) => { ptr.delete(e.pointerId); };
+    const onUp = (ev: PointerEvent) => { ptr.delete(ev.pointerId); };
     // swallow the click that ends a drag — else it toggles a node pick
-    const onClick = (e: MouseEvent) => {
-      if (dragged) { e.stopPropagation(); dragged = false; }
+    const onClick = (ev: MouseEvent) => {
+      if (dragged) { ev.stopPropagation(); dragged = false; }
     };
-    const onDbl = (e: MouseEvent) => {
-      e.preventDefault();
-      zoomAt(toVb(e.clientX, e.clientY), 1.8);
+    const onDbl = (ev: MouseEvent) => {
+      ev.preventDefault();
+      zoomAt(toVb(ev.clientX, ev.clientY), 1.8);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
     el.addEventListener('pointerdown', onDown);
