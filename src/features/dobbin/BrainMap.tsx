@@ -1426,7 +1426,7 @@ export function BrainMap() {
                       strokeWidth={ghost ? 1.4 : 0}
                       fillOpacity={ghost ? 0.28 : 1}
                       opacity={n.status === 'dark' || n.status === 'idle'
-                               ? 0.3 : 0.8}>
+                               ? 0.5 : 0.92}>
                 <title>{`${n.label || n.id} · ${s.t}`}</title>
               </circle>
               {/* 🔴 **이름표 겹침 방지가 없었다** (v50 · 2026-09-17).
@@ -1691,7 +1691,8 @@ export function BrainMap() {
           <BuildTag key="tag" />
           <Brain3D key="gl" nodes={glNodes} chainEdges={glEdges} regions={m.regions}
                    pos2d={pos}
-                   lit={lit} onPick={setPickId} boardW={W} boardH={H} />
+                   lit={lit} onPick={setPickId} boardW={W} boardH={H}
+                   view2dRef={viewRef} />
           <div className="bm-zoomctl" role="group" aria-label="view">
             <button type="button" title="switch to the 2D map (semantic zoom)"
                     onClick={() => go3d(false)}>2D</button>
@@ -1940,26 +1941,52 @@ export function BrainMap() {
             const occ = new Set<string>();
             const tiles: { n: Node; p: { x: number; y: number };
                            tx: number; ty: number }[] = [];
+            // ③ⓐ 같은 줌 = 같은 위계 (한빈 19차) — 신경만이 아니라 뷰포트의
+            //    **모든 노드**가 타일이 된다. 종류는 머리띠 색으로 가른다.
+            // ③ⓑ 도시는 구역 안에 — 격자 칸의 **중심이 그 노드의 띠(환형
+            //    부채꼴) 안**일 때만 앉는다. 띠 안 빈 칸이 없으면 그 노드는
+            //    리더선 없는 압축 라벨로 남는다 (강제로 띠를 넘지 않는다).
+            const arcOf = (nd: Node) => {
+              const L = lb[nd.region];
+              if (!L?.arc) return null;
+              const sk = (nd as { __sk?: string }).__sk;
+              const sb = sk && L.subs ? L.subs.find(x => x.key === sk) : null;
+              return { a0: sb ? sb.a0 : L.arc.a0, a1: sb ? sb.a1 : L.arc.a1,
+                       r0: L.arc.r0, r1: L.arc.r1 };
+            };
+            const inBand = (nd: Node, x: number, y: number) => {
+              const a = arcOf(nd);
+              if (!a) return Math.hypot(x - CX, y - CY) < 70;   // 코어(기질)
+              const rr = Math.hypot(x - CX, y - CY);
+              if (rr < a.r0 || rr > a.r1) return false;
+              let th = Math.atan2(y - CY, x - CX);
+              // lobes() 의 각은 연속 구간 — 2π 보정 후 포함 검사
+              if (th < a.a0) th += Math.PI * 2;
+              return th >= a.a0 && th <= a.a1;
+            };
+            const loose: { n: Node; p: { x: number; y: number } }[] = [];
             const cand = shownNodes
-              .filter(nd => nd.kind === '신경')
               .map(nd => ({ n: nd, p: pos[nd.id] }))
               .filter(x => x.p && inVp(x.p.x, x.p.y, -10))
               .sort((x, y) => (x.n.id < y.n.id ? -1 : 1))
-              .slice(0, 40);
+              .slice(0, 60);
             for (const { n: nd, p: pp } of cand) {
-              if (tiles.length >= 24) break;
+              if (tiles.length >= 36) break;
               const c0 = Math.round(pp.x / GX), r0 = Math.round(pp.y / GY);
               let cell: [number, number] | null = null;
               outer: for (let ring = 0; ring < 6; ring++) {
                 for (let dc = -ring; dc <= ring; dc++) {
                   for (let dr = -ring; dr <= ring; dr++) {
                     if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
-                    const kk = `${c0 + dc}:${r0 + dr}`;
-                    if (!occ.has(kk)) { occ.add(kk); cell = [c0 + dc, r0 + dr]; break outer; }
+                    const cc = c0 + dc, rr2 = r0 + dr;
+                    const kk = `${cc}:${rr2}`;
+                    if (occ.has(kk)) continue;
+                    if (!inBand(nd, cc * GX, rr2 * GY)) continue;   // 띠 밖 금지
+                    occ.add(kk); cell = [cc, rr2]; break outer;
                   }
                 }
               }
-              if (!cell) continue;
+              if (!cell) { loose.push({ n: nd, p: pp }); continue; }
               tiles.push({ n: nd, p: pp,
                            tx: cell[0] * GX - TW / 2, ty: cell[1] * GY - TH / 2 });
             }
@@ -1977,6 +2004,11 @@ export function BrainMap() {
             return (
               <g className="bm-city">
                 {gridLines}
+                {loose.map(({ n: nd, p: pp }) => (
+                  <text key={`ls-${nd.id}`} className="bm-tile__loose"
+                        x={pp.x} y={pp.y - 5 / z} textAnchor="middle"
+                        style={{ fontSize: `${8.5 / z}px` }}>
+                    {nd.label || nd.id}</text>))}
                 {tiles.map(({ n: nd, p: pp, tx, ty }) => {
                   const on = litSet.has(nd.id);
                   const cy = ty + TH / 2;
@@ -1987,12 +2019,14 @@ export function BrainMap() {
                   const pin = (i: number, cnt: number) =>
                     ty + TH * (0.3 + (0.5 * i) / Math.max(1, cnt - 1 || 1));
                   return (
-                    <g key={`tile-${nd.id}`}
-                       className={`bm-tile${on ? ' bm-tile--on' : ''}`}>
+                    <g key={`tile-${nd.id}`} data-kind={nd.kind}
+                       className={`bm-tile bm-tile--k${nd.kind}${on ? ' bm-tile--on' : ''}`}>
                       <path className="bm-lead"
                             d={`M${pp.x},${pp.y} L${pp.x},${cy} L${nearX},${cy}`} />
                       <rect x={tx} y={ty} width={TW} height={TH}
                             rx={3 / z} className="bm-tile__box" />
+                      <rect x={tx} y={ty} width={TW} height={3.5 / z}
+                            className="bm-tile__cap" />
                       {Array.from({ length: ins }, (_x, i) => (
                         <line key={`i${i}`} className="bm-tile__pin"
                               x1={tx - 6 / z} y1={pin(i, ins)}
@@ -2102,6 +2136,7 @@ export function BrainMap() {
           <Brain3D key="gl" nodes={glNodes} chainEdges={glEdges}
                    regions={m.regions} pos2d={pos}
                    lit={lit} onPick={setPickId} boardW={W} boardH={H}
+                   view2dRef={viewRef}
                    morphTo={trans === 'to2d' ? 0 : 1}
                    onMorphDone={() => {
                      if (trans === 'to2d') { setMode3d(false); setTrans(null); }

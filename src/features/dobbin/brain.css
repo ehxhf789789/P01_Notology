@@ -14,8 +14,9 @@
     radial-gradient(80% 60% at 28% 18%, rgba(120,90,255,.13), transparent 65%),
     radial-gradient(80% 60% at 74% 26%, rgba(0,190,190,.11), transparent 65%),
     radial-gradient(90% 70% at 50% 100%, rgba(60,90,200,.10), transparent 70%),
-    #0b0f1a;
-  box-shadow: inset 0 0 60px rgba(0,0,0,.6); }
+    radial-gradient(120% 100% at 50% 45%, rgba(30,45,90,.22), transparent 62%),
+    #090d17;
+  box-shadow: inset 0 0 90px rgba(0,0,0,.72); }
 /* 🔴 **스크롤을 구조로 막는다** (한빈 2026-09-17: *"좌측을 상하 스크롤하지
    않게"*). 전 판은 `height:auto` 라 **너비가 높이를 정했고**, 지도가 남은
    높이를 안 먹으니 부속이 늘면 곧바로 `.dhome__stage` 가 넘쳤다
@@ -558,11 +559,14 @@
   display: flex; flex-direction: column; }
 .bm-stage > .brainmap__wrap { flex: 1 1 auto; }
 .bm-livecv { position: absolute; inset: 0; width: 100%; height: 100%;
-  pointer-events: none; }
+  pointer-events: none;
+  /* 🔴 z-순서 — SVG(띠 색면) **위**여야 광선이 보인다. 아래 뒀더니 알파
+     .34 광선이 띠에 덮여 2D 사슬이 «없는» 것으로 보였다 (한빈 17차). */
+  z-index: 1; }
 .bm-morphing .bm-livecv { visibility: hidden; }  /* GL 이 사슬을 그린다 */
 
 /* ── W4-R2 B — semiconductor city (Z3) ─────────────────────────────── */
-.bm-citygrid { stroke: rgba(120, 150, 220, .07); stroke-width: .5; }
+.bm-citygrid { stroke: rgba(130, 160, 230, .10); stroke-width: .5; }
 .bm-tile__box { fill: rgba(12, 18, 36, .94); stroke: #33406a; stroke-width: .9; }
 .bm-tile--on .bm-tile__box { stroke: #ffd68c;
   filter: drop-shadow(0 0 6px rgba(255, 214, 140, .5)); }
@@ -573,3 +577,10 @@
 .bm-tile__fnlab { fill: #b9c6ea; }
 .bm-tile__meta { fill: #8fa0c8; }
 .bm-tile__bench { fill: #74809f; }
+/* ③ kind head-strips — same hierarchy, different family colour */
+.bm-tile__cap { fill: #8b5cf6; }
+.bm-tile--k기관 .bm-tile__cap { fill: #2dd4bf; }
+.bm-tile--k걸음 .bm-tile__cap { fill: #64748b; }
+.bm-tile--k갈래 .bm-tile__cap { fill: #eab308; }
+.bm-tile--k관문 .bm-tile__cap, .bm-tile--k잣대 .bm-tile__cap { fill: #d946ef; }
+.bm-tile__loose { fill: #93a1c4; opacity: .8; }

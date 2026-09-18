@@ -119,10 +119,11 @@ const VS = `
 attribute vec3 aP3; attribute vec3 aP2; attribute vec3 aC;
 attribute float aS; attribute float aS2; attribute vec3 aPick; attribute float aLit;
 uniform mat4 uMVP; uniform float uMorph; uniform float uPick; uniform float uPx;
-uniform float uPxVb;
+uniform float uPxVb; uniform vec3 uPlane;   // (z, offX, offY) — 2D view baked in
 varying vec3 vC; varying float vLit; varying vec3 vPick;
 void main(){
-  vec3 p = mix(aP2, aP3, uMorph);
+  vec3 p2 = vec3(aP2.xy * uPlane.x + uPlane.yz, 0.0);
+  vec3 p = mix(p2, aP3, uMorph);
   gl_Position = uMVP * vec4(p, 1.0);
   float d = max(gl_Position.w, 0.3);
   // W4-R (HanBin 7th): at morph=0 the dot must BE the 2D dot — aS2 is the
@@ -148,9 +149,10 @@ void main(){
 // activation chain lines + travelling pulses — one program, uKind switches
 const LVS = `
 attribute vec3 aA3; attribute vec3 aA2;
-uniform mat4 uMVP; uniform float uMorph; uniform float uPt;
+uniform mat4 uMVP; uniform float uMorph; uniform float uPt; uniform vec3 uPlane;
 void main(){
-  vec3 p = mix(aA2, aA3, uMorph);
+  vec3 a2 = vec3(aA2.xy * uPlane.x + uPlane.yz, 0.0);
+  vec3 p = mix(a2, aA3, uMorph);
   gl_Position = uMVP * vec4(p, 1.0);
   gl_PointSize = uPt / max(gl_Position.w, 0.3);
 }`;
@@ -168,7 +170,8 @@ void main(){
 }`;
 
 export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
-                          boardW, boardH, morphTo = 1, onMorphDone }: {
+                          boardW, boardH, morphTo = 1, onMorphDone,
+                          view2dRef }: {
   nodes: N3[]; chainEdges: E3[]; regions: Record<string, Reg>;
   pos2d: Record<string, { x: number; y: number }>;
   lit: string[]; onPick: (id: string | null) => void;
@@ -176,7 +179,11 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
   /** W4-T — 1 = brain, 0 = flat 2D board plane; animated each frame.
    *  onMorphDone fires once when the target is reached (view handoff). */
   morphTo?: number; onMorphDone?: (() => void) | null;
+  /** 2D 지도의 뷰 변환(FIT ×1.18 포함) — 이걸 모르고 착지하면 스왑 찰나에
+   *  점이 튄다 (한빈 18차). ref 라 매 프레임 최신값을 읽는다. */
+  view2dRef?: { current: { z: number; tx: number; ty: number } } | null;
 }) {
+  const v2Ref = view2dRef;
   const cvRef = useRef<HTMLCanvasElement | null>(null);
   const buildRef = useRef(0);
   const litRef = useRef(lit); litRef.current = lit;
@@ -292,12 +299,14 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       pick: gl.getUniformLocation(prog, 'uPick'),
       px: gl.getUniformLocation(prog, 'uPx'),
       pxVb: gl.getUniformLocation(prog, 'uPxVb'),
+      plane: gl.getUniformLocation(prog, 'uPlane'),
     };
     const LU = {
       mvp: gl.getUniformLocation(lprog, 'uMVP'),
       morph: gl.getUniformLocation(lprog, 'uMorph'),
       kind: gl.getUniformLocation(lprog, 'uKind'),
       pt: gl.getUniformLocation(lprog, 'uPt'),
+      plane: gl.getUniformLocation(lprog, 'uPlane'),
     };
     const lA3 = gl.getAttribLocation(lprog, 'aA3');
     const lA2 = gl.getAttribLocation(lprog, 'aA2');
@@ -375,6 +384,13 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       if (!reduced && morph === 1 && tms - lastTouch > 4000) orbit.yaw += 0.0016;
       // front-pose distance is DERIVED so the flat board registers with
       // the SVG letterbox: dist = 0.75·cot(fov/2)·h / min(w,h)
+      // 2D 평면에 지도 뷰(z·t)를 굽는다. 유도: vb′=z·vb+t ·
+      //   p2x=(vb/W−.5)·1.5  →  p2x′ = z·p2x + 1.5·((z−1)/2 + tx/W)
+      //   p2y=(.5−vb/H)·1.5  →  p2y′ = z·p2y + 1.5·((1−z)/2 − ty/H)
+      const v2 = v2Ref?.current ?? { z: 1, tx: 0, ty: 0 };
+      const plZ = v2.z;
+      const plX = 1.5 * ((plZ - 1) / 2 + v2.tx / 760);
+      const plY = 1.5 * ((1 - plZ) / 2 - v2.ty / 760);
       const distF = 0.75 * (1 / Math.tan(FOV / 2))
         * ((h || 1) / Math.max(1, Math.min(w || 1, h || 1)));
       const sm = morph * morph * (3 - 2 * morph);          // smoothstep
@@ -402,6 +418,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
         gl.useProgram(lprog);
         gl.uniformMatrix4fv(LU.mvp, false, mvp);
         gl.uniform1f(LU.morph, sm);
+        gl.uniform3f(LU.plane, plZ, plX, plY);
         gl.uniform1f(LU.kind, 0); gl.uniform1f(LU.pt, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, lineB3);
         gl.enableVertexAttribArray(lA3);
@@ -418,9 +435,9 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
           q3.push(cn.a3[0] + (cn.b3[0] - cn.a3[0]) * f,
                   cn.a3[1] + (cn.b3[1] - cn.a3[1]) * f,
                   cn.a3[2] + (cn.b3[2] - cn.a3[2]) * f);
-          q2.push(cn.a2[0] + (cn.b2[0] - cn.a2[0]) * f,
-                  cn.a2[1] + (cn.b2[1] - cn.a2[1]) * f,
-                  cn.a2[2] + (cn.b2[2] - cn.a2[2]) * f);
+          const ax = cn.a2[0] * plZ + plX, ay = cn.a2[1] * plZ + plY;
+          const bx = cn.b2[0] * plZ + plX, by = cn.b2[1] * plZ + plY;
+          q2.push(ax + (bx - ax) * f, ay + (by - ay) * f, 0);
         });
         gl.uniform1f(LU.kind, 1);
         gl.uniform1f(LU.pt, 7 * (cv.height / 760));
@@ -449,7 +466,8 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       gl.uniform1f(U.morph, sm);
       gl.uniform1f(U.pick, 0);
       gl.uniform1f(U.px, (cv.height / 760) * 3.4);
-      gl.uniform1f(U.pxVb, Math.min(cv.width, cv.height) / 760);
+      gl.uniform1f(U.pxVb, (Math.min(cv.width, cv.height) / 760) * plZ);
+      gl.uniform3f(U.plane, plZ, plX, plY);
       gl.drawArrays(gl.POINTS, 0, nTot);
 
       // labels — every frame, GPU-composited transforms (R5). HanBin 10th:
@@ -464,7 +482,9 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
           if (id == null || gi == null) { d.style.display = 'none'; continue; }
           const glow = litArr[gi];
           if (glow <= 0.03) { d.style.display = 'none'; continue; }
-          const A3 = p3Of[id], A2 = p2Of[id];
+          const A3 = p3Of[id], A2r = p2Of[id];
+          const A2: [number, number, number] = [
+            A2r[0] * plZ + plX, A2r[1] * plZ + plY, 0];
           const P: [number, number, number] = [
             A2[0] + (A3[0] - A2[0]) * sm,
             A2[1] + (A3[1] - A2[1]) * sm,
