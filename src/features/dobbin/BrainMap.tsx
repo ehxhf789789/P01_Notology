@@ -1822,7 +1822,9 @@ export function BrainMap() {
               scales (10/z) so it stays readable, and a coarse grid dedupes
               near-neighbours instead of the tagAt ledger (whose lifecycle
               belongs to the memoized base layer). */}
-          {zb >= 2 && (() => {
+          {zb >= 2 && view.z > 2.2 && (() => {
+            // names need real magnification — at the ?bmlod test floor
+            // (z=1) they'd blanket the board (jig ⑤: 113 overlapping pairs)
             const grid = new Set<string>();
             const cell = 26 / view.z;
             const out: ReactElement[] = [];
