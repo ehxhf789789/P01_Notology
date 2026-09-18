@@ -171,7 +171,7 @@ void main(){
 
 export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
                           boardW, boardH, morphTo = 1, onMorphDone,
-                          view2dRef }: {
+                          view2dRef, paint }: {
   nodes: N3[]; chainEdges: E3[]; regions: Record<string, Reg>;
   pos2d: Record<string, { x: number; y: number }>;
   lit: string[]; onPick: (id: string | null) => void;
@@ -182,8 +182,16 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
   /** 2D 지도의 뷰 변환(FIT ×1.18 포함) — 이걸 모르고 착지하면 스왑 찰나에
    *  점이 튄다 (한빈 18차). ref 라 매 프레임 최신값을 읽는다. */
   view2dRef?: { current: { z: number; tx: number; ty: number } } | null;
+  /** ㉛U1 — 색·크기의 단일 레시피 (BrainMap.nodePaint). 같은 노드는 두
+   *  뷰에서 같은 색·같은 상대 크기다. 색만 바뀌면 기하 재구축 없이
+   *  bufferSubData 로 갈아끼운다 (U4). */
+  paint?: Record<string, { c: string; rgb: [number, number, number];
+                           r: number }>;
 }) {
   const v2Ref = view2dRef;
+  const paintRef = useRef(paint); paintRef.current = paint;
+  const colorHot = useRef<{ gl: WebGLRenderingContext;
+                            cBuf: WebGLBuffer; idOf: string[] } | null>(null);
   const cvRef = useRef<HTMLCanvasElement | null>(null);
   const buildRef = useRef(0);
   const litRef = useRef(lit); litRef.current = lit;
@@ -255,18 +263,21 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
           p3 = surface(dir, side);
         }
         const p2 = toPlane(nd.id, p3);
-        const base = STATUS_C[nd.status] || STATUS_C.dark;
-        const tint = hsl(R?.hue ?? 210, 0.6, 0.62);
-        const c: [number, number, number] = [
-          base[0] * 0.5 + tint[0] * 0.5, base[1] * 0.5 + tint[1] * 0.5,
-          base[2] * 0.5 + tint[2] * 0.5];
+        const pt = paintRef.current?.[nd.id];
+        const c: [number, number, number] = pt ? pt.rgb : (() => {
+          const b = STATUS_C[nd.status] || STATUS_C.dark;
+          const t = hsl(R?.hue ?? 210, 0.6, 0.62);
+          return [b[0] * 0.5 + t[0] * 0.5, b[1] * 0.5 + t[1] * 0.5,
+                  b[2] * 0.5 + t[2] * 0.5] as [number, number, number];
+        })();
         p3Of[nd.id] = p3; p2Of[nd.id] = p2;
         P3.push(...p3); P2.push(...p2); C.push(...c);
-        S.push(nd.kind === '신경' ? 3.6 : nd.kind === '기관' ? 2.9
-             : nd.kind === '갈래' ? 3.0 : 2.2);
-        // 2D diameters — the SVG base radii ×2 (BrainMap baseLayer)
-        S2.push(2 * (nd.kind === '접힘' ? 5.5 : nd.kind === '계획' ? 3.4
-              : nd.kind === '갈래' ? 2.4 : nd.kind === '걸음' ? 1.3 : 1.6));
+        // 크기 = 공용 r ÷ 0.92 (정면 카메라에서 SVG 지름과 픽셀 파리티)
+        S.push((pt?.r ?? 2.0) / 0.92);
+        // ㉝ 2D diameter = the SHARED paint radius ×2 — the old per-kind
+        // table predated the U1 recipe (신경 1.6 vs 3.3) and made dots
+        // JUMP ×2 at the handoff (HanBin 33rd report).
+        S2.push(2 * (pt?.r ?? 2.0));
         const pi = idOf.length + 1;
         idOf.push(nd.id);
         PK.push(((pi >> 16) & 255) / 255, ((pi >> 8) & 255) / 255, (pi & 255) / 255);
@@ -281,9 +292,11 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(data), gl.STATIC_DRAW);
       return b;
     };
+    const cBuf = mkBuf(C);
     const bufs: [string, WebGLBuffer, number][] = [
-      ['aP3', mkBuf(P3), 3], ['aP2', mkBuf(P2), 3], ['aC', mkBuf(C), 3],
+      ['aP3', mkBuf(P3), 3], ['aP2', mkBuf(P2), 3], ['aC', cBuf, 3],
       ['aS', mkBuf(S), 1], ['aS2', mkBuf(S2), 1], ['aPick', mkBuf(PK), 3]];
+    colorHot.current = { gl, cBuf, idOf };
     const litBuf = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, litBuf);
     const litArr = new Float32Array(LIT);
@@ -469,7 +482,14 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       gl.uniform1f(U.morph, sm);
       gl.uniform1f(U.pick, 0);
       gl.uniform1f(U.px, (cv.height / 760) * 3.4);
-      gl.uniform1f(U.pxVb, (Math.min(cv.width, cv.height) / 760) * plZ);
+      // ㉝ match the 2D dot px exactly — view z × the same shrink bucket
+      // the SVG base layer applies (z>5→0.35 · z>2.6→0.6 · else 1) — and
+      // confess the resulting px so the jig holds GL vs SVG to |Δ|≤1.5px.
+      const shr2 = plZ > 5 ? 0.35 : plZ > 2.6 ? 0.6 : 1;
+      const pxVbEff = (Math.min(cv.width, cv.height) / 760) * plZ * shr2;
+      gl.uniform1f(U.pxVb, pxVbEff);
+      (window as unknown as { __b3dPtPx?: object }).__b3dPtPx =
+        { id: idOf[0], px: S2[0] * pxVbEff };
       gl.uniform3f(U.plane, plZ, plX, plY);
       gl.drawArrays(gl.POINTS, 0, nTot);
 
@@ -561,6 +581,19 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, chainEdges, regions, pos2d, boardW, boardH]);
+
+  // ㉛U4 — 색만 바뀌면(상태 전이·심박) 기하 재구축 없이 색 버퍼만 교체.
+  //    신경 «추가»는 기하 서명이 바뀌므로 본 effect 가 즉시 새 뇌를 짠다.
+  useEffect(() => {
+    const hot = colorHot.current; if (!hot || !paint) return;
+    const arr = new Float32Array(hot.idOf.length * 3);
+    hot.idOf.forEach((id, i) => {
+      const rgb = paint[id]?.rgb ?? [0.4, 0.45, 0.6];
+      arr[i * 3] = rgb[0]; arr[i * 3 + 1] = rgb[1]; arr[i * 3 + 2] = rgb[2];
+    });
+    hot.gl.bindBuffer(hot.gl.ARRAY_BUFFER, hot.cBuf);
+    hot.gl.bufferSubData(hot.gl.ARRAY_BUFFER, 0, arr);
+  }, [paint]);
 
   return (
     <div className="brain3d" data-lit={lit.length}

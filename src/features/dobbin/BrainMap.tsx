@@ -1014,14 +1014,53 @@ export function BrainMap() {
       });
   }, [m]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
+  // ㉛U1 (한빈: «같은 노드는 같은 표현 — 통일») — 색·크기의 **단일 레시피**.
+  //    2D 는 STATUS hex 만, 3D 는 상태·영역 혼합을 따로 갖고 있어 같은
+  //    노드가 두 화면에서 딴 색·딴 크기였다. 여기 한 표에서 만들고 둘 다
+  //    이것만 쓴다 (Brain3D 에는 prop 으로 내려간다).
+  const nodePaint = useMemo(() => {
+    const hx = (v: number) => Math.round(Math.max(0, Math.min(1, v)) * 255)
+      .toString(16).padStart(2, '0');
+    const tint = (h: number): [number, number, number] => {
+      const ssat = 0.6, l = 0.62, a = ssat * Math.min(l, 1 - l);
+      const f = (nn: number) => {
+        const k = (nn + h / 30) % 12;
+        return l - a * Math.max(-1, Math.min(k - 3, Math.min(9 - k, 1)));
+      };
+      return [f(0), f(8), f(4)];
+    };
+    const R_OF: Record<string, number> = {
+      '신경': 3.3, '기관': 2.7, '갈래': 2.8, '걸음': 2.0,
+      '접힘': 5.5, '계획': 3.4 };
+    const out: Record<string, { c: string; rgb: [number, number, number];
+                                r: number }> = {};
+    (m?.nodes ?? []).forEach(nd => {
+      const hexc = (STATUS[nd.status] || STATUS.dark).c;
+      const b: [number, number, number] = [
+        parseInt(hexc.slice(1, 3), 16) / 255,
+        parseInt(hexc.slice(3, 5), 16) / 255,
+        parseInt(hexc.slice(5, 7), 16) / 255];
+      const t = tint(m?.regions[nd.region]?.hue ?? 210);
+      const rgb: [number, number, number] = [
+        b[0] * 0.5 + t[0] * 0.5, b[1] * 0.5 + t[1] * 0.5,
+        b[2] * 0.5 + t[2] * 0.5];
+      out[nd.id] = { rgb, c: `#${hx(rgb[0])}${hx(rgb[1])}${hx(rgb[2])}`,
+                     r: R_OF[nd.kind] ?? 2.0 };
+    });
+    (window as { __bmPaint?: unknown }).__bmPaint =
+      Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.c]));
+    return out;
+  }, [m]);
   // 🔴 C② (한빈 13차 «두 번 재구성») — brainmap 갱신(심박 ≤60초)마다
   //    shownNodes 가 새 배열 참조라 Brain3D 가 통째로 재구축돼 조립
   //    애니메이션이 다시 돌고 라벨 풀·발광 버퍼가 초기화됐다. 서명
   //    (id·region·kind·status)이 같으면 **이전 참조를 그대로** 돌려준다.
   const stableRef = useRef<{ sig: string; nodes: Node[] }>({ sig: '', nodes: [] });
   const glNodes = useMemo(() => {
+    // ㉛U4 — 서명은 **기하**(id·region·kind)만: 상태 색은 핫스왑 경로가
+    //    맡는다. status 를 넣으면 상태 전이마다 GL 이 재구축돼 조립이 논다.
     const sig = shownNodes.map(nd =>
-      `${nd.id}|${nd.region}|${nd.kind}|${nd.status}`).join('·');
+      `${nd.id}|${nd.region}|${nd.kind}`).join('·');
     if (sig !== stableRef.current.sig) {
       stableRef.current = { sig, nodes: shownNodes };
     }
@@ -1053,6 +1092,148 @@ export function BrainMap() {
     });
     return mm;
   }, [m]);
+  // ㉛U3 (한빈: «확대 지도가 과도하게 변동 — 한눈에 파악 어려움») — 도시
+  //    배치는 **보드 전역·한 번**이다. 칩의 월드 크기를 버킷 상수로 고정해
+  //    팬·줌(버킷 안)에서 재배치가 0 — 지도처럼, 확대하면 같은 도시가
+  //    커질 뿐이다. 새 신경이 오면(기하 서명 변화) 즉시 다시 짠다 (확장).
+  const city = useMemo(() => {
+    type Band = { arc?: { r0: number; r1: number; a0: number; a1: number };
+                  ell?: { cx: number; cy: number; rx: number; ry: number } };
+    const TWc = 23, THc = 12;                   // 월드 고정 (≈150px @ ×6.5)
+    const tiles: { n: Node; p: { x: number; y: number };
+                   tx: number; ty: number; w: number; h: number;
+                   mini: boolean; bd: Band;
+                   bx0: number; by0: number; bx1: number; by1: number;
+                   rc?: number; th?: number; spanW?: number }[] = [];
+    const loose: { n: Node; p: { x: number; y: number } }[] = [];
+    if (!m?.nodes?.length) return { tiles, loose };
+    const occ = new Set<string>();
+    const bandOf = (nd: Node): Band => {
+      const L = lb[nd.region];
+      if (!L) return { ell: { cx: CX, cy: CY, rx: 78, ry: 78 } };
+      if (!L.arc) return { ell: { cx: L.cx, cy: L.cy,
+                                  rx: Math.max(L.rx, 30),
+                                  ry: Math.max(L.ry, 30) } };
+      const sk = (nd as { __sk?: string }).__sk;
+      const sb = sk && L.subs ? L.subs.find(x => x.key === sk) : null;
+      return { arc: { a0: sb ? sb.a0 : L.arc.a0, a1: sb ? sb.a1 : L.arc.a1,
+                      r0: L.arc.r0, r1: L.arc.r1 } };
+    };
+    const polarC = (x: number, y: number) => ({
+      r: Math.hypot(x - CX, y - CY), th: Math.atan2(y - CY, x - CX) });
+    const fitsEll = (e: NonNullable<Band['ell']>, cx: number, cy: number,
+                     w: number, h: number) => {
+      for (const [dx, dy] of [[-w / 2, -h / 2], [w / 2, -h / 2],
+                               [-w / 2, h / 2], [w / 2, h / 2]] as
+                               [number, number][]) {
+        const nx = (cx + dx - e.cx) / e.rx, ny = (cy + dy - e.cy) / e.ry;
+        if (nx * nx + ny * ny > 1) return false;
+      }
+      return true;
+    };
+    const wedgeBox = (rcW: number, thW: number, wW: number, hW: number) => {
+      const rI = rcW - hW / 2, rO = rcW + hW / 2, sp = wW / rcW;
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const [rr, tt] of [[rI, thW - sp / 2], [rI, thW + sp / 2],
+                               [rO, thW - sp / 2], [rO, thW + sp / 2],
+                               [rO, thW], [rI, thW]] as [number, number][]) {
+        const x = CX + rr * Math.cos(tt), y = CY + rr * Math.sin(tt);
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y);
+        x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      return { x0, y0, x1, y1 };
+    };
+    const clashBox = (b: { x0: number; y0: number; x1: number; y1: number }) => {
+      for (const tp of tiles) {
+        if (b.x0 < tp.bx1 + 0.5 && tp.bx0 < b.x1 + 0.5
+            && b.y0 < tp.by1 + 0.5 && tp.by0 < b.y1 + 0.5) return true;
+      }
+      return false;
+    };
+    const tryArc = (nd: Node, pp: { x: number; y: number },
+                    a: NonNullable<Band['arc']>, w: number, h: number,
+                    maxRing: number) => {
+      const sh = h + 1.9;
+      const nSh = Math.floor((a.r1 - a.r0) / sh);
+      if (nSh < 1) return null;
+      const q0 = polarC(pp.x, pp.y);
+      let th0 = q0.th; if (th0 < a.a0) th0 += Math.PI * 2;
+      const i0 = Math.max(0, Math.min(nSh - 1,
+        Math.floor((q0.r - a.r0) / sh)));
+      for (let ring = 0; ring < maxRing; ring++) {
+        for (let di = -ring; di <= ring; di++) {
+          const i = i0 + di;
+          if (i < 0 || i >= nSh) continue;
+          const rc = a.r0 + sh * (i + 0.5);
+          const spanW = (w + 2.2) / rc;
+          const j0 = Math.round((th0 - a.a0) / spanW);
+          for (let dj = -ring; dj <= ring; dj++) {
+            if (Math.max(Math.abs(di), Math.abs(dj)) !== ring) continue;
+            const th = a.a0 + spanW * (j0 + dj + 0.5);
+            if (th - spanW / 2 < a.a0 || th + spanW / 2 > a.a1) continue;
+            const cx = CX + rc * Math.cos(th);
+            const cy = CY + rc * Math.sin(th);
+            const kk = `${nd.region}:${i}:${Math.round(th * 500)}`;
+            if (occ.has(kk)) continue;
+            const bb = wedgeBox(rc, th, w, h);
+            if (clashBox(bb)) continue;
+            occ.add(kk);
+            return { cx, cy, rc, th, spanW: w / rc, bb };
+          }
+        }
+      }
+      return null;
+    };
+    const tryEll = (nd: Node, pp: { x: number; y: number },
+                    e: NonNullable<Band['ell']>, w: number, h: number,
+                    maxRing: number) => {
+      const gx = w + 1.9, gy = h + 1.6;
+      const c0 = Math.round((pp.x - e.cx) / gx);
+      const r0i = Math.round((pp.y - e.cy) / gy);
+      for (let ring = 0; ring < maxRing; ring++) {
+        for (let dc = -ring; dc <= ring; dc++) {
+          for (let dr = -ring; dr <= ring; dr++) {
+            if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
+            const cx = e.cx + (c0 + dc) * gx, cy = e.cy + (r0i + dr) * gy;
+            const kk = `${nd.region}:E${c0 + dc}:${r0i + dr}`;
+            if (occ.has(kk)) continue;
+            const bb = { x0: cx - w / 2, y0: cy - h / 2,
+                         x1: cx + w / 2, y1: cy + h / 2 };
+            if (!fitsEll(e, cx, cy, w, h) || clashBox(bb)) continue;
+            occ.add(kk);
+            return { cx, cy, bb };
+          }
+        }
+      }
+      return null;
+    };
+    for (const nd of shownNodes) {
+      const pp = pos[nd.id]; if (!pp) continue;
+      const bd = bandOf(nd);
+      let placed = false;
+      // 🔴 ㉛ — 변위 상한: 칩은 제 점 **가까이** 있어야 지도다. 밀리면
+      //    다음 티어(더 작은 칩)로 조밀하게 앉는다 — 멀리 보내지 않는다.
+      for (const [w, h, mini, mr] of [[TWc, THc, false, 4],
+                                      [TWc * 0.56, THc * 0.52, true, 6],
+                                      [TWc * 0.36, THc * 0.42, true, 9]] as
+                                      [number, number, boolean, number][]) {
+        const got = bd.arc ? tryArc(nd, pp, bd.arc, w, h, mr)
+                           : tryEll(nd, pp, bd.ell!, w, h, mr);
+        if (got) {
+          tiles.push({ n: nd, p: pp, tx: got.cx - w / 2, ty: got.cy - h / 2,
+                       w, h, mini, bd,
+                       bx0: got.bb.x0, by0: got.bb.y0,
+                       bx1: got.bb.x1, by1: got.bb.y1,
+                       rc: (got as { rc?: number }).rc,
+                       th: (got as { th?: number }).th,
+                       spanW: (got as { spanW?: number }).spanW });
+          placed = true; break;
+        }
+      }
+      if (!placed) loose.push({ n: nd, p: pp });
+    }
+    return { tiles, loose };
+  }, [m, shownNodes, lb, pos]);
   posRef.current = pos;
 
   // ── W4 Semantic zoom (Maps idiom · HanBin 2026-09-18) ────────────────
@@ -1428,13 +1609,11 @@ export function BrainMap() {
           //    (`brainmap.py:2456`) 화면이 그 칸을 **모양에 0번 썼다.**
           //    → 빚이면 다른 노드와 같은 꽉 찬 점. 유령은 신설에만.
           const ghost = n.kind === '계획' && n.target !== '빚';
-          const base = (n.kind === '접힘' ? 5.5
-                     : n.kind === '계획' ? 3.4
-                     : n.kind === '갈래' ? 2.4
-                     : n.kind === '걸음' ? 1.3
-                     : 1.6) * shrink;
+          const pt = nodePaint[n.id];
+          const base = (pt?.r ?? 2.0) * shrink;
           return (
-            <g key={n.id} className={`bm-node bm-node--${n.kind}`}
+            <g key={n.id} data-nid={n.id}
+               className={`bm-node bm-node--${n.kind}`}
                onClick={() => setPickId(prev => (prev === n.id ? null : n.id))}
                onMouseEnter={() => setHover(n.id)}
                onMouseLeave={() => setHover(h => (h === n.id ? null : h))}>
@@ -1460,8 +1639,8 @@ export function BrainMap() {
               })() : null}
               <circle cx={p.x} cy={p.y} r={base}
                       className={n.status === 'building' ? 'bm-build' : undefined}
-                      fill={s.c}
-                      stroke={ghost ? s.c : 'none'}
+                      fill={pt?.c ?? s.c}
+                      stroke={ghost ? (pt?.c ?? s.c) : 'none'}
                       strokeWidth={ghost ? 1.4 : 0}
                       fillOpacity={ghost ? 0.28 : 1}
                       opacity={n.status === 'dark' || n.status === 'idle'
@@ -1488,7 +1667,7 @@ export function BrainMap() {
         })}
       </g>
     );
-  }, [m, pos, shownNodes, shownIds, showCall, zb]);
+  }, [m, pos, shownNodes, shownIds, showCall, zb, nodePaint]);
   // (W4-R) Z1 cluster dots were dropped — with dots visible at every zoom
   //  they duplicated the same information one layer up.
   // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
@@ -1731,7 +1910,7 @@ export function BrainMap() {
           <Brain3D key="gl" nodes={glNodes} chainEdges={glEdges} regions={m.regions}
                    pos2d={pos}
                    lit={lit} onPick={setPickId} boardW={W} boardH={H}
-                   view2dRef={viewRef} />
+                   view2dRef={viewRef} paint={nodePaint} />
           <div className="bm-zoomctl" role="group" aria-label="view">
             <button type="button" title="switch to the 2D map (semantic zoom)"
                     onClick={() => go3d(false)}>2D</button>
@@ -1969,180 +2148,29 @@ export function BrainMap() {
             }
             return <g aria-hidden="true">{out}</g>;
           })()}
-          {/* W4-R2 B — the semiconductor city (HanBin 12th): at max zoom
-              each nerve expands into a micro circuit tile SNAPPED to a
-              virtual grid (spiral search → zero overlap), with a Manhattan
-              leader from its dot, IN/OUT port pins + stubs, and a faint
-              graph-paper grid. The activation canvas's light flows over it. */}
+          {/* ㉛U3 — the city is laid out ONCE board-wide (cityLayout memo,
+              fixed world-size chips per bucket): pan/zoom only reveal more
+              of the SAME city — no re-arrangement volatility. Content
+              detail fades in at deeper zoom (name always; rows at z≥8). */}
           {zb >= 3 && (() => {
-            const z = view.z;
-            const TW = 150 / z, TH = 78 / z;
-            const GX = TW + 20 / z, GY = TH + 16 / z;
-            const fs1 = 10.5 / z, fs2 = 8.5 / z;
-            const occ = new Set<string>();
-            const tiles: { n: Node; p: { x: number; y: number };
-                           tx: number; ty: number; w: number; h: number;
-                           mini: boolean; bd: Band;
-                           bx0: number; by0: number; bx1: number; by1: number;
-                           rc?: number; th?: number; spanW?: number }[] = [];
-            // ㉒ (한빈 22·23차) — 격자는 판의 **원형 기하**를 따른다:
-            //    칸 = (반지름 껍질 i × 각도 걸음 j), 그 노드 띠의
-            //    [r0,r1]×[a0,a1] 안에서만 난다. 데카르트 바둑판은 배경을
-            //    무시하고 띠를 넘었다. 🔴 수용은 «중심»이 아니라 **타일 네
-            //    모서리 전부**가 띠 안일 때다 — 폭 150/z 타일이 경계에
-            //    걸치던 뿌리. 타일·글자는 수평 유지(가독 — 지도 라벨 관행),
-            //    배치만 원형이다.
-            // ㉚ (한빈: «같은 뷰의 모든 노드가 같은 위계로») — 밴드 모델이
-            //    호(annulus)뿐이라 **타원형 영역**(memory 패치 등)의 노드가
-            //    전부 압축 라벨로 떨어졌다. 두 모델을 다 안다:
-            type Band = { arc?: { r0: number; r1: number; a0: number; a1: number };
-                          ell?: { cx: number; cy: number; rx: number; ry: number } };
-            const bandOf = (nd: Node): Band => {
-              const L = lb[nd.region];
-              if (!L) return { ell: { cx: CX, cy: CY, rx: 78, ry: 78 } };
-              if (!L.arc) return { ell: { cx: L.cx, cy: L.cy,
-                                          rx: Math.max(L.rx, 30),
-                                          ry: Math.max(L.ry, 30) } };
-              const sk = (nd as { __sk?: string }).__sk;
-              const sb = sk && L.subs ? L.subs.find(x => x.key === sk) : null;
-              return { arc: { a0: sb ? sb.a0 : L.arc.a0,
-                              a1: sb ? sb.a1 : L.arc.a1,
-                              r0: L.arc.r0, r1: L.arc.r1 } };
-            };
-            const polar = (x: number, y: number) => {
-              const rr = Math.hypot(x - CX, y - CY);
-              return { r: rr, th: Math.atan2(y - CY, x - CX) };
-            };
-            const fitsEll = (e: { cx: number; cy: number; rx: number; ry: number },
-                             cx: number, cy: number, w: number, h: number) => {
-              for (const [dx, dy] of [[-w / 2, -h / 2], [w / 2, -h / 2],
-                                       [-w / 2, h / 2], [w / 2, h / 2]] as
-                                       [number, number][]) {
-                const nx = (cx + dx - e.cx) / e.rx, ny = (cy + dy - e.cy) / e.ry;
-                if (nx * nx + ny * ny > 1) return false;
-              }
-              return true;
-            };
-            // 🔴 ㉚ — 충돌은 «칩의 실제 bbox»끼리 잰다. 웨지는 기울어져
-            //    축정렬 bbox 가 w×h 보다 크다 — 중심거리 검사로는 겹쳤다.
-            const wedgeBox = (rcW: number, thW: number, wW: number, hW: number) => {
-              const rI = rcW - hW / 2, rO = rcW + hW / 2, sp = wW / rcW;
-              let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
-              for (const [rr, tt] of [[rI, thW - sp / 2], [rI, thW + sp / 2],
-                                       [rO, thW - sp / 2], [rO, thW + sp / 2],
-                                       [rO, thW], [rI, thW]] as [number, number][]) {
-                const x = CX + rr * Math.cos(tt), y = CY + rr * Math.sin(tt);
-                x0 = Math.min(x0, x); y0 = Math.min(y0, y);
-                x1 = Math.max(x1, x); y1 = Math.max(y1, y);
-              }
-              return { x0, y0, x1, y1 };
-            };
-            const clashBox = (b: { x0: number; y0: number; x1: number; y1: number }) => {
-              for (const tp of tiles) {
-                if (b.x0 < tp.bx1 + 3 / z && tp.bx0 < b.x1 + 3 / z
-                    && b.y0 < tp.by1 + 3 / z && tp.by0 < b.y1 + 3 / z) return true;
-              }
-              return false;
-            };
-            const shellH = TH + 12 / z;
-            const loose: { n: Node; p: { x: number; y: number } }[] = [];
-            const cand = shownNodes
-              .map(nd => ({ n: nd, p: pos[nd.id] }))
-              .filter(x => x.p && inVp(x.p.x, x.p.y, 20))
-              .sort((x, y) => (x.n.id < y.n.id ? -1 : 1))
-              .slice(0, 110);
-            const tryArc = (nd: Node, pp: { x: number; y: number },
-                            a: NonNullable<Band['arc']>, w: number, h: number) => {
-              const sh = h + 12 / z;
-              const nSh = Math.floor((a.r1 - a.r0) / sh);
-              if (nSh < 1) return null;
-              const q0 = polar(pp.x, pp.y);
-              let th0 = q0.th; if (th0 < a.a0) th0 += Math.PI * 2;
-              const i0 = Math.max(0, Math.min(nSh - 1,
-                Math.floor((q0.r - a.r0) / sh)));
-              for (let ring = 0; ring < 12; ring++) {
-                for (let di = -ring; di <= ring; di++) {
-                  const i = i0 + di;
-                  if (i < 0 || i >= nSh) continue;
-                  const rc = a.r0 + sh * (i + 0.5);
-                  const spanW = (w + 14 / z) / rc;         // 각도 스팬 (이웃 비겹침)
-                  const j0 = Math.round((th0 - a.a0) / spanW);
-                  for (let dj = -ring; dj <= ring; dj++) {
-                    if (Math.max(Math.abs(di), Math.abs(dj)) !== ring) continue;
-                    const th = a.a0 + spanW * (j0 + dj + 0.5);
-                    // 웨지 스팬이 통째로 부채꼴 안 — 모양이 띠를 따르므로
-                    // 수용은 스팬 검사면 충분하다
-                    if (th - spanW / 2 < a.a0 || th + spanW / 2 > a.a1) continue;
-                    const cx = CX + rc * Math.cos(th);
-                    const cy = CY + rc * Math.sin(th);
-                    const kk = `${nd.region}:${i}:${Math.round(th * 500)}`;
-                    if (occ.has(kk)) continue;
-                    const bb = wedgeBox(rc, th, w, h);
-                    if (clashBox(bb)) continue;
-                    occ.add(kk);
-                    return { cx, cy, rc, th, spanW: w / rc, bb };
-                  }
-                }
-              }
-              return null;
-            };
-            const tryEll = (nd: Node, pp: { x: number; y: number },
-                            e: NonNullable<Band['ell']>, w: number, h: number) => {
-              const gx = w + 12 / z, gy = h + 10 / z;
-              const c0 = Math.round((pp.x - e.cx) / gx);
-              const r0i = Math.round((pp.y - e.cy) / gy);
-              for (let ring = 0; ring < 12; ring++) {
-                for (let dc = -ring; dc <= ring; dc++) {
-                  for (let dr = -ring; dr <= ring; dr++) {
-                    if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
-                    const cx = e.cx + (c0 + dc) * gx, cy = e.cy + (r0i + dr) * gy;
-                    const kk = `${nd.region}:E${c0 + dc}:${r0i + dr}`;
-                    if (occ.has(kk)) continue;
-                    const bb = { x0: cx - w / 2, y0: cy - h / 2,
-                                 x1: cx + w / 2, y1: cy + h / 2 };
-                    if (!fitsEll(e, cx, cy, w, h) || clashBox(bb)) continue;
-                    occ.add(kk);
-                    return { cx, cy, bb };
-                  }
-                }
-              }
-              return null;
-            };
-            for (const { n: nd, p: pp } of cand) {
-              if (tiles.length >= 64) break;
-              const bd = bandOf(nd);
-              // 1차: 온칩 — 2차: 미니칩(같은 종족 · 이름+캡만) — 마지막: 라벨
-              let placed = false;
-              for (const [w, h, mini] of [[TW, TH, false],
-                                          [TW * 0.56, TH * 0.52, true],
-                                          [TW * 0.36, TH * 0.42, true]] as
-                                          [number, number, boolean][]) {
-                const got = bd.arc ? tryArc(nd, pp, bd.arc, w, h)
-                                   : tryEll(nd, pp, bd.ell!, w, h);
-                if (got) {
-                  tiles.push({ n: nd, p: pp, tx: got.cx - w / 2,
-                               ty: got.cy - h / 2, w, h, mini, bd,
-                               bx0: got.bb.x0, by0: got.bb.y0,
-                               bx1: got.bb.x1, by1: got.bb.y1,
-                               rc: (got as { rc?: number }).rc,
-                               th: (got as { th?: number }).th,
-                               spanW: (got as { spanW?: number }).spanW });
-                  placed = true; break;
-                }
-              }
-              if (!placed) loose.push({ n: nd, p: pp });
-            }
-            // ㉒ graph-paper 도 원형 — 동심 호 + 방사선 (판의 기하 그대로)
+            const fs1 = 1.62, fs2 = 1.31;              // 월드 고정 폰트
+            const showRows = view.z >= 8;
+            const vTiles = city.tiles.filter(t =>
+              (t.bx1 > vp.x && t.bx0 < vp.x + vp.w
+               && t.by1 > vp.y && t.by0 < vp.y + vp.h)
+              || inVp(t.p.x, t.p.y, 10)).slice(0, 100);
+            const vLoose = city.loose.filter(l =>
+              inVp(l.p.x, l.p.y, 10)).slice(0, 30);
+            // 원형 그래프페이퍼 — 동심 호 + 방사선
             const gridLines: ReactElement[] = [];
             const rMax = Math.max(...[[vp.x, vp.y], [vp.x + vp.w, vp.y],
               [vp.x, vp.y + vp.h], [vp.x + vp.w, vp.y + vp.h]]
               .map(([x, y]) => Math.hypot(x - CX, y - CY)));
-            for (let rr = shellH; rr <= rMax; rr += shellH) {
+            for (let rr = 13.9; rr <= rMax; rr += 13.9) {
               gridLines.push(<circle key={`gc${rr.toFixed(1)}`}
                 className="bm-citygrid" fill="none" cx={CX} cy={CY} r={rr} />);
             }
-            const spokeD = Math.PI / 36;                 // 5° 방사선
-            for (let a = -Math.PI; a < Math.PI; a += spokeD) {
+            for (let a = -Math.PI; a < Math.PI; a += Math.PI / 36) {
               gridLines.push(<line key={`gs${a.toFixed(3)}`} className="bm-citygrid"
                 x1={CX + 40 * Math.cos(a)} y1={CY + 40 * Math.sin(a)}
                 x2={CX + rMax * Math.cos(a)} y2={CY + rMax * Math.sin(a)} />);
@@ -2150,38 +2178,84 @@ export function BrainMap() {
             return (
               <g className="bm-city">
                 {gridLines}
-                {loose.map(({ n: nd, p: pp }) => (
-                  <text key={`ls-${nd.id}`} className="bm-tile__loose"
-                        x={pp.x} y={pp.y - 5 / z} textAnchor="middle"
-                        style={{ fontSize: `${8.5 / z}px` }}>
-                    {nd.label || nd.id}</text>))}
-                {tiles.map(({ n: nd, p: pp, tx, ty, w, h, mini, bd,
-                              rc, th, spanW }) => {
+                {/* ㉛ — 만석 지대도 **같은 종족**: 압축 라벨 대신 점 위의
+                    나노 칩. 겹침 보장은 없지만(제 점 위라 드묾) 위계가
+                    갈라지지 않는다. */}
+                {vLoose.map(({ n: nd, p: pp }) => {
+                  // ㉜ 나노도 환형 부채꼴 — 점 바로 바깥 껍질에 앉는다
+                  const nw = 7.5, nh = 3.4;
+                  const rD = Math.max(Math.hypot(pp.x - CX, pp.y - CY), 8);
+                  const thD = Math.atan2(pp.y - CY, pp.x - CX);
+                  const rcN = rD + nh / 2 + 1.4;
+                  const sp = nw / rcN;
+                  const rIn = rcN - nh / 2, rOn = rcN + nh / 2;
+                  const t0n = thD - sp / 2, t1n = thD + sp / 2;
+                  const ptn = (rr: number, tt: number) =>
+                    `${(CX + rr * Math.cos(tt)).toFixed(2)},${(CY + rr * Math.sin(tt)).toFixed(2)}`;
+                  const ncx = CX + rcN * Math.cos(thD);
+                  const ncy = CY + rcN * Math.sin(thD);
+                  return (
+                    <g key={`ls-${nd.id}`} data-kind={nd.kind} data-mini="2"
+                       className={`bm-tile bm-tile--k${nd.kind} bm-tile--nano`}>
+                      <path className="bm-tile__nanobox"
+                        d={`M${ptn(rOn, t0n)} A${rOn},${rOn} 0 0 1 ${ptn(rOn, t1n)}`
+                          + ` L${ptn(rIn, t1n)} A${rIn},${rIn} 0 0 0 ${ptn(rIn, t0n)} Z`} />
+                      <path className="bm-tile__caparc"
+                        d={`M${ptn(rOn - 0.3, t0n + 0.004)} A${rOn - 0.3},${rOn - 0.3} 0 0 1 ${ptn(rOn - 0.3, t1n - 0.004)}`}
+                        style={{ strokeWidth: 0.4 }} />
+                      <circle className="bm-via" r={0.5} cx={pp.x} cy={pp.y} />
+                      <text className="bm-tile__name" x={ncx} y={ncy + 0.4}
+                            textAnchor="middle" style={{ fontSize: '1.15px' }}>
+                        {nd.label || nd.id}</text>
+                    </g>
+                  );
+                })}
+                {vTiles.map(({ n: nd, p: pp, tx, ty, w, h, mini, bd,
+                               rc, th, spanW }) => {
                   const on = litSet.has(nd.id);
                   const cxT = tx + w / 2, cyT = ty + h / 2;
                   const ins = (nd.수용체 || []).length;
                   const outs = feedsOf.get(nd.id) ?? 0;
-                  // 호형 칩 (한빈 승인) — 띠의 호를 따라 휘는 부채꼴 조각.
-                  // 글자는 수평 유지. 타원 영역 칩은 둥근 사각을 쓴다.
-                  let shape: ReactElement;
-                  let capEl: ReactElement | null = null;
-                  if (bd.arc && rc != null && th != null && spanW != null) {
-                    const rI = rc - h / 2, rO = rc + h / 2;
-                    const t0 = th - spanW / 2, t1 = th + spanW / 2;
-                    const pt = (rr: number, tt: number) =>
-                      `${(CX + rr * Math.cos(tt)).toFixed(2)},${(CY + rr * Math.sin(tt)).toFixed(2)}`;
-                    const d = `M${pt(rO, t0)} A${rO},${rO} 0 0 1 ${pt(rO, t1)}`
-                      + ` L${pt(rI, t1)} A${rI},${rI} 0 0 0 ${pt(rI, t0)} Z`;
-                    shape = <path d={d} className="bm-tile__box" />;
-                    const rCap = rO - 2.2 / z;
-                    capEl = <path className="bm-tile__caparc"
+                  // ㉜ 원형 회로 문법 (한빈 32차 · 예시 PCB) — 타원 띠의
+                  // 칩도 (rc,θ) 로 번역해 **전 티어가 환형 부채꼴**이다.
+                  const pt = (rrr: number, tt: number) =>
+                    `${(CX + rrr * Math.cos(tt)).toFixed(2)},${(CY + rrr * Math.sin(tt)).toFixed(2)}`;
+                  const rcc = bd.arc && rc != null ? rc
+                    : Math.max(Math.hypot(cxT - CX, cyT - CY), 24);
+                  const thc = bd.arc && th != null ? th
+                    : Math.atan2(cyT - CY, cxT - CX);
+                  const spw = bd.arc && spanW != null ? spanW : w / rcc;
+                  const rI = rcc - h / 2, rO = rcc + h / 2;
+                  const t0 = thc - spw / 2, t1 = thc + spw / 2;
+                  const shape = (
+                    <path className="bm-tile__box"
+                      d={`M${pt(rO, t0)} A${rO},${rO} 0 0 1 ${pt(rO, t1)}`
+                        + ` L${pt(rI, t1)} A${rI},${rI} 0 0 0 ${pt(rI, t0)} Z`} />);
+                  const rCap = rO - 0.4;
+                  const capEl = (
+                    <path className="bm-tile__caparc"
                       d={`M${pt(rCap, t0 + 0.004)} A${rCap},${rCap} 0 0 1 ${pt(rCap, t1 - 0.004)}`}
-                      style={{ strokeWidth: 3 / z }} />;
-                  } else {
-                    shape = <rect x={tx} y={ty} width={w} height={h}
-                                  rx={4 / z} className="bm-tile__box" />;
-                    capEl = <rect x={tx} y={ty} width={w} height={3.2 / z}
-                                  className="bm-tile__cap" />;
+                      style={{ strokeWidth: 0.55 }} />);
+                  // 포트 핀 — 반지름 방향 스텁 + 비아 점 (IN 안쪽 · OUT 바깥)
+                  const stubs: ReactElement[] = [];
+                  if (!mini) {
+                    const mkPins = (cnt: number, rEdge: number, dr: number,
+                                    tag: string) => {
+                      const nP = Math.min(cnt, 3);
+                      for (let k = 0; k < nP; k++) {
+                        const ta = thc + (k - (nP - 1) / 2) * spw * 0.3;
+                        const x1 = CX + rEdge * Math.cos(ta);
+                        const y1 = CY + rEdge * Math.sin(ta);
+                        const x2 = CX + (rEdge + dr) * Math.cos(ta);
+                        const y2 = CY + (rEdge + dr) * Math.sin(ta);
+                        stubs.push(<line key={`${tag}${k}`} className="bm-pin"
+                                         x1={x1} y1={y1} x2={x2} y2={y2} />);
+                        stubs.push(<circle key={`${tag}v${k}`} className="bm-via"
+                                           r={0.42} cx={x2} cy={y2} />);
+                      }
+                    };
+                    mkPins(ins, rI, -1.1, 'i');
+                    mkPins(outs, rO, 1.1, 'o');
                   }
                   const bandAttr = bd.arc
                     ? `A:${bd.arc.r0.toFixed(1)},${bd.arc.r1.toFixed(1)},${bd.arc.a0.toFixed(3)},${bd.arc.a1.toFixed(3)}`
@@ -2189,18 +2263,37 @@ export function BrainMap() {
                   return (
                     <g key={`tile-${nd.id}`} data-kind={nd.kind}
                        data-band={bandAttr} data-mini={mini ? 1 : 0}
+                       data-wx={tx.toFixed(1)}
                        className={`bm-tile bm-tile--k${nd.kind}${on ? ' bm-tile--on' : ''}${mini ? ' bm-tile--mini' : ''}`}>
-                      <path className="bm-lead"
-                            d={`M${pp.x},${pp.y} L${pp.x},${cyT} L${Math.abs(pp.x - tx) < Math.abs(pp.x - (tx + w)) ? tx : tx + w},${cyT}`} />
+                      {(() => {
+                        // ㉜ 트레이스 = 제 반지름의 호 → 반지름 꺾임 (+비아)
+                        const rD = Math.max(Math.hypot(pp.x - CX, pp.y - CY), 1);
+                        const thD = Math.atan2(pp.y - CY, pp.x - CX);
+                        const dth = ((thc - thD + 3 * Math.PI)
+                                     % (2 * Math.PI)) - Math.PI;
+                        const rEdge = rcc > rD ? rI : rO;
+                        return (<>
+                          <path className="bm-lead"
+                            d={`M${pp.x.toFixed(2)},${pp.y.toFixed(2)}`
+                              + ` A${rD.toFixed(1)},${rD.toFixed(1)} 0 0 ${dth > 0 ? 1 : 0} ${pt(rD, thc)}`
+                              + ` L${pt(rEdge, thc)}`} />
+                          <circle className="bm-via" r={0.55}
+                                  cx={pp.x} cy={pp.y} />
+                          <circle className="bm-via" r={0.45}
+                                  cx={CX + rD * Math.cos(thc)}
+                                  cy={CY + rD * Math.sin(thc)} />
+                        </>);
+                      })()}
                       {shape}
                       {capEl}
+                      {stubs}
                       <text className="bm-tile__name" x={cxT}
-                            y={mini ? cyT + 3 / z : cyT - h * 0.22}
+                            y={mini || !showRows ? cyT + 0.55 : cyT - h * 0.22}
                             textAnchor="middle"
-                            style={{ fontSize: `${(mini ? fs2 : fs1)}px` }}>
+                            style={{ fontSize: `${mini ? fs2 : fs1}px` }}>
                         {nd.label || nd.id}</text>
-                      {!mini && <>
-                        <text className="bm-tile__meta" x={cxT} y={cyT + 3 / z}
+                      {!mini && showRows && <>
+                        <text className="bm-tile__meta" x={cxT} y={cyT + 0.5}
                               textAnchor="middle"
                               style={{ fontSize: `${fs2}px` }}>
                           {`in ${ins} ▸ fn ▸ out ${outs}`}</text>
@@ -2230,20 +2323,18 @@ export function BrainMap() {
             const ghost = n.kind === '계획' && n.target !== '빚';
             const ovShrink = Math.min(1, 2.6 / view.z);
             const r = Math.max((n.kind === '접힘' ? 5.5 : 1.6) * 2.6, 5.5) * ovShrink;
+            const pcol = nodePaint[n.id]?.c ?? s.c;
             return (
               <g key={`ov-${n.id}`} className={`bm-node${on ? ' bm-node--fire' : ''}`}
                  pointerEvents="none">
-                {on && <circle key={`h@${litAtRef.current[n.id] || 0}`}
-                               className="bm-halofade"
-                               cx={p.x} cy={p.y} r={16 * ovShrink}
-                               fill="url(#bmglow)" />}
+                {/* ㉛U2 — 3D 와 같은 문법: 발광 = 커진 **단색** 원 (가우시안
+                    필터·radialGradient 헤일로는 2D 에만 있던 그라데이션의
+                    임자였다). 부드러운 번짐은 활성화 캔버스의 플레어가 맡는다. */}
                 <circle cx={p.x} cy={p.y} r={r}
                         strokeDasharray={ghost ? '2 2' : undefined}
-                        fill={ghost ? 'none' : s.c}
-                        stroke={pick?.id === n.id ? '#fff'
-                                : `hsl(${m.regions[n.region]?.hue ?? 210} 80% 70%)`}
-                        strokeWidth={1.4}
-                        filter={on ? 'url(#bmlit)' : undefined} />
+                        fill={ghost ? 'none' : pcol}
+                        stroke={pick?.id === n.id ? '#fff' : pcol}
+                        strokeWidth={pick?.id === n.id ? 1.4 : 0} />
                 {/* 🔴 덧층도 자리를 피한다 — 안 하면 기반 이름표 위에 포개진다
                     (실측 「vault-hand」×「proactive-selfcheck」). 다만 울리는
                     것이라 **숨기지는 않는다** (`tagAvoid`). */}
@@ -2288,7 +2379,7 @@ export function BrainMap() {
           <Brain3D key="gl" nodes={glNodes} chainEdges={glEdges}
                    regions={m.regions} pos2d={pos}
                    lit={lit} onPick={setPickId} boardW={W} boardH={H}
-                   view2dRef={viewRef}
+                   view2dRef={viewRef} paint={nodePaint}
                    morphTo={trans === 'to2d' ? 0 : 1}
                    onMorphDone={() => {
                      if (trans === 'to2d') { setMode3d(false); setTrans(null); }

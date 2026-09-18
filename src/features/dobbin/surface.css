@@ -139,7 +139,7 @@
   color: #e0796f; background: transparent;
   border: 1px solid color-mix(in srgb, #e0796f 55%, transparent);
 }
-/* v32 — 중복 rec-pulse 제거 (뒤판이 이겨 앞판이 사문) */ }
+/* v32 — 중복 rec-pulse 제거 (뒤판이 이겨 앞판이 사문) */
 
 /* 맨 아래로 — 달력으로 옛 대화에 갔다가 돌아오는 길 */
 .dsurf__jump {

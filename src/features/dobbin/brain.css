@@ -535,7 +535,6 @@
    and the fade applies to the BACKGROUND (svg bands) only — never to the
    flying dots (.bm-glover sits inside the wrap). */
 .bm-morphing .bm-zoomg g.bm-node,
-.bm-morphing .bm-zoomg .bm-halofade,
 .bm-morphing .bm-zoomg .bm-pulse,
 .bm-morphing .bm-zoomg path.bm-edge--on,
 .bm-morphing .brainmap__edgecanvas { visibility: hidden; }
@@ -586,3 +585,7 @@
 .bm-tile--k갈래 .bm-tile__caparc { stroke: #eab308; }
 .bm-tile--k관문 .bm-tile__caparc, .bm-tile--k잣대 .bm-tile__caparc { stroke: #d946ef; }
 .bm-tile--mini .bm-tile__box { fill: rgba(12, 18, 36, .9); }
+.bm-tile__nanobox { fill: rgba(12, 18, 36, .92); stroke: #33406a; stroke-width: .28; }
+.bm-via { fill: #93a9d9; opacity: .85; }
+.bm-tile--on .bm-via { fill: #ffd27d; }
+.bm-pin { stroke: #33406a; stroke-width: .3; }
