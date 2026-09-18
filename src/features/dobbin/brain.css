@@ -514,9 +514,14 @@
 /* ── W4 Brain3D ────────────────────────────────────────────────────── */
 .brainmap__wrap--3d { cursor: grab; }
 .brainmap__wrap--3d:active { cursor: grabbing; }
-.brain3d { position: relative; width: 100%; aspect-ratio: 1 / 1; }
+/* 🔴 wrap 은 flex 가 높이를 정한다 («지도가 남은 높이를 먹는다» · 위 주석).
+   aspect-ratio 를 주면 스테이지가 부푼다 (ui_live_sweep 실측 +732px) —
+   SVG 의 height:100% 와 같은 규율로 absolute-fill. */
+.brain3d { position: absolute; inset: 0; overflow: hidden; }
 .brain3d__cv { width: 100%; height: 100%; display: block; touch-action: none; }
-.brain3d__labels { position: absolute; inset: 0; pointer-events: none; }
+/* display:contents — 라벨은 .brain3d 기준으로 뜬다. 큰 빈 상자를 만들면
+   ui_live_sweep 의 «부푼 상자» 규칙이 문다 (실측 812px). */
+.brain3d__labels { display: contents; pointer-events: none; }
 .b3d-lab {
   position: absolute; transform: translate(-50%, -160%);
   font-size: 10px; color: #ffe2ae; text-shadow: 0 0 4px rgba(0, 0, 0, .9);

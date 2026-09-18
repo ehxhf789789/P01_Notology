@@ -1014,12 +1014,20 @@ export function BrainMap() {
   //    🔴 **내린 것은 사라지지 않는다** — 계기판이 수로 말한다 (음성 대조가 문다).
   const shownNodes = useMemo(() => {
     const R = m?.regions ?? {};
-    return ((m?.nodes ?? []) as Node[]).filter(n => {
-      const reg = R[n.region];
-      if (!reg) return true;                       // 모르는 영역은 안 숨긴다
-      if (reg.core) return true;                   // 기질(llm) — 두뇌 중앙
-      return reg.layer != null;                    // 층이 있는 것 = 뇌
-    });
+    return ((m?.nodes ?? []) as Node[])
+      // 🔴 계획(todo) 노드는 v50 이 위성 띠를 걷으며 **지도에서 통째로
+      //    사라졌다** (region 'todo' 는 층이 없어 아래 필터에 걸린다) —
+      //    plan_dots 자가 그날부터 상시 붉었다. 서버가 이미 주는 `aim`
+      //    (겨눈 영역)으로 옮겨 그린다: 빚은 그 신경이 사는 영역의 일이다.
+      .map(n => (n.kind === '계획' && R[n.region]?.layer == null
+                 && n.aim && R[n.aim]?.layer != null)
+        ? { ...n, region: n.aim } : n)
+      .filter(n => {
+        const reg = R[n.region];
+        if (!reg) return true;                     // 모르는 영역은 안 숨긴다
+        if (reg.core) return true;                 // 기질(llm) — 두뇌 중앙
+        return reg.layer != null;                  // 층이 있는 것 = 뇌
+      });
   }, [m]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
   const rings = useMemo(() => {
@@ -1047,7 +1055,14 @@ export function BrainMap() {
   const [mode3d, setMode3d] = useState(true);
   const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
   const viewRef = useRef(view); viewRef.current = view;
-  const zb = view.z <= 1.001 ? 0 : view.z <= 2.5 ? 1 : view.z <= 5 ? 2 : 3;
+  // test handle — jigs that predate the LOD ladder measure the full dot map
+  // at fit zoom via ?bmlod=2 (geometry untouched). Never set by the app.
+  const zbFloor = useMemo(() => {
+    const v = Number(new URLSearchParams(window.location.search).get('bmlod'));
+    return Number.isFinite(v) ? Math.max(0, Math.min(3, v)) : 0;
+  }, []);
+  const zb = Math.max(zbFloor,
+    view.z <= 1.001 ? 0 : view.z <= 2.5 ? 1 : view.z <= 5 ? 2 : 3);
   /** visible window in content (viewBox) coords — for viewport culling */
   const vp = { x: -view.tx / view.z, y: -view.ty / view.z,
                w: W / view.z, h: H / view.z };
@@ -1141,11 +1156,11 @@ export function BrainMap() {
       el.removeEventListener('click', onClick, true);
       el.removeEventListener('dblclick', onDbl);
     };
-    // 🔴 wrap 은 m 이 온 뒤에야 마운트된다 — [] 의존이면 이 effect 가
-    //    wrap 없는 첫 렌더에 한 번 돌고 끝나 wheel/drag/pinch 가 전부
-    //    죽는다 (jig ④ 실측: wheel 무반응). m 유무에 다시 건다.
+    // 🔴 wrap 은 m 이 온 뒤 **그리고 2D 모드일 때만** 마운트된다 — 의존이
+    //    모자라면 이 effect 가 wrap 없는 렌더에 돌고 끝나 wheel/drag/pinch 가
+    //    전부 죽는다 (jig ④ 두 번 실측: [] → m → mode3d 까지 세 겹).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [!!m?.nodes?.length]);
+  }, [!!m?.nodes?.length, mode3d]);
   // 🔴 **기반층을 얼린다** (2026-09-13 · 한빈 «웹 렌더링 렉»). 노드 ~400 +
   //    이음 ~1,200 을 hover·빛·자국(0.7초)마다 React 가 전부 다시 diff 하던
   //    것이 지도 버벅임의 몸통 — 기반층은 판(m)이 바뀔 때만 다시 짓고,
