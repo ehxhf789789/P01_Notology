@@ -2035,6 +2035,18 @@ export function BrainMap() {
                     const kk = `${nd.region}:${i}:${Math.round(th * 500)}`;
                     if (occ.has(kk)) continue;
                     if (!fits(bd, cx, cy)) continue;
+                    // 🔴 ㉖A — 극좌표 칸은 «제 띠 안» 비겹침만 보장한다.
+                    //    이웃 띠의 격자와는 원점이 달라 경계 양쪽 칸이
+                    //    TW 보다 가까울 수 있다 (한빈 26차 실물). 놓인
+                    //    타일 전부와 AABB 대조 — ≤36개라 비용 0급.
+                    let clash = false;
+                    for (const tprev of tiles) {
+                      if (Math.abs(cx - (tprev.tx + TW / 2)) < TW + 4 / z
+                          && Math.abs(cy - (tprev.ty + TH / 2)) < TH + 4 / z) {
+                        clash = true; break;
+                      }
+                    }
+                    if (clash) continue;
                     occ.add(kk); cell = { cx, cy }; break outer;
                   }
                 }
