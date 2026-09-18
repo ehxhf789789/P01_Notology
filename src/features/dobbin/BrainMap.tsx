@@ -634,8 +634,6 @@ export function BrainMap() {
   // «도는 중» 걸음 — 시작 신호로 붙고 끝 신호·120s 로 떨어진다. prune 이
   // litAt 을 되찍어 주므로 도는 동안 halo 가 숨쉬듯 이어진다.
   const stickyRef = useRef<Record<string, { since: number; ttl: number }>>({});
-  const [pulses, setPulses] = useState<{ k: string; x1: number; y1: number;
-    x2: number; y2: number; at: number }[]>([]);
   /** 자국 띠 — 갈래 표는 서버 `trace_lanes` 가 정본 (한빈 2026-09-10) */
   const [trace, setTrace] = useState<Trace[]>([]);
   // 🔴 늦게 열거나 끊겼다 붙으면 그 사이 자국이 영영 없었다 (2026-09-11) —
@@ -866,8 +864,6 @@ export function BrainMap() {
           || now - (litAtRef.current[id] || 0) < 5000);
         return next.length === prev.length ? prev : next;
       });
-      setPulses(prev => (prev.length
-        ? prev.filter(pp => now - pp.at < 1200) : prev));
       // 유휴 정지 가드 — 살아 있는 것이 없으면 루프를 세운다 (light 가
       // 다시 깨운다). 없으면 2.5s 마다 영원히 재렌더한다 (렉 규율).
       const alive = Object.keys(stickyRef.current).length > 0
@@ -878,24 +874,12 @@ export function BrainMap() {
     const light = (ids: string[]) => {
       if (!ids.length) return;
       const now = Date.now();
-      const newPulses: typeof pulses = [];
       for (const id of ids) {
         litAtRef.current[id] = now;
-        const prevF = lastFireRef.current;
-        const a = prevF && posRef.current[prevF.id];
-        const b = posRef.current[id];
-        // 8초 안의 연쇄 발화 — 전기신호가 노드 사이를 «건너간다»
-        if (prevF && a && b && prevF.id !== id && now - prevF.at < 8000) {
-          newPulses.push({ k: `${prevF.id}>${id}@${now}`,
-                           x1: a.x, y1: a.y, x2: b.x, y2: b.y, at: now });
-        }
         lastFireRef.current = { id, at: now };
       }
       const qb = qBudget();                     // v29 — 기기 적응 표현 예산
       setLit(prev => [...new Set([...prev, ...ids])].slice(-qb.haloCap));
-      if (qb.pulses && newPulses.length) {
-        setPulses(prev => [...prev.slice(-8), ...newPulses]);
-      }
       setPulse(p => p + 1);
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(prune, 2500);
@@ -1030,6 +1014,26 @@ export function BrainMap() {
       });
   }, [m]);
   const shownIds = useMemo(() => new Set(shownNodes.map(n => n.id)), [shownNodes]);
+  // 🔴 C② (한빈 13차 «두 번 재구성») — brainmap 갱신(심박 ≤60초)마다
+  //    shownNodes 가 새 배열 참조라 Brain3D 가 통째로 재구축돼 조립
+  //    애니메이션이 다시 돌고 라벨 풀·발광 버퍼가 초기화됐다. 서명
+  //    (id·region·kind·status)이 같으면 **이전 참조를 그대로** 돌려준다.
+  const stableRef = useRef<{ sig: string; nodes: Node[] }>({ sig: '', nodes: [] });
+  const glNodes = useMemo(() => {
+    const sig = shownNodes.map(nd =>
+      `${nd.id}|${nd.region}|${nd.kind}|${nd.status}`).join('·');
+    if (sig !== stableRef.current.sig) {
+      stableRef.current = { sig, nodes: shownNodes };
+    }
+    return stableRef.current.nodes;
+  }, [shownNodes]);
+  const glEdgesRef = useRef<{ sig: string; edges: Edge[] }>({ sig: '', edges: [] });
+  const glEdges = useMemo(() => {
+    const es = m?.edges ?? [];
+    const sig = `${es.length}`;          // 이음은 수만 봐도 충분 — 값싼 서명
+    if (sig !== glEdgesRef.current.sig) glEdgesRef.current = { sig, edges: es };
+    return glEdgesRef.current.edges;
+  }, [m]);
   const rings = useMemo(() => {
     const cnt: Record<string, number> = {};
     shownNodes.forEach(n => {
@@ -1041,6 +1045,14 @@ export function BrainMap() {
   const lb = useMemo(() => (m ? lobes(shownNodes, m.regions, rings) : {}),
                      [m, shownNodes, rings]);
   const pos = useMemo(() => (m ? place(shownNodes, lb) : {}), [shownNodes, lb]);
+  // W4-R2 B — 타일 OUT 핀 수: 이 신경이 먹이는(공급 a→b) 수
+  const feedsOf = useMemo(() => {
+    const mm = new Map<string, number>();
+    (m?.edges ?? []).forEach(e => {
+      if (e.kind === '공급') mm.set(e.a, (mm.get(e.a) ?? 0) + 1);
+    });
+    return mm;
+  }, [m]);
   posRef.current = pos;
 
   // ── W4 Semantic zoom (Maps idiom · HanBin 2026-09-18) ────────────────
@@ -1079,6 +1091,8 @@ export function BrainMap() {
   const zb = Math.max(zbFloor,
     view.z <= 1.25 ? 0 : view.z <= 2.6 ? 1 : view.z <= 5 ? 2 : 3);
   /** visible window in content (viewBox) coords — for viewport culling */
+  // W4-R2 B③ — 워터마크(부·층 이름)는 깊은 줌에서 사라진다 (반도체 도시)
+  const wmOp = Math.max(0, Math.min(1, (4.5 - view.z) / 2));
   const vp = { x: -view.tx / view.z, y: -view.ty / view.z,
                w: W / view.z, h: H / view.z };
   const inVp = (x: number, y: number, pad = 30) =>
@@ -1187,6 +1201,13 @@ export function BrainMap() {
   //    CSS 크기 배율로 재현한다 (.brainmap__svg 는 width:100%·height:auto 라
   //    항상 같은 종횡비 — 배율은 cssW/W 하나뿐이다). 절전 단은 dpr 1.
   const edgeCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  // W4-R2 A (한빈 11차) — 2D 활성화를 3D 와 같은 문법으로: 가는 광선 +
+  // 선을 따라 흐르는 빛 펄스, 전용 rAF 캔버스. lit 이 비면 지우고 멈춘다.
+  const liveCvRef = useRef<HTMLCanvasElement | null>(null);
+  // ⚠️ 훅은 early return(아래 `if (!m…) return null`) **앞**에 있어야 한다 —
+  //    뒤에 두면 m 도착 순간 훅 수가 달라져 React #310 으로 패널이 통째로
+  //    죽는다 (실측 — 지도 0 렌더).
+  const litListRef = useRef<string[]>([]);
   useEffect(() => {
     const cv = edgeCanvasRef.current;
     if (!cv || !m?.nodes?.length || !m.edges) return;
@@ -1268,6 +1289,59 @@ export function BrainMap() {
     return () => { ro.disconnect(); if (raf) cancelAnimationFrame(raf); };
   }, [m, pos, shownIds, showCall, view]);
 
+  useEffect(() => {
+    const cv = liveCvRef.current;
+    if (!cv || !m?.edges) return;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    let raf = 0, dead = false;
+    const draw = (tms: number) => {
+      if (dead) return;
+      const ids = litListRef.current;
+      const cssW = cv.clientWidth, cssH = cv.clientHeight;
+      if (!cssW || !cssH) { raf = requestAnimationFrame(draw); return; }
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      if (cv.width !== Math.round(cssW * dpr)) {
+        cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
+      }
+      const sc = Math.min(cssW / W, cssH / H);
+      const ox = (cssW - W * sc) / 2, oy = (cssH - H * sc) / 2;
+      const vw = viewRef.current;
+      ctx.setTransform(sc * dpr, 0, 0, sc * dpr, ox * dpr, oy * dpr);
+      ctx.clearRect(-ox / sc, -oy / sc, cssW / sc, cssH / sc);
+      if (!ids.length) { raf = 0; return; }          // 조용하면 멈춘다 (CPU 0)
+      ctx.transform(vw.z, 0, 0, vw.z, vw.tx, vw.ty);
+      const set = new Set(ids);
+      const t = tms / 1000;
+      // 3D 와 같은 상수: 광선 rgba(158,194,255,.34) · 펄스 0.55/s · 호박색
+      ctx.strokeStyle = 'rgba(158,194,255,0.34)';
+      ctx.lineWidth = 1.3 / vw.z;
+      ctx.lineCap = 'round';
+      let drawn = 0;
+      const pp = posRef.current;
+      for (const e of m.edges) {
+        if (drawn >= 160) break;
+        if (!set.has(e.a) && !set.has(e.b)) continue;
+        const a = pp[e.a], b = pp[e.b];
+        if (!a || !b) continue;
+        drawn++;
+        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+        // 흐르는 펄스 — 이음마다 결정론 위상
+        let h = 0; const key = e.a + e.b;
+        for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
+        const f = (t * 0.55 + (h % 1000) / 1000) % 1;
+        const px = a.x + (b.x - a.x) * f, py = a.y + (b.y - a.y) * f;
+        ctx.fillStyle = 'rgba(255,235,168,0.95)';
+        ctx.beginPath(); ctx.arc(px, py, 2.6 / vw.z, 0, Math.PI * 2); ctx.fill();
+      }
+      raf = requestAnimationFrame(draw);
+    };
+    raf = requestAnimationFrame(draw);
+    return () => { dead = true; if (raf) cancelAnimationFrame(raf); };
+    // lit 이 켜질 때 다시 시동 — 루프는 스스로 멎는다
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [m, lit.length > 0]);
+
   const baseLayer = useMemo(() => {
     // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
     //    가 터졌고 앱 전체가 죽었다 (ui_e2e pageerror 실측)
@@ -1275,6 +1349,10 @@ export function BrainMap() {
     // 🔴 W4-R (HanBin: «2D 모드에서 노드가 보이지 않는다») — dots render at
     //    EVERY zoom. The ladder ADDS semantics (Z1 sub bands · Z2 names ·
     //    Z3 blueprints); it never decides existence.
+    // W4-R2 B — 깊은 줌에서 점·글자가 ×z 로 부풀면 도시가 아니라 풍선이다:
+    //    버킷별 역스케일 (zb2 0.6 · zb3 0.35), 갈래 라벨은 zb2 부터 zoom
+    //    이름층이 대신하므로 걷는다.
+    const shrink = zb >= 3 ? 0.35 : zb >= 2 ? 0.6 : 1;
     // 🔴 이름표 자리 장부를 **여기서** 비운다 — 안 비우면 두 번째 렌더부터
     //    제 이름표와 겹쳐 전부 사라진다 (v50).
     resetTags();
@@ -1311,11 +1389,11 @@ export function BrainMap() {
           //    (`brainmap.py:2456`) 화면이 그 칸을 **모양에 0번 썼다.**
           //    → 빚이면 다른 노드와 같은 꽉 찬 점. 유령은 신설에만.
           const ghost = n.kind === '계획' && n.target !== '빚';
-          const base = n.kind === '접힘' ? 5.5
+          const base = (n.kind === '접힘' ? 5.5
                      : n.kind === '계획' ? 3.4
                      : n.kind === '갈래' ? 2.4
                      : n.kind === '걸음' ? 1.3
-                     : 1.6;
+                     : 1.6) * shrink;
           return (
             <g key={n.id} className={`bm-node bm-node--${n.kind}`}
                onClick={() => setPickId(prev => (prev === n.id ? null : n.id))}
@@ -1359,7 +1437,7 @@ export function BrainMap() {
                   → 놓인 상자와 견주어 ① 위/아래로 밀고 ② 그래도 겹치면
                   **안 그린다.** 포개진 글자는 없느니만 못하다.
                   ⚠️ `kind === '접힘'` 은 죽은 조건 — 서버가 한 번도 안 내보낸다. */}
-              {n.kind === '갈래' && (() => {
+              {n.kind === '갈래' && zb < 2 && (() => {
                 const ty = tagAt(p.x, p.y - (base + 5), n.label || n.id);
                 return ty == null ? null : (
                   <text className="bm-tag" x={p.x} y={ty} textAnchor="middle">
@@ -1389,6 +1467,7 @@ export function BrainMap() {
   // 🔴 조작 15개는 **사람이 한 일**이라 성숙도에서 뺐다 — 그렇다고 「장비」도
   //    아니다. 셋으로 갈라 적는다 (뇌 · 손 · 장비).
   const litSet = new Set(lit);
+  litListRef.current = lit;
   const nodeById: Record<string, Node> = {};
   m.nodes.forEach(n => { nodeById[n.id] = n; });
   const pick = pickId ? nodeById[pickId] ?? null : null;
@@ -1603,10 +1682,14 @@ export function BrainMap() {
           🔴 경고(끊김·잔량)는 **그대로 보인다.** 오히려 폭 65px 구석에서
              지도 위 전폭으로 올라와 더 잘 보인다. */}
       <StateChip lit={lit} enOf={enOf} />
+      {/* C① — ONE stage, ONE Brain3D tree position (key="b3d"): the
+          transition flips its container style, never remounts it — the
+          brain assembles once per toggle, not twice. */}
+      <div className="bm-stage">
       {(mode3d && !trans) ? (
-        <div className="brainmap__wrap brainmap__wrap--3d">
-          <BuildTag />
-          <Brain3D nodes={shownNodes} chainEdges={m.edges} regions={m.regions}
+        <div className="brainmap__wrap brainmap__wrap--3d" key="b3d">
+          <BuildTag key="tag" />
+          <Brain3D key="gl" nodes={glNodes} chainEdges={glEdges} regions={m.regions}
                    pos2d={pos}
                    lit={lit} onPick={setPickId} boardW={W} boardH={H} />
           <div className="bm-zoomctl" role="group" aria-label="view">
@@ -1623,6 +1706,8 @@ export function BrainMap() {
         <BuildTag />
         <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
                 aria-hidden="true" />
+        <canvas ref={liveCvRef} className="bm-livecv" aria-hidden="true"
+                data-live={lit.length ? 1 : 0} />
         <svg viewBox={`0 0 ${W} ${H}`} className="brainmap__svg" role="img"
              ref={svgRef}
              /* 🔴 장식 회전의 중심을 **여기서** 넘긴다 — css 에 숫자를 또 적으면
@@ -1720,8 +1805,10 @@ export function BrainMap() {
               const rr = L.arc!.r0 + (L.arc!.r1 - L.arc!.r0) * 0.5;
               const x = CX + rr * Math.cos(mid), y = CY + rr * Math.sin(mid);
               const yy = tagAvoid(x, y, sb.label);
-              return <text key={`sl-${k}-${sb.key}`} className="bm-sublab"
-                           x={x} y={yy} textAnchor="middle">{sb.label}</text>;
+              return wmOp <= 0 ? null
+                : <text key={`sl-${k}-${sb.key}`} className="bm-sublab"
+                        style={{ opacity: wmOp }}
+                        x={x} y={yy} textAnchor="middle">{sb.label}</text>;
             }))}
 
             {/* 🔴 **부 하위 띠** (v51 P3 · 한빈 선택 «띠 색까지 달리»).
@@ -1757,10 +1844,10 @@ export function BrainMap() {
           {/* 링 이름 — 12시 방향, 링 바로 위 */}
           {Object.entries(m.layers || {}).map(([k, L]) => {
             const ring = rings[k]; if (!ring) return null;
-            return (
+            return wmOp <= 0 ? null : (
               <text key={`layl-${k}`} className="bm-layer-lab" x={CX}
                     y={CY - ring[1] + 13} textAnchor="middle"
-                    style={{ fill: `hsl(${L.hue} 60% 66%)` }}>
+                    style={{ fill: `hsl(${L.hue} 60% 66%)`, opacity: wmOp }}>
                 <title>{L.why}</title>{L.label}
               </text>
             );
@@ -1840,80 +1927,130 @@ export function BrainMap() {
             }
             return <g aria-hidden="true">{out}</g>;
           })()}
-          {/* W4 Z3 — blueprint cards: a nerve dot expands into its circuit
-              (IN receptors → fn → OUT feeds, one real stimulus, live footer).
-              Viewport-only, hard cap — everything outside is culled. */}
+          {/* W4-R2 B — the semiconductor city (HanBin 12th): at max zoom
+              each nerve expands into a micro circuit tile SNAPPED to a
+              virtual grid (spiral search → zero overlap), with a Manhattan
+              leader from its dot, IN/OUT port pins + stubs, and a faint
+              graph-paper grid. The activation canvas's light flows over it. */}
           {zb >= 3 && (() => {
-            const cards: ReactElement[] = [];
-            const bw = 240 / view.z, bh = 150 / view.z;
-            for (const n of shownNodes) {
-              if (cards.length >= 8) break;
-              if (n.kind !== '신경') continue;
-              const pp = pos[n.id]; if (!pp || !inVp(pp.x, pp.y, -10)) continue;
-              const outs = (m.edges || [])
-                .filter(e => e.kind === '공급' && e.a === n.id)
-                .map(e => nodeById[e.b]?.label || e.b).slice(0, 3);
-              const ins = (n.수용체 || []).slice(0, 3);
-              const lit3 = litSet.has(n.id);
-              cards.push(
-                <foreignObject key={`bp-${n.id}`} x={pp.x + 6 / view.z}
-                               y={pp.y - bh / 2} width={bw} height={bh}
-                               className="bm-bp-fo">
-                  <div className={`bm-bp${lit3 ? ' bm-bp--on' : ''}`}
-                       style={{ fontSize: `${10 / view.z}px` }}>
-                    <b>{n.label || n.id}</b>
-                    <div className="bm-bp__io">
-                      <span className="bm-bp__in">
-                        {ins.length ? ins.map(x => <i key={x}>▸ {x}</i>)
-                          : <i className="bm-bp__none">receptors: —</i>}
-                      </span>
-                      <span className="bm-bp__fn">fn</span>
-                      <span className="bm-bp__out">
-                        {outs.length ? outs.map(x => <i key={x}>{x} →</i>)
-                          : <i className="bm-bp__none">out: —</i>}
-                      </span>
-                    </div>
-                    {n.자극?.[0]
-                      ? <div className="bm-bp__stim">「{n.자극[0]}」</div> : null}
-                    <div className="bm-bp__foot">
-                      {n.hit != null && n.n ? `bench ${n.hit}/${n.n}` : 'bench —'}
-                      {' · '}{(STATUS[n.status] || STATUS.dark).t}
-                    </div>
-                  </div>
-                </foreignObject>);
+            const z = view.z;
+            const TW = 150 / z, TH = 78 / z;
+            const GX = TW + 20 / z, GY = TH + 16 / z;
+            const fs1 = 10.5 / z, fs2 = 8.5 / z;
+            const occ = new Set<string>();
+            const tiles: { n: Node; p: { x: number; y: number };
+                           tx: number; ty: number }[] = [];
+            const cand = shownNodes
+              .filter(nd => nd.kind === '신경')
+              .map(nd => ({ n: nd, p: pos[nd.id] }))
+              .filter(x => x.p && inVp(x.p.x, x.p.y, -10))
+              .sort((x, y) => (x.n.id < y.n.id ? -1 : 1))
+              .slice(0, 40);
+            for (const { n: nd, p: pp } of cand) {
+              if (tiles.length >= 24) break;
+              const c0 = Math.round(pp.x / GX), r0 = Math.round(pp.y / GY);
+              let cell: [number, number] | null = null;
+              outer: for (let ring = 0; ring < 6; ring++) {
+                for (let dc = -ring; dc <= ring; dc++) {
+                  for (let dr = -ring; dr <= ring; dr++) {
+                    if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
+                    const kk = `${c0 + dc}:${r0 + dr}`;
+                    if (!occ.has(kk)) { occ.add(kk); cell = [c0 + dc, r0 + dr]; break outer; }
+                  }
+                }
+              }
+              if (!cell) continue;
+              tiles.push({ n: nd, p: pp,
+                           tx: cell[0] * GX - TW / 2, ty: cell[1] * GY - TH / 2 });
             }
-            return <g>{cards}</g>;
+            // graph-paper — 뷰포트 안 격자선만
+            const gridLines: ReactElement[] = [];
+            const gx0 = Math.floor(vp.x / GX) * GX, gy0 = Math.floor(vp.y / GY) * GY;
+            for (let gx = gx0; gx <= vp.x + vp.w; gx += GX) {
+              gridLines.push(<line key={`gv${gx.toFixed(1)}`} className="bm-citygrid"
+                x1={gx} y1={vp.y} x2={gx} y2={vp.y + vp.h} />);
+            }
+            for (let gy = gy0; gy <= vp.y + vp.h; gy += GY) {
+              gridLines.push(<line key={`gh${gy.toFixed(1)}`} className="bm-citygrid"
+                x1={vp.x} y1={gy} x2={vp.x + vp.w} y2={gy} />);
+            }
+            return (
+              <g className="bm-city">
+                {gridLines}
+                {tiles.map(({ n: nd, p: pp, tx, ty }) => {
+                  const on = litSet.has(nd.id);
+                  const cy = ty + TH / 2;
+                  const nearX = Math.abs(pp.x - tx) < Math.abs(pp.x - (tx + TW))
+                    ? tx : tx + TW;
+                  const ins = Math.min((nd.수용체 || []).length, 4) || 1;
+                  const outs = Math.min(feedsOf.get(nd.id) ?? 0, 4);
+                  const pin = (i: number, cnt: number) =>
+                    ty + TH * (0.3 + (0.5 * i) / Math.max(1, cnt - 1 || 1));
+                  return (
+                    <g key={`tile-${nd.id}`}
+                       className={`bm-tile${on ? ' bm-tile--on' : ''}`}>
+                      <path className="bm-lead"
+                            d={`M${pp.x},${pp.y} L${pp.x},${cy} L${nearX},${cy}`} />
+                      <rect x={tx} y={ty} width={TW} height={TH}
+                            rx={3 / z} className="bm-tile__box" />
+                      {Array.from({ length: ins }, (_x, i) => (
+                        <line key={`i${i}`} className="bm-tile__pin"
+                              x1={tx - 6 / z} y1={pin(i, ins)}
+                              x2={tx} y2={pin(i, ins)} />))}
+                      {Array.from({ length: Math.max(outs, 1) }, (_x, i) => (
+                        <line key={`o${i}`} className="bm-tile__pin"
+                              x1={tx + TW} y1={pin(i, Math.max(outs, 1))}
+                              x2={tx + TW + 6 / z} y2={pin(i, Math.max(outs, 1))} />))}
+                      <text className="bm-tile__name" x={tx + TW / 2}
+                            y={ty + 13 / z} textAnchor="middle"
+                            style={{ fontSize: `${fs1}px` }}>
+                        {nd.label || nd.id}</text>
+                      <rect x={tx + TW / 2 - 12 / z} y={ty + TH / 2 - 8 / z}
+                            width={24 / z} height={16 / z} rx={2 / z}
+                            className="bm-tile__fn" />
+                      <text className="bm-tile__fnlab" x={tx + TW / 2}
+                            y={ty + TH / 2 + 3.4 / z} textAnchor="middle"
+                            style={{ fontSize: `${fs2}px` }}>fn</text>
+                      <text className="bm-tile__meta" x={tx + 6 / z}
+                            y={ty + TH / 2 + 3 / z}
+                            style={{ fontSize: `${fs2}px` }}>
+                        in {(nd.수용체 || []).length}</text>
+                      <text className="bm-tile__meta" x={tx + TW - 6 / z}
+                            y={ty + TH / 2 + 3 / z} textAnchor="end"
+                            style={{ fontSize: `${fs2}px` }}>
+                        out {feedsOf.get(nd.id) ?? 0}</text>
+                      <text className="bm-tile__bench" x={tx + TW / 2}
+                            y={ty + TH - 7 / z} textAnchor="middle"
+                            style={{ fontSize: `${fs2}px` }}>
+                        {nd.hit != null && nd.n ? `bench ${nd.hit}/${nd.n}`
+                          : 'bench —'}
+                        {' · '}{(STATUS[nd.status] || STATUS.dark).t}</text>
+                    </g>
+                  );
+                })}
+              </g>
+            );
           })()}
 
           {/* 🔴 덧층 — 빛·hover·선택만. 몇십 개뿐이라 0.7초 갱신이 공짜다.
               «원자 크기» 규율(2026-09-11)은 그대로: 평시 점, 활성만 커진다. */}
-          {m.edges.map((e, i) => {
-            if (!(litSet.has(e.a) || litSet.has(e.b))) return null;
-            if (!shownIds.has(e.a) || !shownIds.has(e.b)) return null;
-            if (!showCall && (e.kind === '부름' || e.kind === '사슬')) return null;
-            const a = pos[e.a], b = pos[e.b];
-            if (!a || !b) return null;
-            const na = nodeById[e.a], nb = nodeById[e.b];
-            const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
-              !== (nb.layer ?? m.regions[nb.region]?.layer);
-            const mx2 = (a.x + b.x) / 2, my2 = (a.y + b.y) / 2;
-            const d = `M${a.x},${a.y} Q${mx2},${my2 - (cross ? 26 : 12)} ${b.x},${b.y}`;
-            return <path key={`on${i}`} d={d} fill="none"
-                         className={`bm-edge bm-edge--${EDGE_CLS[e.kind] || 'chain'} bm-edge--on`} />;
-          })}
+          {/* W4-R2 A — lit 이음·펄스는 활성화 캔버스가 3D 와 같은 문법으로
+              그린다 (점선 SVG 이음·animateMotion 단발 펄스는 걷었다) */}
           {[...new Set([...lit, hover, pick?.id].filter(Boolean))].map(id => {
             const n = nodeById[id as string]; if (!n) return null;
             const p = pos[n.id]; if (!p) return null;
             const s = STATUS[n.status] || STATUS.dark;
             const on = litSet.has(n.id);
             const ghost = n.kind === '계획' && n.target !== '빚';
-            const r = Math.max((n.kind === '접힘' ? 5.5 : 1.6) * 2.6, 5.5);
+            const ovShrink = Math.min(1, 2.6 / view.z);
+            const r = Math.max((n.kind === '접힘' ? 5.5 : 1.6) * 2.6, 5.5) * ovShrink;
             return (
               <g key={`ov-${n.id}`} className={`bm-node${on ? ' bm-node--fire' : ''}`}
                  pointerEvents="none">
                 {on && <circle key={`h@${litAtRef.current[n.id] || 0}`}
                                className="bm-halofade"
-                               cx={p.x} cy={p.y} r={16} fill="url(#bmglow)" />}
+                               cx={p.x} cy={p.y} r={16 * ovShrink}
+                               fill="url(#bmglow)" />}
                 <circle cx={p.x} cy={p.y} r={r}
                         strokeDasharray={ghost ? '2 2' : undefined}
                         fill={ghost ? 'none' : s.c}
@@ -1926,6 +2063,7 @@ export function BrainMap() {
                     것이라 **숨기지는 않는다** (`tagAvoid`). */}
                 <text className={`bm-tag${on ? ' bm-tag--on' : ''}`} x={p.x}
                       y={tagAvoid(p.x, p.y - (r + 5), n.label || n.id)}
+                      style={view.z > 1.6 ? { fontSize: `${11 / view.z}px` } : undefined}
                       textAnchor="middle">
                   {n.label || n.id}
                 </text>
@@ -1934,12 +2072,6 @@ export function BrainMap() {
           })}
           {/* v26 P-D — 전기신호 도약: 직전 발화 노드에서 다음 노드로 한 번
               흐르는 점 (animateMotion 0.5s · prune 이 1.2s 뒤 걷는다) */}
-          {pulses.map(pp => (
-            <circle key={pp.k} r={2.6} className="bm-pulse">
-              <animateMotion dur="0.5s" fill="freeze"
-                path={`M${pp.x1},${pp.y1} L${pp.x2},${pp.y2}`} />
-            </circle>
-          ))}
           </g>
         </svg>
         {/* W4 — zoom controls (Maps idiom: wheel/drag/dblclick/pinch also work) */}
@@ -1959,26 +2091,24 @@ export function BrainMap() {
             같은 물음(「지금 무슨 일이 일어나는가」)에 답하면서 지도 양쪽
             구석에 따로 떠 있었다. 위 `<StateChip lit=…>` 한 줄로 합쳤다.
             겹치는 것이 둘에서 **0** 이 된다. */}
-        {/* W4-R (HanBin 7th): the morph overlay lives INSIDE this wrap —
-            anchored to the section it had a different box, so the landing
-            board was scaled/offset against the SVG. Same box = same
-            letterbox = the derived front camera lands pixel-true. */}
-        {trans ? (
-          <div className="bm-glover">
-            <Brain3D nodes={shownNodes} chainEdges={m.edges}
-                     regions={m.regions} pos2d={pos}
-                     lit={lit} onPick={setPickId} boardW={W} boardH={H}
-                     morphTo={trans === 'to2d' ? 0 : 1}
-                     onMorphDone={() => {
-                       // HanBin 9th — the GL dots land EXACTLY on the SVG
-                       // dots (position+size identity), so the handoff is an
-                       // instant swap: no crossfade, no double exposure.
-                       if (trans === 'to2d') { setMode3d(false); setTrans(null); }
-                       else setTrans(null);
-                     }} />
-          </div>) : null}
       </div>
       ) : null}
+      {/* the morph overlay is a STAGE sibling with the same key="b3d" — the
+          stage box equals the wrap box (wrap fills the stage), so the
+          derived front camera still lands pixel-true (HanBin 7th), and the
+          keyed position keeps the SAME Brain3D instance (HanBin 13th). */}
+      {trans ? (
+        <div className="bm-glover" key="b3d">
+          <Brain3D key="gl" nodes={glNodes} chainEdges={glEdges}
+                   regions={m.regions} pos2d={pos}
+                   lit={lit} onPick={setPickId} boardW={W} boardH={H}
+                   morphTo={trans === 'to2d' ? 0 : 1}
+                   onMorphDone={() => {
+                     if (trans === 'to2d') { setMode3d(false); setTrans(null); }
+                     else setTrans(null);
+                   }} />
+        </div>) : null}
+      </div>
 
       {turn && (
         <div className="brainmap__turn">

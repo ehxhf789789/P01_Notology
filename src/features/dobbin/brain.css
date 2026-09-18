@@ -523,7 +523,10 @@
    ui_live_sweep 의 «부푼 상자» 규칙이 문다 (실측 812px). */
 .brain3d__labels { display: contents; pointer-events: none; }
 .b3d-lab {
-  position: absolute; transform: translate(-50%, -160%);
+  /* 🔴 left/top 이 없으면 absolute div 가 캔버스 아래 «자연 위치»에서
+     translate 되어 컨테이너 밖으로 밀린다 — 라벨이 있는데 안 보이던 뿌리
+     (한빈 14·15차). 원점을 박아야 translate3d 픽셀 좌표가 선다. */
+  position: absolute; left: 0; top: 0; transform: translate(-50%, -160%);
   font-size: 10px; color: #ffe2ae; text-shadow: 0 0 4px rgba(0, 0, 0, .9);
   white-space: nowrap;
 }
@@ -549,3 +552,24 @@
 }
 .bm-gl-out { animation: bmFadeOut .25s ease both; }
 .bm-glover { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
+/* C① — one stage: the 2D wrap fills it; the morph overlay covers the SAME
+   box; the solo-3D wrap lives here too, so the keyed Brain3D never moves. */
+.bm-stage { position: relative; flex: 1 1 auto; min-height: 220px;
+  display: flex; flex-direction: column; }
+.bm-stage > .brainmap__wrap { flex: 1 1 auto; }
+.bm-livecv { position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; }
+.bm-morphing .bm-livecv { visibility: hidden; }  /* GL 이 사슬을 그린다 */
+
+/* ── W4-R2 B — semiconductor city (Z3) ─────────────────────────────── */
+.bm-citygrid { stroke: rgba(120, 150, 220, .07); stroke-width: .5; }
+.bm-tile__box { fill: rgba(12, 18, 36, .94); stroke: #33406a; stroke-width: .9; }
+.bm-tile--on .bm-tile__box { stroke: #ffd68c;
+  filter: drop-shadow(0 0 6px rgba(255, 214, 140, .5)); }
+.bm-lead { fill: none; stroke: rgba(130, 158, 226, .4); stroke-width: .8; }
+.bm-tile__pin { stroke: #7f92c8; stroke-width: 1; }
+.bm-tile__name { fill: #e6ecfb; font-weight: 600; }
+.bm-tile__fn { fill: none; stroke: #4a5b8f; stroke-width: .8; }
+.bm-tile__fnlab { fill: #b9c6ea; }
+.bm-tile__meta { fill: #8fa0c8; }
+.bm-tile__bench { fill: #74809f; }

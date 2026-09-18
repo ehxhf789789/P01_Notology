@@ -178,6 +178,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
   morphTo?: number; onMorphDone?: (() => void) | null;
 }) {
   const cvRef = useRef<HTMLCanvasElement | null>(null);
+  const buildRef = useRef(0);
   const litRef = useRef(lit); litRef.current = lit;
   const labelRef = useRef<HTMLDivElement | null>(null);
   const morphToRef = useRef(morphTo); morphToRef.current = morphTo;
@@ -185,6 +186,8 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
 
   useEffect(() => {
     const cv = cvRef.current; if (!cv || !nodes.length) return;
+    buildRef.current += 1;
+    cv.parentElement?.setAttribute('data-build', String(buildRef.current));
     const gl = cv.getContext('webgl', { antialias: true, alpha: true });
     if (!gl) return;
     const mk = (vs: string, fsSrc: string) => {
@@ -362,7 +365,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       gl.clearColor(0.027, 0.039, 0.07, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       const tgt = morphToRef.current;
-      const step = reduced ? 1 : 0.024;
+      const step = reduced ? 1 : 0.015;   // ≈1.1s — HanBin 16th: unhurried
       morph = morph < tgt ? Math.min(tgt, morph + step)
             : morph > tgt ? Math.max(tgt, morph - step) : morph;
       if (morph === tgt && doneFired !== tgt) {
@@ -375,6 +378,8 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       const distF = 0.75 * (1 / Math.tan(FOV / 2))
         * ((h || 1) / Math.max(1, Math.min(w || 1, h || 1)));
       const sm = morph * morph * (3 - 2 * morph);          // smoothstep
+      // positions ride the SAME ease — dots accelerate and settle, not glide
+      // linearly (HanBin 16th «부드럽고 자연스럽게»)
       const yaw = orbit.yaw * sm, pitch = orbit.pitch * sm;
       const dist = distF + (orbit.dist - distF) * sm;
       mvp = mul(persp((w || 1) / (h || 1), 0.1, 20), lookAt(yaw, pitch, dist));
@@ -396,7 +401,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       if (chain.length) {
         gl.useProgram(lprog);
         gl.uniformMatrix4fv(LU.mvp, false, mvp);
-        gl.uniform1f(LU.morph, morph);
+        gl.uniform1f(LU.morph, sm);
         gl.uniform1f(LU.kind, 0); gl.uniform1f(LU.pt, 0);
         gl.bindBuffer(gl.ARRAY_BUFFER, lineB3);
         gl.enableVertexAttribArray(lA3);
@@ -441,7 +446,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       gl.enableVertexAttribArray(lLit);
       gl.vertexAttribPointer(lLit, 1, gl.FLOAT, false, 0, 0);
       gl.uniformMatrix4fv(U.mvp, false, mvp);
-      gl.uniform1f(U.morph, morph);
+      gl.uniform1f(U.morph, sm);
       gl.uniform1f(U.pick, 0);
       gl.uniform1f(U.px, (cv.height / 760) * 3.4);
       gl.uniform1f(U.pxVb, Math.min(cv.width, cv.height) / 760);
@@ -461,9 +466,9 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
           if (glow <= 0.03) { d.style.display = 'none'; continue; }
           const A3 = p3Of[id], A2 = p2Of[id];
           const P: [number, number, number] = [
-            A2[0] + (A3[0] - A2[0]) * morph,
-            A2[1] + (A3[1] - A2[1]) * morph,
-            A2[2] + (A3[2] - A2[2]) * morph];
+            A2[0] + (A3[0] - A2[0]) * sm,
+            A2[1] + (A3[1] - A2[1]) * sm,
+            A2[2] + (A3[2] - A2[2]) * sm];
           const cx = mvp[0] * P[0] + mvp[4] * P[1] + mvp[8] * P[2] + mvp[12];
           const cyy = mvp[1] * P[0] + mvp[5] * P[1] + mvp[9] * P[2] + mvp[13];
           const cw = mvp[3] * P[0] + mvp[7] * P[1] + mvp[11] * P[2] + mvp[15];
