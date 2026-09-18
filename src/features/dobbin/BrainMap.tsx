@@ -1309,38 +1309,63 @@ export function BrainMap() {
       const vw = viewRef.current;
       ctx.setTransform(sc * dpr, 0, 0, sc * dpr, ox * dpr, oy * dpr);
       ctx.clearRect(-ox / sc, -oy / sc, cssW / sc, cssH / sc);
-      if (!ids.length) { raf = 0; return; }          // 조용하면 멈춘다 (CPU 0)
+      // 🔴 ㉔ⓐ — 자기-정지를 걷었다. prune 로 비는 프레임에 raf=0 으로
+      //    죽고, 같은 배치에서 lit 이 다시 차면 dep 불리언이 안 바뀌어
+      //    영영 재시동이 안 되는 경합이 실물로 났다 (한빈 24·25차 — 발화
+      //    셋에 광선 0). 비면 clear 만 하고 계속 돈다 — 프레임당 clearRect
+      //    한 번은 비용 0급이고, 경계조건 부류가 통째로 사라진다.
+      if (!ids.length) { raf = requestAnimationFrame(draw); return; }
       ctx.transform(vw.z, 0, 0, vw.z, vw.tx, vw.ty);
       const set = new Set(ids);
       const t = tms / 1000;
-      // 3D 와 같은 상수: 광선 rgba(158,194,255,.34) · 펄스 0.55/s · 호박색
-      ctx.strokeStyle = 'rgba(158,194,255,0.34)';
-      ctx.lineWidth = 1.3 / vw.z;
+      // ㉔ⓑ — 같은 알파도 밝은 띠 위에선 묻힌다: 3D 와 «눈으로» 같은
+      //    무게가 되게 α·폭·펄스를 올리고 은은한 glow 를 더한다.
       ctx.lineCap = 'round';
       let drawn = 0;
       const pp = posRef.current;
+      const segs: [number, number, number, number, number][] = [];
       for (const e of m.edges) {
         if (drawn >= 160) break;
         if (!set.has(e.a) && !set.has(e.b)) continue;
         const a = pp[e.a], b = pp[e.b];
         if (!a || !b) continue;
         drawn++;
-        ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-        // 흐르는 펄스 — 이음마다 결정론 위상
         let h = 0; const key = e.a + e.b;
         for (let i = 0; i < key.length; i++) h = (h * 31 + key.charCodeAt(i)) >>> 0;
-        const f = (t * 0.55 + (h % 1000) / 1000) % 1;
-        const px = a.x + (b.x - a.x) * f, py = a.y + (b.y - a.y) * f;
-        ctx.fillStyle = 'rgba(255,235,168,0.95)';
-        ctx.beginPath(); ctx.arc(px, py, 2.6 / vw.z, 0, Math.PI * 2); ctx.fill();
+        segs.push([a.x, a.y, b.x, b.y, (h % 1000) / 1000]);
       }
+      ctx.strokeStyle = 'rgba(158,194,255,0.5)';
+      ctx.lineWidth = 1.7 / vw.z;
+      ctx.shadowColor = 'rgba(158,194,255,0.7)';
+      ctx.shadowBlur = 4;
+      for (const [ax, ay, bx, by] of segs) {
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      }
+      ctx.shadowColor = 'rgba(255,220,140,0.9)';
+      ctx.shadowBlur = 7;
+      ctx.fillStyle = 'rgba(255,235,168,0.95)';
+      for (const [ax, ay, bx, by, ph] of segs) {
+        const f = (t * 0.55 + ph) % 1;
+        ctx.beginPath();
+        ctx.arc(ax + (bx - ax) * f, ay + (by - ay) * f, 3.2 / vw.z, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      // 발화 끝점 글로우 — 점 자체도 3D 처럼 살아 있게
+      for (const id of ids) {
+        const q = pp[id]; if (!q) continue;
+        ctx.beginPath(); ctx.arc(q.x, q.y, 4.6 / vw.z, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
       raf = requestAnimationFrame(draw);
     };
     raf = requestAnimationFrame(draw);
     return () => { dead = true; if (raf) cancelAnimationFrame(raf); };
-    // lit 이 켜질 때 다시 시동 — 루프는 스스로 멎는다
+    // 🔴 기본이 3D 라 이 캔버스는 **나중에** 마운트된다 — [m]만 걸면 effect
+    //    가 캔버스 없는 첫 판에 돌고 끝나 다음 심박까지 사슬이 죽는다
+    //    (오늘 같은 병 세 번째: wheel 리스너·React#310·여기 —
+    //    [[map-pointer-capture-eats-every-click]]).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [m, lit.length > 0]);
+  }, [m, mode3d, trans]);
 
   const baseLayer = useMemo(() => {
     // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
@@ -1734,7 +1759,9 @@ export function BrainMap() {
             </radialGradient>
           </defs>
 
-          <rect x="0" y="0" width={W} height={H} fill="url(#bmbg)" />
+          {/* ㉑ — 배경의 단일 원천은 wrap 이다. 여기 있던 #bmbg 방사
+              rect 가 2D 만 한 겹 더 어둡게 칠해 3D 와 바닥색이 갈렸다
+              (한빈: «배경이 왜 다르냐 — 파란색 유지»). */}
           {/* W4 — everything below lives in ONE transformed group; the
               transform is the whole zoom (no re-layout, GPU-composited). */}
           <g className="bm-zoomg"
@@ -1940,30 +1967,42 @@ export function BrainMap() {
             const fs1 = 10.5 / z, fs2 = 8.5 / z;
             const occ = new Set<string>();
             const tiles: { n: Node; p: { x: number; y: number };
-                           tx: number; ty: number }[] = [];
-            // ③ⓐ 같은 줌 = 같은 위계 (한빈 19차) — 신경만이 아니라 뷰포트의
-            //    **모든 노드**가 타일이 된다. 종류는 머리띠 색으로 가른다.
-            // ③ⓑ 도시는 구역 안에 — 격자 칸의 **중심이 그 노드의 띠(환형
-            //    부채꼴) 안**일 때만 앉는다. 띠 안 빈 칸이 없으면 그 노드는
-            //    리더선 없는 압축 라벨로 남는다 (강제로 띠를 넘지 않는다).
-            const arcOf = (nd: Node) => {
+                           tx: number; ty: number;
+                           bd: { r0: number; r1: number;
+                                 a0: number; a1: number } }[] = [];
+            // ㉒ (한빈 22·23차) — 격자는 판의 **원형 기하**를 따른다:
+            //    칸 = (반지름 껍질 i × 각도 걸음 j), 그 노드 띠의
+            //    [r0,r1]×[a0,a1] 안에서만 난다. 데카르트 바둑판은 배경을
+            //    무시하고 띠를 넘었다. 🔴 수용은 «중심»이 아니라 **타일 네
+            //    모서리 전부**가 띠 안일 때다 — 폭 150/z 타일이 경계에
+            //    걸치던 뿌리. 타일·글자는 수평 유지(가독 — 지도 라벨 관행),
+            //    배치만 원형이다.
+            const bandOf = (nd: Node) => {
               const L = lb[nd.region];
-              if (!L?.arc) return null;
+              if (!L?.arc) return { r0: 12, r1: 78, a0: -Math.PI, a1: Math.PI };
               const sk = (nd as { __sk?: string }).__sk;
               const sb = sk && L.subs ? L.subs.find(x => x.key === sk) : null;
               return { a0: sb ? sb.a0 : L.arc.a0, a1: sb ? sb.a1 : L.arc.a1,
                        r0: L.arc.r0, r1: L.arc.r1 };
             };
-            const inBand = (nd: Node, x: number, y: number) => {
-              const a = arcOf(nd);
-              if (!a) return Math.hypot(x - CX, y - CY) < 70;   // 코어(기질)
+            const polar = (x: number, y: number) => {
               const rr = Math.hypot(x - CX, y - CY);
-              if (rr < a.r0 || rr > a.r1) return false;
-              let th = Math.atan2(y - CY, x - CX);
-              // lobes() 의 각은 연속 구간 — 2π 보정 후 포함 검사
-              if (th < a.a0) th += Math.PI * 2;
-              return th >= a.a0 && th <= a.a1;
+              return { r: rr, th: Math.atan2(y - CY, x - CX) };
             };
+            const fits = (bd: { r0: number; r1: number; a0: number; a1: number },
+                          cx: number, cy: number) => {
+              for (const [dx, dy] of [[-TW / 2, -TH / 2], [TW / 2, -TH / 2],
+                                       [-TW / 2, TH / 2], [TW / 2, TH / 2]] as
+                                       [number, number][]) {
+                const q = polar(cx + dx, cy + dy);
+                if (q.r < bd.r0 || q.r > bd.r1) return false;
+                let th = q.th;
+                if (th < bd.a0) th += Math.PI * 2;
+                if (th < bd.a0 || th > bd.a1) return false;
+              }
+              return true;
+            };
+            const shellH = TH + 14 / z;
             const loose: { n: Node; p: { x: number; y: number } }[] = [];
             const cand = shownNodes
               .map(nd => ({ n: nd, p: pos[nd.id] }))
@@ -1972,34 +2011,53 @@ export function BrainMap() {
               .slice(0, 60);
             for (const { n: nd, p: pp } of cand) {
               if (tiles.length >= 36) break;
-              const c0 = Math.round(pp.x / GX), r0 = Math.round(pp.y / GY);
-              let cell: [number, number] | null = null;
-              outer: for (let ring = 0; ring < 6; ring++) {
-                for (let dc = -ring; dc <= ring; dc++) {
-                  for (let dr = -ring; dr <= ring; dr++) {
-                    if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
-                    const cc = c0 + dc, rr2 = r0 + dr;
-                    const kk = `${cc}:${rr2}`;
+              const bd = bandOf(nd);
+              const nSh = Math.floor((bd.r1 - bd.r0) / shellH);
+              if (nSh < 1) { loose.push({ n: nd, p: pp }); continue; }
+              const q0 = polar(pp.x, pp.y);
+              let th0 = q0.th; if (th0 < bd.a0) th0 += Math.PI * 2;
+              const i0 = Math.max(0, Math.min(nSh - 1,
+                Math.floor((q0.r - bd.r0) / shellH)));
+              let cell: { cx: number; cy: number } | null = null;
+              outer: for (let ring = 0; ring < 7; ring++) {
+                for (let di = -ring; di <= ring; di++) {
+                  const i = i0 + di;
+                  if (i < 0 || i >= nSh) continue;
+                  const rc = bd.r0 + shellH * (i + 0.5);
+                  const dth = (TW + 18 / z) / rc;      // 같은 껍질 이웃 비겹침
+                  const j0 = Math.round((th0 - bd.a0) / dth);
+                  for (let dj = -ring; dj <= ring; dj++) {
+                    if (Math.max(Math.abs(di), Math.abs(dj)) !== ring) continue;
+                    const th = bd.a0 + dth * (j0 + dj + 0.5);
+                    if (th < bd.a0 || th > bd.a1) continue;
+                    const cx = CX + rc * Math.cos(th);
+                    const cy = CY + rc * Math.sin(th);
+                    const kk = `${nd.region}:${i}:${Math.round(th * 500)}`;
                     if (occ.has(kk)) continue;
-                    if (!inBand(nd, cc * GX, rr2 * GY)) continue;   // 띠 밖 금지
-                    occ.add(kk); cell = [cc, rr2]; break outer;
+                    if (!fits(bd, cx, cy)) continue;
+                    occ.add(kk); cell = { cx, cy }; break outer;
                   }
                 }
               }
               if (!cell) { loose.push({ n: nd, p: pp }); continue; }
               tiles.push({ n: nd, p: pp,
-                           tx: cell[0] * GX - TW / 2, ty: cell[1] * GY - TH / 2 });
+                           tx: cell.cx - TW / 2, ty: cell.cy - TH / 2,
+                           bd });
             }
-            // graph-paper — 뷰포트 안 격자선만
+            // ㉒ graph-paper 도 원형 — 동심 호 + 방사선 (판의 기하 그대로)
             const gridLines: ReactElement[] = [];
-            const gx0 = Math.floor(vp.x / GX) * GX, gy0 = Math.floor(vp.y / GY) * GY;
-            for (let gx = gx0; gx <= vp.x + vp.w; gx += GX) {
-              gridLines.push(<line key={`gv${gx.toFixed(1)}`} className="bm-citygrid"
-                x1={gx} y1={vp.y} x2={gx} y2={vp.y + vp.h} />);
+            const rMax = Math.max(...[[vp.x, vp.y], [vp.x + vp.w, vp.y],
+              [vp.x, vp.y + vp.h], [vp.x + vp.w, vp.y + vp.h]]
+              .map(([x, y]) => Math.hypot(x - CX, y - CY)));
+            for (let rr = shellH; rr <= rMax; rr += shellH) {
+              gridLines.push(<circle key={`gc${rr.toFixed(1)}`}
+                className="bm-citygrid" fill="none" cx={CX} cy={CY} r={rr} />);
             }
-            for (let gy = gy0; gy <= vp.y + vp.h; gy += GY) {
-              gridLines.push(<line key={`gh${gy.toFixed(1)}`} className="bm-citygrid"
-                x1={vp.x} y1={gy} x2={vp.x + vp.w} y2={gy} />);
+            const spokeD = Math.PI / 36;                 // 5° 방사선
+            for (let a = -Math.PI; a < Math.PI; a += spokeD) {
+              gridLines.push(<line key={`gs${a.toFixed(3)}`} className="bm-citygrid"
+                x1={CX + 40 * Math.cos(a)} y1={CY + 40 * Math.sin(a)}
+                x2={CX + rMax * Math.cos(a)} y2={CY + rMax * Math.sin(a)} />);
             }
             return (
               <g className="bm-city">
@@ -2009,7 +2067,7 @@ export function BrainMap() {
                         x={pp.x} y={pp.y - 5 / z} textAnchor="middle"
                         style={{ fontSize: `${8.5 / z}px` }}>
                     {nd.label || nd.id}</text>))}
-                {tiles.map(({ n: nd, p: pp, tx, ty }) => {
+                {tiles.map(({ n: nd, p: pp, tx, ty, bd }) => {
                   const on = litSet.has(nd.id);
                   const cy = ty + TH / 2;
                   const nearX = Math.abs(pp.x - tx) < Math.abs(pp.x - (tx + TW))
@@ -2020,6 +2078,7 @@ export function BrainMap() {
                     ty + TH * (0.3 + (0.5 * i) / Math.max(1, cnt - 1 || 1));
                   return (
                     <g key={`tile-${nd.id}`} data-kind={nd.kind}
+                       data-band={`${bd.r0.toFixed(1)},${bd.r1.toFixed(1)},${bd.a0.toFixed(3)},${bd.a1.toFixed(3)}`}
                        className={`bm-tile bm-tile--k${nd.kind}${on ? ' bm-tile--on' : ''}`}>
                       <path className="bm-lead"
                             d={`M${pp.x},${pp.y} L${pp.x},${cy} L${nearX},${cy}`} />
