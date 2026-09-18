@@ -1058,7 +1058,6 @@ export function BrainMap() {
   // the bands fade out while dots fly into the brain. During a transition
   // BOTH layers render; the finished side unmounts on onMorphDone.
   const [trans, setTrans] = useState<null | 'to2d' | 'to3d'>(null);
-  const [settle, setSettle] = useState(false);   // 250ms GL fade after landing
   const go3d = (want: boolean) => {
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
       setMode3d(want); setTrans(null); return;           // instant, no theatre
@@ -1616,6 +1615,7 @@ export function BrainMap() {
       ) : null}
       {(!mode3d || trans) ? (
       <div className={`brainmap__wrap bm-z${zb}${view.z > FIT.z + 0.001 ? ' is-zoomed' : ''}${
+             trans ? ' bm-morphing' : ''}${
              trans === 'to2d' ? ' bm-fade-in' : trans === 'to3d' ? ' bm-fade-out' : ''}`}
            ref={wrapRef}>
         <BuildTag />
@@ -1962,18 +1962,17 @@ export function BrainMap() {
             board was scaled/offset against the SVG. Same box = same
             letterbox = the derived front camera lands pixel-true. */}
         {trans ? (
-          <div className={`bm-glover${settle ? ' bm-gl-out' : ''}`}>
+          <div className="bm-glover">
             <Brain3D nodes={shownNodes} chainEdges={m.edges}
                      regions={m.regions} pos2d={pos}
                      lit={lit} onPick={setPickId} boardW={W} boardH={H}
                      morphTo={trans === 'to2d' ? 0 : 1}
                      onMorphDone={() => {
-                       if (trans === 'to2d') {
-                         setSettle(true);
-                         window.setTimeout(() => {
-                           setMode3d(false); setTrans(null); setSettle(false);
-                         }, 260);
-                       } else setTrans(null);
+                       // HanBin 9th — the GL dots land EXACTLY on the SVG
+                       // dots (position+size identity), so the handoff is an
+                       // instant swap: no crossfade, no double exposure.
+                       if (trans === 'to2d') { setMode3d(false); setTrans(null); }
+                       else setTrans(null);
                      }} />
           </div>) : null}
       </div>

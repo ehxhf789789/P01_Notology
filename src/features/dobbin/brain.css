@@ -530,8 +530,18 @@
 
 /* ── W4-T view morph (2026-09-18) ──────────────────────────────────── */
 .brainmap { position: relative; }        /* GL overlay anchors here */
-.bm-fade-in  { animation: bmFadeIn .7s ease both; }
-.bm-fade-out { animation: bmFadeOut .7s ease both; pointer-events: none; }
+/* HanBin 9th — during a morph the GL dots are THE dots: the SVG's own
+   dots/halos/edges hide so nothing double-exposes («블러» 느낌의 정체),
+   and the fade applies to the BACKGROUND (svg bands) only — never to the
+   flying dots (.bm-glover sits inside the wrap). */
+.bm-morphing .bm-zoomg g.bm-node,
+.bm-morphing .bm-zoomg .bm-halofade,
+.bm-morphing .bm-zoomg .bm-pulse,
+.bm-morphing .bm-zoomg path.bm-edge--on,
+.bm-morphing .brainmap__edgecanvas { visibility: hidden; }
+.bm-fade-in  .brainmap__svg { animation: bmFadeIn .7s ease both; }
+.bm-fade-out .brainmap__svg { animation: bmFadeOut .7s ease both; }
+.bm-fade-out { pointer-events: none; }
 @keyframes bmFadeIn  { from { opacity: 0; } to { opacity: 1; } }
 @keyframes bmFadeOut { from { opacity: 1; } to { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {

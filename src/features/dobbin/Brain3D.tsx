@@ -141,9 +141,9 @@ void main(){
   float r = length(q);
   if (r > 0.5) discard;
   if (uPick > 0.5) { gl_FragColor = vec4(vPick, 1.0); return; }
-  float a = smoothstep(0.5, 0.12, r);
+  float a = smoothstep(0.5, 0.34, r);   // crisp edge — no blur feel
   vec3 c = vC + vLit * vec3(0.55, 0.45, 0.2);
-  gl_FragColor = vec4(c, a * (0.62 + vLit * 0.38));
+  gl_FragColor = vec4(c, a * (0.85 + vLit * 0.15));
 }`;
 // activation chain lines + travelling pulses — one program, uKind switches
 const LVS = `
@@ -280,6 +280,8 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
     gl.bufferData(gl.ARRAY_BUFFER, litArr, gl.DYNAMIC_DRAW);
     const litIdx: Record<string, number> = {};
     idOf.forEach((id, i) => { litIdx[id] = i; });
+    const nameOf: Record<string, string> = {};
+    nodes.forEach(nd => { if (nd.label) nameOf[nd.id] = nd.label; });
 
     const U = {
       mvp: gl.getUniformLocation(prog, 'uMVP'),
@@ -344,7 +346,7 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
     const labBox = labelRef.current;
     if (labBox) {
       labBox.innerHTML = '';
-      for (let i = 0; i < 6; i++) {
+      for (let i = 0; i < 10; i++) {
         const d = document.createElement('div');
         d.className = 'b3d-lab'; d.style.display = 'none';
         labBox.appendChild(d); pool.push(d);
@@ -445,14 +447,18 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
       gl.uniform1f(U.pxVb, Math.min(cv.width, cv.height) / 760);
       gl.drawArrays(gl.POINTS, 0, nTot);
 
-      // labels — every frame, GPU-composited transforms (R5)
+      // labels — every frame, GPU-composited transforms (R5). HanBin 10th:
+      // every fired nerve says its name, and the text fades on the SAME
+      // decay curve as its dot — appearing and leaving without a pop.
       if (labBox) {
-        const names = litRef.current.slice(0, 6);
+        const names = litRef.current.slice(0, pool.length);
         for (let i = 0; i < pool.length; i++) {
           const d = pool[i];
           const id = names[i];
           const gi = id != null ? litIdx[id] : undefined;
           if (id == null || gi == null) { d.style.display = 'none'; continue; }
+          const glow = litArr[gi];
+          if (glow <= 0.03) { d.style.display = 'none'; continue; }
           const A3 = p3Of[id], A2 = p2Of[id];
           const P: [number, number, number] = [
             A2[0] + (A3[0] - A2[0]) * morph,
@@ -462,9 +468,11 @@ export function Brain3D({ nodes, chainEdges, regions, pos2d, lit, onPick,
           const cyy = mvp[1] * P[0] + mvp[5] * P[1] + mvp[9] * P[2] + mvp[13];
           const cw = mvp[3] * P[0] + mvp[7] * P[1] + mvp[11] * P[2] + mvp[15];
           if (cw <= 0) { d.style.display = 'none'; continue; }
-          const nm = id.includes(':') ? id.slice(id.indexOf(':') + 1) : id;
+          const nm = nameOf[id]
+            || (id.includes(':') ? id.slice(id.indexOf(':') + 1) : id);
           if (d.textContent !== nm) d.textContent = nm;
           d.style.display = '';
+          d.style.opacity = String(Math.min(1, glow * 1.4));
           d.style.transform = `translate3d(${((cx / cw * 0.5 + 0.5) * w).toFixed(1)}px,`
             + `${((0.5 - cyy / cw * 0.5) * h).toFixed(1)}px,0) translate(-50%,-160%)`;
         }
