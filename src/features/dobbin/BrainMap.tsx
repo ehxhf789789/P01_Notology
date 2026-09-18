@@ -196,6 +196,10 @@ type Map = {
               이름밖큰것?: [number, string][]; 왜?: string };
   matrix?: { 측정?: number; 자극?: number; 명중?: number; 오배선?: number;
              신경전체?: number; 문?: number; 문표시?: number;
+             /** 🔴 **분모를 갈라 받는다** (v51 P4). `신경전체` 161 에는 반사
+              *  벤치가 **설계상 안 재는** `변조` 40개가 섞여 있다 — 못 재는
+              *  것을 분모에 넣으면 영원히 100%가 못 되는 성적이 된다. */
+             잴수있음?: number; 못잼변조?: number; 자극없음?: number;
              잰때?: string | null; 출처?: string };
   tally?: Record<string, number>;
   census?: Record<string, {
@@ -1319,9 +1323,18 @@ export function BrainMap() {
             {(mx.문 ?? 0) - (mx.문표시 ?? 0) > 0
               ? ` (${(mx.문 ?? 0) - (mx.문표시 ?? 0)}개 계측 밖)` : ''}
           </span>) : null}
-        {mx.신경전체 ? (
-          <span className="bm-stock" title="반사 벤치가 한 번이라도 잰 신경 / 등록부 전체">
-            신경 덮음 <b>{mx.신경전체}개 중 {mx.측정}개</b></span>) : null}
+        {mx.잴수있음 ? (
+          <span className="bm-cell" title={
+              `반사 벤치는 «답을 내는» 신경만 잰다 — `
+              + `변조·감각·잔여 ${mx.못잼변조}개는 **설계상** 대상이 아니다(답을 내는 자가 아니다). `
+              + `잴 수 있는 ${mx.잴수있음}개 중 ${mx.자극없음}개는 **자극(시험 입력)이 없어** 아직 못 잰다.`}>
+            {/* 🔴 여기가 「신경 덮음 161개 중 55개」라 말했다 — **분모가 거짓**
+                이었다 (v51 P4). 못 재는 변조 40 을 분모에 넣어 34%로 보였고,
+                실제로 잴 수 있는 것 기준으로는 55/121 = 45% 다. */}
+            신경 덮음 <b>{mx.잴수있음}개 중 {mx.측정}개</b>
+            {mx.자극없음 ? <i className="bm-cov"> · 자극없음 {mx.자극없음}</i> : null}
+            {mx.못잼변조 ? <i className="bm-cov"> · 답아닌 {mx.못잼변조}은 대상 아님</i> : null}
+          </span>) : null}
         <span className="bm-stock">손 <b>{m.counts?.조작 ?? 0}</b></span>
         <span className="bm-stock"
               title={m.counts?.장비파일
