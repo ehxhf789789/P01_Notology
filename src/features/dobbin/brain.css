@@ -527,3 +527,13 @@
   font-size: 10px; color: #ffe2ae; text-shadow: 0 0 4px rgba(0, 0, 0, .9);
   white-space: nowrap;
 }
+
+/* ── W4-T view morph (2026-09-18) ──────────────────────────────────── */
+.brainmap { position: relative; }        /* GL overlay anchors here */
+.bm-fade-in  { animation: bmFadeIn .7s ease both; }
+.bm-fade-out { animation: bmFadeOut .7s ease both; pointer-events: none; }
+@keyframes bmFadeIn  { from { opacity: 0; } to { opacity: 1; } }
+@keyframes bmFadeOut { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .bm-fade-in, .bm-fade-out { animation: none; }
+}

@@ -1053,6 +1053,18 @@ export function BrainMap() {
   // No preference memory. The SSE subscription lives above both views, so
   // toggling never re-subscribes and activation never pauses.
   const [mode3d, setMode3d] = useState(true);
+  // W4-T (HanBin 09-18) — the toggle is a MORPH, not a swap: 3D→2D the GL
+  // dots glide onto the board while the SVG bands fade in beneath; 2D→3D
+  // the bands fade out while dots fly into the brain. During a transition
+  // BOTH layers render; the finished side unmounts on onMorphDone.
+  const [trans, setTrans] = useState<null | 'to2d' | 'to3d'>(null);
+  const go3d = (want: boolean) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      setMode3d(want); setTrans(null); return;           // instant, no theatre
+    }
+    setTrans(want ? 'to3d' : 'to2d');
+    if (want) setMode3d(true);        // mount GL now; SVG lingers till done
+  };
   const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
   const viewRef = useRef(view); viewRef.current = view;
   // test handle — jigs that predate the LOD ladder measure the full dot map
@@ -1607,18 +1619,32 @@ export function BrainMap() {
           🔴 경고(끊김·잔량)는 **그대로 보인다.** 오히려 폭 65px 구석에서
              지도 위 전폭으로 올라와 더 잘 보인다. */}
       <StateChip lit={lit} enOf={enOf} />
-      {mode3d ? (
-        <div className="brainmap__wrap brainmap__wrap--3d">
-          <BuildTag />
+      {(mode3d || trans) ? (
+        /* during ANY transition the GL layer is an absolute overlay on the
+           2D wrap beneath — dots fly while the board fades under them */
+        <div className={`brainmap__wrap brainmap__wrap--3d${trans ? ' bm-trans' : ''}`}
+             style={trans ? { position: 'absolute', inset: 0,
+                              pointerEvents: 'none', zIndex: 2,
+                              border: 'none', boxShadow: 'none',
+                              background: 'transparent' } : undefined}>
+          {!trans && <BuildTag />}
           <Brain3D nodes={shownNodes} regions={m.regions} pos2d={pos}
-                   lit={lit} onPick={setPickId} boardW={W} boardH={H} />
+                   lit={lit} onPick={setPickId} boardW={W} boardH={H}
+                   morphTo={trans === 'to2d' ? 0 : 1}
+                   onMorphDone={trans ? () => {
+                     if (trans === 'to2d') setMode3d(false);
+                     setTrans(null);
+                   } : null} />
+          {!trans && (
           <div className="bm-zoomctl" role="group" aria-label="view">
             <button type="button" title="switch to the 2D map (semantic zoom)"
-                    onClick={() => setMode3d(false)}>2D</button>
-          </div>
+                    onClick={() => go3d(false)}>2D</button>
+          </div>)}
         </div>
-      ) : (
-      <div className={`brainmap__wrap bm-z${zb}${view.z > 1.001 ? ' is-zoomed' : ''}`}
+      ) : null}
+      {(!mode3d || trans) ? (
+      <div className={`brainmap__wrap bm-z${zb}${view.z > 1.001 ? ' is-zoomed' : ''}${
+             trans === 'to2d' ? ' bm-fade-in' : trans === 'to3d' ? ' bm-fade-out' : ''}`}
            ref={wrapRef}>
         <BuildTag />
         <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
@@ -1947,7 +1973,7 @@ export function BrainMap() {
         {/* W4 — zoom controls (Maps idiom: wheel/drag/dblclick/pinch also work) */}
         <div className="bm-zoomctl" role="group" aria-label="zoom">
           <button type="button" title="back to 3D"
-                  onClick={() => setMode3d(true)}>3D</button>
+                  onClick={() => go3d(true)}>3D</button>
           <button type="button" title="zoom in"
                   onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1.6)}>+</button>
           <button type="button" title="zoom out"
@@ -1962,7 +1988,7 @@ export function BrainMap() {
             구석에 따로 떠 있었다. 위 `<StateChip lit=…>` 한 줄로 합쳤다.
             겹치는 것이 둘에서 **0** 이 된다. */}
       </div>
-      )}
+      ) : null}
 
       {turn && (
         <div className="brainmap__turn">

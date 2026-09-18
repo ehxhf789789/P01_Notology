@@ -102,10 +102,12 @@ function lookAt(yaw: number, pitch: number, dist: number): Float32Array {
 const VS = `
 attribute vec3 aP3; attribute vec3 aP2; attribute vec3 aC;
 attribute float aS; attribute vec3 aPick; attribute float aLit;
+attribute float aKind;
 uniform mat4 uMVP; uniform float uMorph; uniform float uPick; uniform float uPx;
-varying vec3 vC; varying float vLit; varying vec3 vPick;
+varying vec3 vC; varying float vLit; varying vec3 vPick; varying float vFade;
 void main(){
   vec3 p = mix(aP2, aP3, uMorph);
+  vFade = mix(1.0, uMorph, aKind);   // shell fades out toward the flat board
   gl_Position = uMVP * vec4(p, 1.0);
   float d = max(gl_Position.w, 0.3);
   gl_PointSize = clamp((aS + aLit * 6.0) * uPx / d, 1.5, 64.0);
@@ -113,24 +115,31 @@ void main(){
 }`;
 const FS = `
 precision mediump float;
-varying vec3 vC; varying float vLit; varying vec3 vPick;
+varying vec3 vC; varying float vLit; varying vec3 vPick; varying float vFade;
 uniform float uPick;
 void main(){
   vec2 q = gl_PointCoord - 0.5;
   float r = length(q);
   if (r > 0.5) discard;
   if (uPick > 0.5) { gl_FragColor = vec4(vPick, 1.0); return; }
-  float a = smoothstep(0.5, 0.12, r);
+  float a = smoothstep(0.5, 0.12, r) * vFade;
+  if (a < 0.004) discard;
   vec3 c = vC + vLit * vec3(0.55, 0.45, 0.2);
   gl_FragColor = vec4(c, a * (0.55 + vLit * 0.45));
 }`;
 
-export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH }: {
+export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH,
+                          morphTo = 1, onMorphDone }: {
   nodes: N3[]; regions: Record<string, Reg>;
   pos2d: Record<string, { x: number; y: number }>;
   lit: string[]; onPick: (id: string | null) => void;
   boardW: number; boardH: number;
+  /** W4-T — 1 = brain, 0 = flat 2D board plane. Animated toward each frame;
+   *  onMorphDone fires once when the target is reached (view handoff). */
+  morphTo?: number; onMorphDone?: (() => void) | null;
 }) {
+  const morphToRef = useRef(morphTo); morphToRef.current = morphTo;
+  const doneRef = useRef(onMorphDone); doneRef.current = onMorphDone;
   const cvRef = useRef<HTMLCanvasElement | null>(null);
   const litRef = useRef(lit); litRef.current = lit;
   const labelRef = useRef<HTMLDivElement | null>(null);
@@ -155,7 +164,7 @@ export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH }: 
 
     // ── geometry ──────────────────────────────────────────────────────
     const P3: number[] = [], P2: number[] = [], C: number[] = [], S: number[] = [];
-    const PK: number[] = [], LIT: number[] = [];
+    const PK: number[] = [], LIT: number[] = [], KD: number[] = [];
     const idOf: string[] = [];
     const push = (p3: [number, number, number], p2: [number, number, number],
                   c: [number, number, number], sz: number, id: string | null) => {
@@ -164,6 +173,7 @@ export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH }: 
       if (id) idOf.push(id);
       PK.push(((pi >> 16) & 255) / 255, ((pi >> 8) & 255) / 255, (pi & 255) / 255);
       LIT.push(0);
+      KD.push(id ? 0 : 1);                          // shell/stem = 1 → fades on flatten
     };
     // silhouette shell — two lobed hemispheres + cerebellum + brainstem.
     // Parametric, no model file; gyri feel from a low-freq radial ripple.
@@ -229,7 +239,7 @@ export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH }: 
       return b;
     };
     buf(P3, 'aP3', 3); buf(P2, 'aP2', 3); buf(C, 'aC', 3); buf(S, 'aS', 1);
-    buf(PK, 'aPick', 3);
+    buf(PK, 'aPick', 3); buf(KD, 'aKind', 1);
     const litBuf = gl.createBuffer()!;
     gl.bindBuffer(gl.ARRAY_BUFFER, litBuf);
     const litArr = new Float32Array(LIT);
@@ -247,9 +257,9 @@ export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH }: 
 
     // ── camera + loop ─────────────────────────────────────────────────
     const cam = { yaw: 0.6, pitch: 0.28, dist: 2.5 };
-    let morph = 0;                                        // 0 = 2D plane → 1 = 3D
+    let morph = morphToRef.current >= 1 ? 0 : 1;          // opposite → glide in
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    let lastTouch = 0, raf = 0, dead = false;
+    let lastTouch = 0, raf = 0, dead = false, doneFired = -1;
     let mvp: Float32Array = new Float32Array(16);
     const draw = (tms: number) => {
       if (dead) return;
@@ -260,8 +270,24 @@ export function Brain3D({ nodes, regions, pos2d, lit, onPick, boardW, boardH }: 
       gl.viewport(0, 0, cv.width, cv.height);
       gl.clearColor(0.027, 0.039, 0.07, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
-      if (morph < 1) morph = Math.min(1, morph + 0.02);
-      if (!reduced && tms - lastTouch > 4000) cam.yaw += 0.0016;  // idle orbit
+      // W4-T — glide toward the requested layout (~700ms; instant if reduced)
+      const tgt = morphToRef.current;
+      const step = reduced ? 1 : 0.024;
+      morph = morph < tgt ? Math.min(tgt, morph + step)
+            : morph > tgt ? Math.max(tgt, morph - step) : morph;
+      if (morph === tgt && doneFired !== tgt) {
+        doneFired = tgt;
+        if (doneRef.current) window.setTimeout(() => doneRef.current?.(), 0);
+      }
+      // heading toward the flat board the camera eases to a straight-on view,
+      // so the settling dots register with the SVG board underneath
+      if (tgt === 0) {
+        cam.yaw += (0 - cam.yaw) * 0.08;
+        cam.pitch += (0 - cam.pitch) * 0.08;
+        cam.dist += (1.62 - cam.dist) * 0.08;
+      } else if (!reduced && tms - lastTouch > 4000 && morph === 1) {
+        cam.yaw += 0.0016;                                 // idle orbit (3D only)
+      }
       // lit decay — same 5.2s spirit as 2D
       const now = Date.now();
       const cur = litRef.current;
