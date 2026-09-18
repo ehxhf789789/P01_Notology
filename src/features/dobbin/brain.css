@@ -469,3 +469,44 @@
 .bm-sublab { font-size: 6.2px; letter-spacing: .2px;
              fill: hsl(210 30% 80% / .52); pointer-events: none;
              paint-order: stroke; stroke: hsl(222 42% 8% / .7); stroke-width: 1.6px; }
+
+/* ── W4 semantic zoom (2026-09-18) ─────────────────────────────────── */
+.brainmap__wrap { touch-action: none; }           /* pinch belongs to us */
+.brainmap__wrap.is-zoomed { cursor: grab; }
+.brainmap__wrap.is-zoomed:active { cursor: grabbing; }
+.bm-zoomctl {
+  position: absolute; right: 10px; top: 10px; display: flex; gap: 4px;
+  align-items: center; z-index: 3;
+}
+.bm-zoomctl button {
+  width: 26px; height: 26px; border-radius: 6px; border: 1px solid #2c3550;
+  background: rgba(16, 22, 40, .82); color: #aeb9d6; font-size: 14px;
+  line-height: 1; cursor: pointer;
+}
+.bm-zoomctl button:hover { background: rgba(38, 48, 76, .9); color: #e6ecff; }
+.bm-zoomctl__z { font-size: 10px; color: #7c8598; font-style: normal; }
+.bm-tag--zoom { fill: #93a1c4; opacity: .85; }
+/* Z3 blueprint card — circuit diagram + live state (HanBin decision) */
+.bm-bp-fo { overflow: visible; pointer-events: none; }
+.bm-bp {
+  background: rgba(13, 18, 34, .92); border: 1px solid #33406a;
+  border-radius: .5em; padding: .45em .6em; color: #c7d1ea;
+  font-family: inherit; line-height: 1.35; width: 100%; height: 100%;
+  box-sizing: border-box; overflow: hidden;
+}
+.bm-bp--on { border-color: #ffd68c; box-shadow: 0 0 .8em rgba(255, 214, 140, .35); }
+.bm-bp b { color: #e8edfb; display: block; margin-bottom: .2em; }
+.bm-bp__io { display: flex; gap: .5em; align-items: center; }
+.bm-bp__in, .bm-bp__out { display: flex; flex-direction: column; min-width: 0; }
+.bm-bp__in i, .bm-bp__out i {
+  font-style: normal; white-space: nowrap; overflow: hidden;
+  text-overflow: ellipsis; max-width: 9em; color: #9fb0d8;
+}
+.bm-bp__fn {
+  border: 1px solid #4a5b8f; border-radius: .3em; padding: .1em .4em;
+  color: #b9c6ea; flex: none;
+}
+.bm-bp__none { color: #5d6880; opacity: .6; }
+.bm-bp__stim { color: #8fa0c8; margin-top: .25em; font-style: italic;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bm-bp__foot { color: #74809f; margin-top: .2em; }

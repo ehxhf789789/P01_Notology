@@ -10,7 +10,7 @@
  *    색=상태 · 자리=영역(뇌간·전두·측두·두정·후두·언어·소뇌·겉질).
  *    말을 걸면 그 턴에 울린 신경이 **번쩍이고 신호가 사슬을 타고 흐른다**.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 import { lifeTail, onLive, sseState } from '../../web/liveSync';
 import { budget as qBudget, qualityInfo } from '../../web/quality';
 
@@ -21,7 +21,8 @@ import { budget as qBudget, qualityInfo } from '../../web/quality';
 const WORK_KINDS = new Set(['thinking', 'tending', 'tended', 'inbox-changed',
   'note-changed', 'vault-changed', 'brainmap-delta', 'brainmap-changed',
   'upload', 'errand-changed']);
-function useWorkState(): { cls: string; txt: string } {
+function useWorkState(): { cls: string; txt: string;
+                                        age: number; anyAge: number } {
   const [, force] = useState(0);
   const lastRef = useRef<number>(0);
   const pendRef = useRef<number | null>(null);
@@ -1032,6 +1033,107 @@ export function BrainMap() {
                      [m, shownNodes, rings]);
   const pos = useMemo(() => (m ? place(shownNodes, lb) : {}), [shownNodes, lb]);
   posRef.current = pos;
+
+  // ── W4 Semantic zoom (Maps idiom · HanBin 2026-09-18) ────────────────
+  // One viewTransform in viewBox space: p_screen = z·p + t. LOD ladder
+  // (Z0 cortex → Z1 sub bands → Z2 nerve dots+names → Z3 blueprints) culls
+  // everything below the current level — zooming OUT reduces render work.
+  // 🔴 The base layer re-renders only when the Z *bucket* changes, never
+  //    per wheel tick (the group transform is GPU-cheap).
+  const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
+  const viewRef = useRef(view); viewRef.current = view;
+  const zb = view.z <= 1.001 ? 0 : view.z <= 2.5 ? 1 : view.z <= 5 ? 2 : 3;
+  /** visible window in content (viewBox) coords — for viewport culling */
+  const vp = { x: -view.tx / view.z, y: -view.ty / view.z,
+               w: W / view.z, h: H / view.z };
+  const inVp = (x: number, y: number, pad = 30) =>
+    x >= vp.x - pad && x <= vp.x + vp.w + pad
+    && y >= vp.y - pad && y <= vp.y + vp.h + pad;
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  /** CSS pixel → viewBox point (undo the xMidYMid-meet letterbox) */
+  const toVb = (cx: number, cy: number) => {
+    const el = svgRef.current; if (!el) return { x: CX, y: CY };
+    const r = el.getBoundingClientRect();
+    const sc = Math.min(r.width / W, r.height / H) || 1;
+    return { x: (cx - r.left - (r.width - W * sc) / 2) / sc,
+             y: (cy - r.top - (r.height - H * sc) / 2) / sc };
+  };
+  const clampView = (z: number, tx: number, ty: number) => {
+    z = Math.min(12, Math.max(1, z));
+    // content occupies [t, t+z·W]; keep it covering the viewBox
+    tx = Math.min(0, Math.max(W - z * W, tx));
+    ty = Math.min(0, Math.max(H - z * H, ty));
+    return { z, tx, ty };
+  };
+  /** zoom about a viewBox point c: t' = c·(1 − z'/z) + t·(z'/z) */
+  const zoomAt = (c: { x: number; y: number }, factor: number) => {
+    setView(v => {
+      const nz = Math.min(12, Math.max(1, v.z * factor));
+      const k = nz / v.z;
+      return clampView(nz, c.x * (1 - k) + v.tx * k, c.y * (1 - k) + v.ty * k);
+    });
+  };
+  useEffect(() => {
+    const el = wrapRef.current; if (!el) return;
+    // wheel must be non-passive to preventDefault (page would scroll)
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      zoomAt(toVb(e.clientX, e.clientY), Math.exp(-e.deltaY * 0.0015));
+    };
+    const ptr = new Map<number, { x: number; y: number }>();
+    let dragged = false;
+    const onDown = (e: PointerEvent) => {
+      if (e.button !== 0) return;
+      ptr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      dragged = false;
+      el.setPointerCapture?.(e.pointerId);
+    };
+    const onMove = (e: PointerEvent) => {
+      const prev = ptr.get(e.pointerId); if (!prev) return;
+      const cur = { x: e.clientX, y: e.clientY };
+      if (ptr.size === 2) {                          // pinch
+        const [a, b] = [...ptr.values()];
+        const other = a === prev ? b : a;
+        const d0 = Math.hypot(prev.x - other.x, prev.y - other.y) || 1;
+        const d1 = Math.hypot(cur.x - other.x, cur.y - other.y) || 1;
+        zoomAt(toVb((cur.x + other.x) / 2, (cur.y + other.y) / 2), d1 / d0);
+      } else if (viewRef.current.z > 1.001) {        // pan (only when zoomed)
+        const r = svgRef.current?.getBoundingClientRect();
+        const sc = r ? Math.min(r.width / W, r.height / H) || 1 : 1;
+        const dx = (cur.x - prev.x) / sc, dy = (cur.y - prev.y) / sc;
+        if (Math.abs(cur.x - prev.x) + Math.abs(cur.y - prev.y) > 2) dragged = true;
+        setView(v => clampView(v.z, v.tx + dx, v.ty + dy));
+      }
+      ptr.set(e.pointerId, cur);
+    };
+    const onUp = (e: PointerEvent) => { ptr.delete(e.pointerId); };
+    // swallow the click that ends a drag — else it toggles a node pick
+    const onClick = (e: MouseEvent) => {
+      if (dragged) { e.stopPropagation(); dragged = false; }
+    };
+    const onDbl = (e: MouseEvent) => {
+      e.preventDefault();
+      zoomAt(toVb(e.clientX, e.clientY), 1.8);
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+    el.addEventListener('click', onClick, true);
+    el.addEventListener('dblclick', onDbl);
+    return () => {
+      el.removeEventListener('wheel', onWheel);
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.removeEventListener('click', onClick, true);
+      el.removeEventListener('dblclick', onDbl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   // 🔴 **기반층을 얼린다** (2026-09-13 · 한빈 «웹 렌더링 렉»). 노드 ~400 +
   //    이음 ~1,200 을 hover·빛·자국(0.7초)마다 React 가 전부 다시 diff 하던
   //    것이 지도 버벅임의 몸통 — 기반층은 판(m)이 바뀔 때만 다시 짓고,
@@ -1044,9 +1146,12 @@ export function BrainMap() {
   useEffect(() => {
     const cv = edgeCanvasRef.current;
     if (!cv || !m?.nodes?.length || !m.edges) return;
+    let raf = 0;
     const draw = () => {
       const cssW = cv.clientWidth, cssH = cv.clientHeight;
       if (!cssW || !cssH) return;
+      const vw = viewRef.current;
+      const zbNow = vw.z <= 1.001 ? 0 : vw.z <= 2.5 ? 1 : vw.z <= 5 ? 2 : 3;
       const qb = qBudget();
       const dpr = qb.haloCap <= 4 ? 1 : Math.min(window.devicePixelRatio || 1, 2);
       cv.width = Math.round(cssW * dpr); cv.height = Math.round(cssH * dpr);
@@ -1061,7 +1166,10 @@ export function BrainMap() {
       const s = Math.min(cssW / W, cssH / H);        // meet — 작은 쪽이 이긴다
       const ox = (cssW - W * s) / 2, oy = (cssH - H * s) / 2;
       ctx.setTransform(s * dpr, 0, 0, s * dpr, ox * dpr, oy * dpr);
-      ctx.clearRect(0, 0, W, H);
+      ctx.clearRect(-ox / s, -oy / s, cssW / s, cssH / s);
+      // W4 LOD — the base edge web renders from Z2 (plan: Z0/Z1 cull edges)
+      if (zbNow < 2) return;
+      ctx.transform(vw.z, 0, 0, vw.z, vw.tx, vw.ty);   // view on top of letterbox
       ctx.globalAlpha = 0.5;                 // .bm-edge 전역 (brain.css:300)
       ctx.lineCap = 'round';
       const byId: Record<string, Node> = {};
@@ -1077,12 +1185,17 @@ export function BrainMap() {
         bad:   { c: 'rgba(240,87,74,.55)' },
         tree:  { c: 'rgba(255,214,140,.30)' },
       };
-      ctx.lineWidth = 0.7;
+      ctx.lineWidth = 0.7 / vw.z;                     // hairline stays hairline
+      // viewport in content coords — cull off-screen edges (Z3 especially)
+      const vx = -vw.tx / vw.z, vy = -vw.ty / vw.z, vwd = W / vw.z, vhd = H / vw.z;
+      const vis = (q: { x: number; y: number }) =>
+        q.x >= vx - 40 && q.x <= vx + vwd + 40 && q.y >= vy - 40 && q.y <= vy + vhd + 40;
       for (const e of m.edges) {
         if (!showCall && (e.kind === '부름' || e.kind === '사슬')) continue;
         if (!shownIds.has(e.a) || !shownIds.has(e.b)) continue;
         const a = pos[e.a], b = pos[e.b];
         if (!a || !b) continue;
+        if (!vis(a) && !vis(b)) continue;
         const na = byId[e.a], nb = byId[e.b];
         const cross = na && nb && (na.layer ?? m.regions[na.region]?.layer)
           !== (nb.layer ?? m.regions[nb.region]?.layer);
@@ -1100,16 +1213,23 @@ export function BrainMap() {
         ctx.stroke();
       }
     };
-    draw();
-    const ro = new ResizeObserver(draw);
+    const kick = () => {                    // pan/zoom storms fold into one frame
+      if (raf) return;
+      raf = requestAnimationFrame(() => { raf = 0; draw(); });
+    };
+    kick();
+    const ro = new ResizeObserver(kick);
     ro.observe(cv);
-    return () => ro.disconnect();
-  }, [m, pos, shownIds, showCall]);
+    return () => { ro.disconnect(); if (raf) cancelAnimationFrame(raf); };
+  }, [m, pos, shownIds, showCall, view]);
 
   const baseLayer = useMemo(() => {
     // 🔴 m 만 보면 안 된다 — e2e 심에서 빈 껍데기({})가 와 m.nodes.forEach
     //    가 터졌고 앱 전체가 죽었다 (ui_e2e pageerror 실측)
     if (!m?.nodes?.length || !m.edges) return null;
+    // W4 LOD — below Z2 the node dots are culled (Z0 cortex bands only,
+    // Z1 sub bands + cluster dots). Fired nerves still glow via the overlay.
+    if (zb < 2) { resetTags(); return null; }
     // 🔴 이름표 자리 장부를 **여기서** 비운다 — 안 비우면 두 번째 렌더부터
     //    제 이름표와 겹쳐 전부 사라진다 (v50).
     resetTags();
@@ -1206,7 +1326,31 @@ export function BrainMap() {
         })}
       </g>
     );
-  }, [m, pos, shownNodes, shownIds, showCall]);
+  }, [m, pos, shownNodes, shownIds, showCall, zb]);
+  // W4 Z1 — aggregated cluster dots: one dot per (region·부), sized by √n.
+  // Cheap stand-in for 400 individual dots while zoomed out.
+  const clusterLayer = useMemo(() => {
+    if (zb !== 1 || !m?.nodes?.length) return null;
+    const acc: Record<string, { x: number; y: number; n: number; hue: number;
+                                label: string }> = {};
+    shownNodes.forEach(n => {
+      const pp = pos[n.id]; if (!pp) return;
+      const k = `${n.region}·${n.sub || ''}`;
+      const a = acc[k] ??= { x: 0, y: 0, n: 0,
+        hue: m.regions[n.region]?.hue ?? 210, label: n.sub || n.region };
+      a.x += pp.x; a.y += pp.y; a.n += 1;
+    });
+    return (
+      <g className="bm-clusters" aria-hidden="true">
+        {Object.entries(acc).map(([k, a]) => (
+          <circle key={k} cx={a.x / a.n} cy={a.y / a.n}
+                  r={Math.min(2.5 + Math.sqrt(a.n) * 1.1, 9)}
+                  fill={`hsl(${a.hue} 70% 62% / .5)`}>
+            <title>{`${a.label} — ${a.n}`}</title>
+          </circle>))}
+      </g>
+    );
+  }, [zb, m, shownNodes, pos]);
   // 🔴 **«이웃 그물» 을 걷어냈다** (2026-09-09 적대적 검토).
   //    같은 엽 안에서 «가까이 찍힌» 둘을 이어 321개를 그렸는데, 서버가 보낸
   //    진짜 이음 107개와 **겹치는 것이 하나도 없었다**. 사람이 본 428선 중
@@ -1270,7 +1414,7 @@ export function BrainMap() {
                     이 0점처럼 보였는데 그것은 디버그 주행의 크기였다.
                     서버가 v49 에서 완주 판만 쓰게 고쳤고, 화면도 **성적은
                     %로** 적는다 (크기·덮음은 「N개 중 M개」로 따로). */}
-                {' · '}반사 {Math.round((mx.명중 / Math.max(1, mx.자극)) * 100)}%
+                {' · '}반사 {Math.round(((mx.명중 ?? 0) / Math.max(1, mx.자극 ?? 0)) * 100)}%
                 <i className="bm-cov" title={`완주 판 ${mx.자극}자극 중 ${mx.명중} 명중`}>
                   ({mx.자극}자극)</i>
                 {/* 🔴 「43/45」는 96%로 읽히지만 그 45는 *신경 수*가 아니라
@@ -1436,11 +1580,13 @@ export function BrainMap() {
           🔴 경고(끊김·잔량)는 **그대로 보인다.** 오히려 폭 65px 구석에서
              지도 위 전폭으로 올라와 더 잘 보인다. */}
       <StateChip lit={lit} enOf={enOf} />
-      <div className="brainmap__wrap">
+      <div className={`brainmap__wrap bm-z${zb}${view.z > 1.001 ? ' is-zoomed' : ''}`}
+           ref={wrapRef}>
         <BuildTag />
         <canvas ref={edgeCanvasRef} className="brainmap__edgecanvas"
                 aria-hidden="true" />
         <svg viewBox={`0 0 ${W} ${H}`} className="brainmap__svg" role="img"
+             ref={svgRef}
              /* 🔴 장식 회전의 중심을 **여기서** 넘긴다 — css 에 숫자를 또 적으면
                 판 크기를 바꿀 때 조용히 낡는다 (v51 에 실제로 그랬다). */
              style={{ ['--bm-cx' as string]: `${CX}px`,
@@ -1465,6 +1611,10 @@ export function BrainMap() {
           </defs>
 
           <rect x="0" y="0" width={W} height={H} fill="url(#bmbg)" />
+          {/* W4 — everything below lives in ONE transformed group; the
+              transform is the whole zoom (no re-layout, GPU-composited). */}
+          <g className="bm-zoomg"
+             transform={`translate(${view.tx},${view.ty}) scale(${view.z})`}>
 
           {/* 🔴 **밑그림(동그라미)을 걷었다** (한빈 2026-09-10: *"밑배경 뇌
               그림이 상당히 별로다. 그냥 제거해. 전혀 뇌로 보이지 않고 오히려
@@ -1524,7 +1674,8 @@ export function BrainMap() {
               *"평시엔 이름을 안 그린다 — 상시 라벨은 서로 겹쳤다."* 그 규율을
               따른다. 평시엔 **띠 색과 칸막이**가 세분화를 말하고, `<title>`
               이 하나하나를 말한다. */}
-          {Object.entries(lb).filter(([k, L]) => L.arc && L.subs && regHover === k)
+          {Object.entries(lb).filter(([k, L]) => L.arc && L.subs
+              && (zb === 1 || regHover === k))
             .flatMap(([k, L]) =>
             L.subs!.filter(sb => sb.n >= 2).map(sb => {
               const mid = (sb.a0 + sb.a1) / 2;
@@ -1539,7 +1690,7 @@ export function BrainMap() {
                 영역 hue 는 그대로 두고 **밝기·투명도만** 부 차례로 변조한다 —
                 새 색을 만들면 화면이 시끄러워지고 색이 뜻을 잃는다. 영역 띠
                 **아래**에 깔아 경계가 겹줄로 안 보이게 한다. */}
-            {Object.entries(lb).filter(([, L]) => L.arc && L.subs).flatMap(([k, L]) =>
+            {zb >= 1 && Object.entries(lb).filter(([, L]) => L.arc && L.subs).flatMap(([k, L]) =>
               L.subs!.map(sb => (
                 <path key={`sub-${k}-${sb.key}`}
                       d={arcPath(sb.a0, sb.a1, L.arc!.r0, L.arc!.r1)}
@@ -1586,7 +1737,7 @@ export function BrainMap() {
 
           {/* 🔴 **부 칸막이** — 띠만으로는 어디까지가 한 부인지 안 읽힌다.
               얇은 방사선 하나면 충분하다 (v51 P3). */}
-          {Object.entries(lb).filter(([, L]) => L.arc && L.subs).flatMap(([k, L]) =>
+          {zb >= 1 && Object.entries(lb).filter(([, L]) => L.arc && L.subs).flatMap(([k, L]) =>
             L.subs!.slice(1).map(sb => (
               <line key={`div-${k}-${sb.key}`} className="bm-subdiv"
                     x1={CX + L.arc!.r0 * Math.cos(sb.a0)}
@@ -1610,7 +1761,8 @@ export function BrainMap() {
             // 🔴 **평시엔 이름을 안 그린다** — 상시 라벨은 서로 겹쳤다
             //    (「보관소조작」으로 뭉개진 실측 스크린샷). 영역 hover 또는
             //    선택 때만, 그때는 수치까지 함께.
-            if (regHover !== k && reg !== k) return null;
+            // W4 Z0 — at fit zoom the region names ARE the map (no dots yet)
+            if (zb > 0 && regHover !== k && reg !== k) return null;
             return (
               <text key={`lab-${k}`}
                     className={`bm-region bm-region--btn is-on`}
@@ -1627,6 +1779,73 @@ export function BrainMap() {
 
           {/* 이음+노드 기반층 — 판(m)이 바뀔 때만 다시 짓는다 (위 baseLayer) */}
           {baseLayer}
+          {clusterLayer}
+          {/* W4 Z2 — nerve names for what's IN the viewport. Text counter-
+              scales (10/z) so it stays readable, and a coarse grid dedupes
+              near-neighbours instead of the tagAt ledger (whose lifecycle
+              belongs to the memoized base layer). */}
+          {zb >= 2 && (() => {
+            const grid = new Set<string>();
+            const cell = 26 / view.z;
+            const out: ReactElement[] = [];
+            for (const n of shownNodes) {
+              if (out.length >= 90) break;
+              const pp = pos[n.id]; if (!pp || !inVp(pp.x, pp.y, 10)) continue;
+              const gk = `${Math.round(pp.x / cell)}:${Math.round(pp.y / cell)}`;
+              if (grid.has(gk)) continue;
+              grid.add(gk);
+              out.push(
+                <text key={`zl-${n.id}`} className="bm-tag bm-tag--zoom"
+                      x={pp.x} y={pp.y - 3.4 / view.z}
+                      style={{ fontSize: `${10 / view.z}px` }}
+                      textAnchor="middle">{n.label || n.id}</text>);
+            }
+            return <g aria-hidden="true">{out}</g>;
+          })()}
+          {/* W4 Z3 — blueprint cards: a nerve dot expands into its circuit
+              (IN receptors → fn → OUT feeds, one real stimulus, live footer).
+              Viewport-only, hard cap — everything outside is culled. */}
+          {zb >= 3 && (() => {
+            const cards: ReactElement[] = [];
+            const bw = 240 / view.z, bh = 150 / view.z;
+            for (const n of shownNodes) {
+              if (cards.length >= 8) break;
+              if (n.kind !== '신경') continue;
+              const pp = pos[n.id]; if (!pp || !inVp(pp.x, pp.y, -10)) continue;
+              const outs = (m.edges || [])
+                .filter(e => e.kind === '공급' && e.a === n.id)
+                .map(e => nodeById[e.b]?.label || e.b).slice(0, 3);
+              const ins = (n.수용체 || []).slice(0, 3);
+              const lit3 = litSet.has(n.id);
+              cards.push(
+                <foreignObject key={`bp-${n.id}`} x={pp.x + 6 / view.z}
+                               y={pp.y - bh / 2} width={bw} height={bh}
+                               className="bm-bp-fo">
+                  <div className={`bm-bp${lit3 ? ' bm-bp--on' : ''}`}
+                       style={{ fontSize: `${10 / view.z}px` }}>
+                    <b>{n.label || n.id}</b>
+                    <div className="bm-bp__io">
+                      <span className="bm-bp__in">
+                        {ins.length ? ins.map(x => <i key={x}>▸ {x}</i>)
+                          : <i className="bm-bp__none">receptors: —</i>}
+                      </span>
+                      <span className="bm-bp__fn">fn</span>
+                      <span className="bm-bp__out">
+                        {outs.length ? outs.map(x => <i key={x}>{x} →</i>)
+                          : <i className="bm-bp__none">out: —</i>}
+                      </span>
+                    </div>
+                    {n.자극?.[0]
+                      ? <div className="bm-bp__stim">「{n.자극[0]}」</div> : null}
+                    <div className="bm-bp__foot">
+                      {n.hit != null && n.n ? `bench ${n.hit}/${n.n}` : 'bench —'}
+                      {' · '}{(STATUS[n.status] || STATUS.dark).t}
+                    </div>
+                  </div>
+                </foreignObject>);
+            }
+            return <g>{cards}</g>;
+          })()}
 
           {/* 🔴 덧층 — 빛·hover·선택만. 몇십 개뿐이라 0.7초 갱신이 공짜다.
               «원자 크기» 규율(2026-09-11)은 그대로: 평시 점, 활성만 커진다. */}
@@ -1683,7 +1902,19 @@ export function BrainMap() {
                 path={`M${pp.x1},${pp.y1} L${pp.x2},${pp.y2}`} />
             </circle>
           ))}
+          </g>
         </svg>
+        {/* W4 — zoom controls (Maps idiom: wheel/drag/dblclick/pinch also work) */}
+        <div className="bm-zoomctl" role="group" aria-label="zoom">
+          <button type="button" title="zoom in"
+                  onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1.6)}>+</button>
+          <button type="button" title="zoom out"
+                  onClick={() => zoomAt({ x: vp.x + vp.w / 2, y: vp.y + vp.h / 2 }, 1 / 1.6)}>−</button>
+          {view.z > 1.001 ? (
+            <button type="button" title="reset"
+                    onClick={() => setView({ z: 1, tx: 0, ty: 0 })}>⤢</button>) : null}
+          <i className="bm-zoomctl__z">{view.z <= 1.001 ? '' : `×${view.z.toFixed(1)} · Z${zb}`}</i>
+        </div>
         {/* 🔴 `brainmap__live`(378×43)도 **지도를 덮고 있었다** — 칩과
             같은 물음(「지금 무슨 일이 일어나는가」)에 답하면서 지도 양쪽
             구석에 따로 떠 있었다. 위 `<StateChip lit=…>` 한 줄로 합쳤다.
