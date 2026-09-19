@@ -216,11 +216,30 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
     // 서버가 센 값이 있으면 그것이 진실이다 — 목록을 만드는 그 조건으로 셌다
     const key = nodePath.replace(/^[a-z]+:/, '').replace(/\\/g, '/');
     const fromServer = serverCounts[key];
-    if (fromServer !== undefined) return fromServer;
+    if (fromServer !== undefined) {
+      if (isExpanded) return fromServer;
+      // 🔴 W6-A4ⓑ (한빈 09-19 «전혀 자료정리가 안 되고 그대로»의 절반은
+      //    배지 오독이었다): 직속 수만 보이면 «01_Tasks 8»이 빈약해 보이고
+      //    «10_Others 453»의 병은 병으로 안 읽힌다. 접힌 폴더의 배지는
+      //    **하위 포함 총수** — 펼치면 직속 수로 돌아간다 (아래 목록이
+      //    나머지를 설명하므로).
+      let total = fromServer;
+      const pfx = key + '/';
+      for (const k in serverCounts) {
+        if (k.startsWith(pfx)) total += serverCounts[k];
+      }
+      return total;
+    }
     const cached = folderNoteCounts.get(nodePath);
     if (!cached) return 0;
     return isExpanded ? cached.expanded : cached.collapsed;
   }, [folderNoteCounts, serverCounts]);
+
+  // 직속(평면) 수 — 80 초과는 포화 신호다 (2-2-2 의 그 문턱)
+  const getDirectCount = useCallback((nodePath: string): number => {
+    const key = nodePath.replace(/^[a-z]+:/, '').replace(/\\/g, '/');
+    return serverCounts[key] ?? 0;
+  }, [serverCounts]);
 
   // Mouse-based drag handler
   const handleMouseDown = useCallback((e: React.MouseEvent, containerName: string) => {
@@ -467,7 +486,11 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
             </span>
           )}
           {noteCount > 0 && (
-            <span className="folder-note-count">{noteCount}</span>
+            <span className={`folder-note-count${getDirectCount(node.path) > 80 ? ' folder-note-count--flat' : ''}`}
+                  title={getDirectCount(node.path) > 80
+                    ? `직속 ${getDirectCount(node.path)}장 — 평면 포화 (80 초과)` : undefined}>
+              {noteCount}
+            </span>
           )}
         </div>
         {hasChildFolders && isExpanded && (
@@ -577,7 +600,11 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
                   </span>
                 )}
                 {noteCount > 0 && (
-                  <span className="folder-note-count">{noteCount}</span>
+                  <span className={`folder-note-count${getDirectCount(node.path) > 80 ? ' folder-note-count--flat' : ''}`}
+                        title={getDirectCount(node.path) > 80
+                          ? `직속 ${getDirectCount(node.path)}장 — 평면 포화 (80 초과)` : undefined}>
+                    {noteCount}
+                  </span>
                 )}
               </div>
 
