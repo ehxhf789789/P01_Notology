@@ -1204,21 +1204,22 @@ export function BrainMap() {
       return null;
     };
     const tryEll = (nd: Node, pp: { x: number; y: number },
-                    e: NonNullable<Band['ell']>, w: number, h: number,
+                    band: NonNullable<Band['ell']>, w: number, h: number,
                     maxRing: number) => {
       const gx = w + 1.9, gy = h + 1.6;
-      const c0 = Math.round((pp.x - e.cx) / gx);
-      const r0i = Math.round((pp.y - e.cy) / gy);
+      const c0 = Math.round((pp.x - band.cx) / gx);
+      const r0i = Math.round((pp.y - band.cy) / gy);
       for (let ring = 0; ring < maxRing; ring++) {
         for (let dc = -ring; dc <= ring; dc++) {
           for (let dr = -ring; dr <= ring; dr++) {
             if (Math.max(Math.abs(dc), Math.abs(dr)) !== ring) continue;
-            const cx = e.cx + (c0 + dc) * gx, cy = e.cy + (r0i + dr) * gy;
+            const cx = band.cx + (c0 + dc) * gx,
+                  cy = band.cy + (r0i + dr) * gy;
             const kk = `${nd.region}:E${c0 + dc}:${r0i + dr}`;
             if (occ.has(kk)) continue;
             const bb = { x0: cx - w / 2, y0: cy - h / 2,
                          x1: cx + w / 2, y1: cy + h / 2 };
-            if (!fitsEll(e, cx, cy, w, h) || clashBox(bb)) continue;
+            if (!fitsEll(band, cx, cy, w, h) || clashBox(bb)) continue;
             occ.add(kk);
             return { cx, cy, bb };
           }
