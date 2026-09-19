@@ -15,6 +15,7 @@ import { PptxViewer } from './pptx';
 import { HwpxViewer } from './hwpx';
 import { HwpViewer } from './HwpViewer';
 import { convertFileSrc } from '../../../web/core';
+import { isWeb } from '../../../web/files';
 
 const DEV = import.meta.env.DEV;
 const log = DEV ? console.log.bind(console) : () => {};
@@ -99,6 +100,20 @@ const HoverDocumentViewer = memo(function HoverDocumentViewer({ window: win }: H
     try {
       // HWP/HWPX: Use Rust backend directly (HwpViewer handles file reading)
       if (targetType === 'hwp') {
+        // W6-J3 (HanBin 09-19: hwpx viewer shows «문서 내용 없음») — on the
+        // web build render_hwp_to_svg is Rust-only and the server answers
+        // «unimplemented», which web/core silently turns into null, so the
+        // JS HwpxViewer fallback never fired. Route .hwpx straight to the
+        // pure-JS parser on web (mobile already does this unconditionally).
+        if (isWeb() && win.filePath.toLowerCase().endsWith('.hwpx')) {
+          const bytes = await previewCommands.readBinaryFile(win.filePath);
+          if (loadAbortRef.current) return;
+          setDocumentData(new Uint8Array(bytes).buffer);
+          setHwpxFallback(true);
+          setViewerState('hwp');
+          log(`[DocViewer ${win.id.slice(-6)}] Web build: JS HwpxViewer for ${win.filePath}`);
+          return;
+        }
         setViewerState('hwp');
         log(`[DocViewer ${win.id.slice(-6)}] Using Rust hwpers backend for: ${win.filePath}`);
       }

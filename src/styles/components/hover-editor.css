@@ -1342,8 +1342,11 @@
   border: 1px solid var(--sep-l, rgba(128, 128, 128, 0.28));
   border-radius: 8px;
   background: transparent;            /* 노트의 색·커버가 비쳐야 한다 */
-  max-width: 420px;
-  padding: 14px 16px;
+  /* W6-J4 (한빈 09-19: «카드가 좌측에 몰려 있다») — 420px 왼쪽 상자가
+     오른쪽을 벌판으로 남겼다. 카드가 창 폭을 쓰고, 행은 auto-fit 그리드로
+     두 단이 되어 흐른다. */
+  width: 100%;
+  padding: 14px 18px;
   font-size: 0.88em;
   line-height: 1.55;
 }
@@ -1371,6 +1374,8 @@
   margin: 0;
   padding: 0;
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  column-gap: 28px;
   row-gap: 8px;                       /* 행간은 여기 한 곳이 정한다 */
 }
 .infobox-row {
