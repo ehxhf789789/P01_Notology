@@ -11,7 +11,9 @@
 
 .container-description-section {
   flex-shrink: 0;
-  max-height: 40%;
+  /* 40% of the viewport (~550px) let the folder-note header push the note
+     list below the fold (HanBin 09-20). Cap it — the body already scrolls. */
+  max-height: min(40%, 280px);
   display: flex;
   flex-direction: column;
   border-bottom: 0.5px solid var(--sep-l);
