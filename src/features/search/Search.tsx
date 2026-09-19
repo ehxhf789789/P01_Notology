@@ -183,6 +183,12 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   // Frontmatter tab filters
   const [frontmatterTypeFilter, setFrontmatterTypeFilter] = useState('');
   const [frontmatterTagFilter, setFrontmatterTagFilter] = useState('');
+  // W6-A4ⓐ (한빈 09-19 «456행 평면 표») — 다중 패싯: 축별 값 다중 선택,
+  // 축 안은 OR · 축 사이는 AND (지도/쇼핑 패싯의 그 관행)
+  const [facetSel, setFacetSel] = useState<Record<string, string[]>>({});
+  // W6-A4ⓐ — 그룹 접기: 타입/과제(ctx)/월 단위로 묶고 머리행으로 접는다
+  const [groupBy, setGroupBy] = useState<'none' | 'type' | 'ctx' | 'month'>('none');
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const [frontmatterMemoFilter, setFrontmatterMemoFilter] = useState<'all' | 'has' | 'none'>('all');
   const [showFolderNotes, setShowFolderNotes] = useState(true);
   // Contents tab filters (2026-05-22 — chip filter, no static panel toggle).
@@ -453,6 +459,20 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     return Array.from(tagSet).sort();
   }, [notes]);
 
+  // 축별 값 분포 — 패싯 옵션의 재료 (현재 스코프의 notes 기준)
+  const facetCounts = useMemo(() => {
+    const m: Record<string, Map<string, number>> = {};
+    FACET_NAMESPACES.forEach(f => { m[f.namespace] = new Map(); });
+    notes.forEach(n => n.tags.forEach(tg => {
+      const i = tg.indexOf('/');
+      if (i <= 0) return;
+      const ax = tg.slice(0, i), v = tg.slice(i + 1);
+      const mm = m[ax];
+      if (mm) mm.set(v, (mm.get(v) ?? 0) + 1);
+    }));
+    return m;
+  }, [notes]);
+
   // Filter results — single-pass loop (avoids 7 intermediate arrays)
   const filteredNotes = useMemo(() => {
     const result: NoteMetadata[] = [];
@@ -519,6 +539,17 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       // Tag filter
       if (frontmatterTagFilter && !n.tags.includes(frontmatterTagFilter)) continue;
 
+      // 패싯 — 축 안 OR · 축 사이 AND (W6-A4ⓐ)
+      {
+        let ok = true;
+        for (const ax in facetSel) {
+          const vals = facetSel[ax];
+          if (!vals || vals.length === 0) continue;
+          if (!vals.some(v => n.tags.includes(ax + '/' + v))) { ok = false; break; }
+        }
+        if (!ok) continue;
+      }
+
       // Memo filter
       if (frontmatterMemoFilter === 'has' && n.comment_count <= 0) continue;
       if (frontmatterMemoFilter === 'none' && n.comment_count > 0) continue;
@@ -562,7 +593,39 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
 
     filteredNotesRef.current = result;
     return result;
-  }, [notes, containerPath, frontmatterQuery, mode, frontmatterTypeFilter, frontmatterTagFilter, frontmatterMemoFilter, showFolderNotes, sortBy, sortOrder, tagSortCategory]);
+  }, [notes, containerPath, frontmatterQuery, mode, frontmatterTypeFilter, frontmatterTagFilter, facetSel, frontmatterMemoFilter, showFolderNotes, sortBy, sortOrder, tagSortCategory]);
+
+  // W6-A4ⓐ — 그룹 표시열: 머리행 + (안 접힌) 노트행. 가상 스크롤은 이
+  // 배열 위를 달린다 (행 높이는 머리도 노트와 같다 — 셈이 단순해야 빠르다).
+  type DisplayRow = { head: string; count: number } | { note: NoteMetadata };
+  const displayRows = useMemo<DisplayRow[]>(() => {
+    if (groupBy === 'none') return filteredNotes.map(n => ({ note: n }));
+    const keyOf = (n: NoteMetadata): string => {
+      if (groupBy === 'type') return n.note_type || '(타입 없음)';
+      if (groupBy === 'ctx') {
+        const c = n.tags.find(t2 => t2.startsWith('ctx/'));
+        return c ? c.slice(4) : '(ctx 없음)';
+      }
+      const d = (n.modified || n.created || '').slice(0, 7);
+      return d || '(날짜 없음)';
+    };
+    const buckets = new Map<string, NoteMetadata[]>();
+    filteredNotes.forEach(n => {
+      const k = keyOf(n);
+      const b = buckets.get(k);
+      if (b) b.push(n); else buckets.set(k, [n]);
+    });
+    const keys = Array.from(buckets.keys());
+    if (groupBy === 'month') keys.sort().reverse();
+    else keys.sort((a, b) => (buckets.get(b)!.length - buckets.get(a)!.length) || a.localeCompare(b));
+    const out: DisplayRow[] = [];
+    for (const k of keys) {
+      const arr = buckets.get(k)!;
+      out.push({ head: k, count: arr.length });
+      if (!collapsedGroups.has(k)) arr.forEach(n => out.push({ note: n }));
+    }
+    return out;
+  }, [filteredNotes, groupBy, collapsedGroups]);
 
   // Content results filtering — single-pass loop
   const filteredContentResults = useMemo(() => {
@@ -1161,10 +1224,52 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       setAfter: setModifiedAfter,
       setBefore: setModifiedBefore,
     },
+    // ── W6-A4ⓐ 묶기 + 다중 패싯 ──────────────────────────────────
+    {
+      id: 'group-by',
+      label: '묶기',
+      type: 'select' as const,
+      isActive: groupBy !== 'none',
+      displayValue: groupBy === 'type' ? '타입' : groupBy === 'ctx' ? '과제'
+        : groupBy === 'month' ? '월' : '',
+      clear: () => { setGroupBy('none'); setCollapsedGroups(new Set()); },
+      value: groupBy,
+      setValue: (v: string) => { setGroupBy(v as typeof groupBy); setCollapsedGroups(new Set()); },
+      options: [
+        { value: 'none', label: '묶지 않음' },
+        { value: 'type', label: '타입별' },
+        { value: 'ctx', label: '과제(ctx)별' },
+        { value: 'month', label: '월별' },
+      ],
+    },
+    ...FACET_NAMESPACES
+      .filter(f => (facetCounts[f.namespace]?.size ?? 0) > 0)
+      .map(f => {
+        const ax = f.namespace;
+        const sel = facetSel[ax] ?? [];
+        const opts = Array.from(facetCounts[ax].entries())
+          .sort((a, b) => (b[1] - a[1]) || a[0].localeCompare(b[0]))
+          .slice(0, 120)
+          .map(([v, n]) => ({ value: v, label: `${v} (${n})` }));
+        return {
+          id: `facet-${ax}`,
+          label: t(f.label as Parameters<typeof t>[0], language) || ax,
+          type: 'multi-select' as const,
+          isActive: sel.length > 0,
+          displayValue: sel.length <= 2 ? sel.join(', ') : `${sel.length}개`,
+          clear: () => setFacetSel(p => ({ ...p, [ax]: [] })),
+          values: sel,
+          toggleValue: (v: string) => setFacetSel(p => {
+            const cur = p[ax] ?? [];
+            return { ...p, [ax]: cur.includes(v) ? cur.filter(x => x !== v) : [...cur, v] };
+          }),
+          options: opts,
+        };
+      }),
   ], [
     mode, language, uniqueTags, noteTemplates,
     frontmatterTypeFilter, frontmatterTagFilter, frontmatterMemoFilter,
-    showFolderNotes,
+    showFolderNotes, facetSel, facetCounts, groupBy,
     createdAfter, createdBefore, modifiedAfter, modifiedBefore,
   ]);
 
@@ -1698,12 +1803,31 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
                 </div>
               </div>
             ) : (() => {
-              const totalHeight = filteredNotes.length * ROW_HEIGHT;
+              const totalHeight = displayRows.length * ROW_HEIGHT;
               const startIdx = Math.max(0, Math.floor(scrollTop / ROW_HEIGHT) - OVERSCAN);
-              const endIdx = Math.min(filteredNotes.length - 1, Math.ceil((scrollTop + virtualHeight) / ROW_HEIGHT) + OVERSCAN);
+              const endIdx = Math.min(displayRows.length - 1, Math.ceil((scrollTop + virtualHeight) / ROW_HEIGHT) + OVERSCAN);
               const rows = [];
               for (let i = startIdx; i <= endIdx; i++) {
-                const note = filteredNotes[i];
+                const dr = displayRows[i];
+                if ('head' in dr) {
+                  const k = dr.head;
+                  const closed = collapsedGroups.has(k);
+                  rows.push(
+                    <div key={`g-${k}`} className="search-group-head"
+                         style={{ position: 'absolute', top: i * ROW_HEIGHT, height: ROW_HEIGHT, width: '100%' } as CSSProperties}
+                         onClick={() => setCollapsedGroups(prev => {
+                           const nx = new Set(prev);
+                           if (nx.has(k)) nx.delete(k); else nx.add(k);
+                           return nx;
+                         })}>
+                      <span className="search-group-head__tri">{closed ? '▸' : '▾'}</span>
+                      <span className="search-group-head__name">{k}</span>
+                      <span className="search-group-head__n">{dr.count}</span>
+                    </div>
+                  );
+                  continue;
+                }
+                const note = dr.note;
                 rows.push(
                   <FrontmatterResultRow
                     key={note.path}

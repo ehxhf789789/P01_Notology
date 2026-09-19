@@ -247,8 +247,16 @@ export const FrontmatterResultRow = React.memo(function FrontmatterResultRow({
         {typeLabel}
       </div>
       <div className="search-td search-tags">
-        {note.tags.length > 0 ? (
-          note.tags.map(tag => {
+        {note.tags.length > 0 ? (() => {
+          // W6-A4ⓐ — 칩 상한: 최대 4개, key 축은 뒷줄(1회용 키워드 소음의
+          // 그 축 — 09-19 위생 후에도 행을 다 채울 이유가 없다). 나머지는
+          // +N 으로 접고 전체는 title 로 남는다.
+          const nonKey = note.tags.filter(t2 => !t2.startsWith('key/'));
+          const keys = note.tags.filter(t2 => t2.startsWith('key/'));
+          const visible = [...nonKey, ...keys].slice(0, 4);
+          const hidden = note.tags.length - visible.length;
+          return (<>
+          {visible.map(tag => {
             const categoryClass = getTagCategoryClass(tag);
             // 🔴 축을 하나씩 적어 떼던 것을 일반화했다. 4개만 적혀 있어서
             //    `key/Smart_Construction` 은 축까지 그대로 나왔다.
@@ -272,8 +280,15 @@ export const FrontmatterResultRow = React.memo(function FrontmatterResultRow({
                 {tagName}
               </span>
             );
-          })
-        ) : (
+          })}
+          {hidden > 0 && (
+            <span className="search-tag search-tag--more"
+                  title={note.tags.join('\n')}>
+              +{hidden}
+            </span>
+          )}
+          </>);
+        })() : (
           <span className="search-tag-empty">-</span>
         )}
       </div>

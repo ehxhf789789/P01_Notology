@@ -1684,3 +1684,24 @@ html[data-theme="light"] .search-input {
 .speaker-chip input { width:150px; font-size:12px; padding:2px 8px;
   border-radius:12px; border:1px solid var(--accent,#4a8);
   background:var(--bg-1,#111); color:var(--tx-1,#eee); }
+
+/* W6-A4ⓐ — 그룹 머리행 + 칩 +N */
+.search-group-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 0 12px; cursor: pointer; user-select: none;
+  background: rgba(30, 41, 66, .55);
+  border-bottom: 1px solid rgba(148, 163, 184, .15);
+  font-size: 12.5px; color: #cbd5e1;
+}
+.search-group-head:hover { background: rgba(40, 53, 84, .7); }
+.search-group-head__tri { width: 12px; color: #94a3b8; }
+.search-group-head__name { font-weight: 600; }
+.search-group-head__n {
+  margin-left: auto; font-variant-numeric: tabular-nums;
+  color: #94a3b8; background: rgba(148, 163, 184, .12);
+  border-radius: 999px; padding: 1px 8px; font-size: 11px;
+}
+.search-tag--more {
+  background: rgba(148, 163, 184, .14); color: #94a3b8;
+  border: 1px dashed rgba(148, 163, 184, .4);
+}
