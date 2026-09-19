@@ -86,27 +86,31 @@
   background: color-mix(in srgb, var(--c-teal) 8%, transparent);
 }
 
-/* Table */
+/* Table — 컴팩트 (한빈 2026-09-20 «표 디자인이 과도하게 크다»).
+   폴더노트 «현황» 표가 화면 전폭·12/16px 패딩으로 렌더돼 안내판이
+   본문을 덮었다. 표는 내용 폭만 차지하고 줄이 촘촘해야 훑힌다. */
 .tiptap-editor table {
   border-collapse: collapse;
-  width: 100%;
-  margin: 20px 0;
-  border-radius: var(--radius-lg);  /* was hardcoded 8px */
+  width: auto;
+  max-width: 100%;
+  margin: 10px 0;
+  font-size: 13px;
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
 .tiptap-editor th,
 .tiptap-editor td {
   border-bottom: 0.5px solid var(--sep-l);
-  padding: 12px 16px;
+  padding: 4px 12px;
   text-align: left;
-  min-width: 60px;
+  min-width: 48px;
 }
 
 .tiptap-editor th {
   background: var(--bg-app);
   font-weight: 600;
-  font-size: 15px;
+  font-size: 12px;
   color: var(--tx-2);
 }
 
