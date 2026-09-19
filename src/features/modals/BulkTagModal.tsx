@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { FacetNamespace } from '../../core/types';
 import type { TagOntology } from '../../core/types/tagOntology';
+import { FACET_NAMESPACE_KEYS } from '../../core/types/tagOntology';
 import { FACET_INFOS } from '../../core/types';
 import { useVaultPath } from '../../core/stores/fileTreeStore';
 import { loadTagOntology, searchTags, addNewTag } from '../tags/tagOntologyUtils';
@@ -19,7 +20,7 @@ interface BulkTagModalProps {
 
 function BulkTagModal({ paths, language, onClose, onComplete }: BulkTagModalProps) {
   const vaultPath = useVaultPath();
-  const [activeNamespace, setActiveNamespace] = useState<FacetNamespace>('domain');
+  const [activeNamespace, setActiveNamespace] = useState<FacetNamespace>('key');
   const [inputValue, setInputValue] = useState('');
   const [ontology, setOntology] = useState<TagOntology | null>(null);
   const [suggestions, setSuggestions] = useState<Array<{ id: string; label: string }>>([]);
@@ -64,7 +65,7 @@ function BulkTagModal({ paths, language, onClose, onComplete }: BulkTagModalProp
   const addTag = useCallback((namespace: FacetNamespace, tagName: string) => {
     // Clean namespace prefix
     let clean = tagName.trim();
-    const namespaces = ['domain', 'who', 'org', 'ctx', 'key', 'proj', 'acad'];
+    const namespaces = FACET_NAMESPACE_KEYS;
     for (const ns of namespaces) {
       while (clean.startsWith(`${ns}/`)) {
         clean = clean.slice(ns.length + 1);

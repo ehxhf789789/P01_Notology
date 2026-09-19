@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { FacetedTags } from '../../core/types/frontmatter';
 import type { TagOntology, FacetNamespace } from '../../core/types/tagOntology';
-import { FACET_NAMESPACES } from '../../core/types/tagOntology';
+import { FACET_NAMESPACES, FACET_NAMESPACE_KEYS } from '../../core/types/tagOntology';
 import { loadTagOntology, addToRecentTags, addNewTag } from './tagOntologyUtils';
 import HierarchicalTagSelector from './HierarchicalTagSelector';
 import { useOntologyRefreshTrigger, refreshActions } from '../../core/stores/refreshStore';
@@ -70,7 +70,7 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
   // Strip namespace prefix from tag name
   const stripNamespacePrefix = (tagName: string): string => {
     let clean = tagName;
-    const namespaces = ['domain', 'who', 'org', 'ctx', 'key', 'proj', 'acad'];
+    const namespaces = FACET_NAMESPACE_KEYS;
     for (const ns of namespaces) {
       while (clean.startsWith(`${ns}/`)) {
         clean = clean.slice(ns.length + 1);
@@ -92,7 +92,7 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
   const addTag = async (namespace: FacetNamespace, tagId: string) => {
     // Strip namespace prefix if present (e.g., "domain/특허출원" -> "특허출원")
     let cleanTagId = tagId;
-    const namespaces = ['domain', 'who', 'org', 'ctx', 'key', 'proj', 'acad'];
+    const namespaces = FACET_NAMESPACE_KEYS;
     for (const ns of namespaces) {
       while (cleanTagId.startsWith(`${ns}/`)) {
         cleanTagId = cleanTagId.slice(ns.length + 1);

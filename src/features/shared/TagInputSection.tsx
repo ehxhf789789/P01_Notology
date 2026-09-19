@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { FacetNamespace } from '../../core/types';
 import type { TagOntology } from '../../core/types/tagOntology';
+import { FACET_NAMESPACE_KEYS } from '../../core/types/tagOntology';
 import { FACET_INFOS } from '../../core/types';
 import { useVaultPath } from '../../core/stores/fileTreeStore';
 import { useOntologyRefreshTrigger, refreshActions } from '../../core/stores/refreshStore';
@@ -105,7 +106,7 @@ function TagInputSection({ value, onChange, language = 'ko', collapsed: initialC
   const handleAddTag = useCallback(async (namespace: FacetNamespace, tag: string) => {
     // Remove any namespace prefix if present (e.g., "domain/태그" -> "태그")
     let cleanTag = tag.trim();
-    const namespaces = ['domain', 'who', 'org', 'ctx', 'key', 'proj', 'acad'];
+    const namespaces = FACET_NAMESPACE_KEYS;
     for (const ns of namespaces) {
       if (cleanTag.startsWith(`${ns}/`)) {
         cleanTag = cleanTag.slice(ns.length + 1);
@@ -205,7 +206,7 @@ function TagInputSection({ value, onChange, language = 'ko', collapsed: initialC
   // Strip namespace prefix from tag name for display
   const getDisplayTagName = (tagName: string): string => {
     let clean = tagName;
-    const namespaces = ['domain', 'who', 'org', 'ctx', 'key', 'proj', 'acad'];
+    const namespaces = FACET_NAMESPACE_KEYS;
     for (const ns of namespaces) {
       while (clean.startsWith(`${ns}/`)) {
         clean = clean.slice(ns.length + 1);

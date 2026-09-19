@@ -26,6 +26,11 @@ export interface TagNode {
   parent?: string;
 }
 
+// 🔴 W6-A2ⓒ (2026-09-19): 'domain' 은 **타입에만 남는다** — DB(tags.axis)에
+//    값 0개인 유령 축인데 FacetedTags/frontmatter 등 «앱 곳곳이 참조»
+//    (index.ts:508)라 union 에서 빼면 타입 수술이 번진다. 화면 노출은
+//    FACET_NAMESPACES(아래)가 정하고, 거기서 걷었으므로 패널·루프에는
+//    더 이상 나타나지 않는다.
 export type FacetNamespace = 'domain' | 'who' | 'org' | 'ctx' | 'key' | 'proj' | 'acad';
 
 export type FacetIconName = 'BookOpen' | 'Users' | 'Building2' | 'Activity'
@@ -40,7 +45,6 @@ export type FacetIconName = 'BookOpen' | 'Users' | 'Building2' | 'Activity'
 //    「맥락/상태」가 아니다.
 //    label·description 은 **i18n 키**다 (화면에서 t() 로 푼다).
 export const FACET_NAMESPACES: Array<{ namespace: FacetNamespace; label: string; description: string; icon: FacetIconName }> = [
-  { namespace: 'domain', label: 'facetDomain', description: 'facetDomainDesc', icon: 'BookOpen' },
   { namespace: 'key', label: 'facetKey', description: 'facetKeyDesc', icon: 'Hash' },
   { namespace: 'who', label: 'facetWho', description: 'facetWhoDesc', icon: 'Users' },
   { namespace: 'org', label: 'facetOrg', description: 'facetOrgDesc', icon: 'Building2' },
@@ -48,3 +52,9 @@ export const FACET_NAMESPACES: Array<{ namespace: FacetNamespace; label: string;
   { namespace: 'proj', label: 'facetProj', description: 'facetProjDesc', icon: 'Briefcase' },
   { namespace: 'acad', label: 'facetAcad', description: 'facetAcadDesc', icon: 'GraduationCap' },
 ];
+
+// 🔴 축 이름 목록도 **여기 하나뿐이다** (W6-A2ⓒ). 같은 리터럴
+//    ['domain','who',…] 이 소스에 14곳 복붙되어 있었고, 그 전부가 DB에
+//    없는 'domain' 을 알고 있었다 — 목록이 흩어지면 유령이 산다.
+export const FACET_NAMESPACE_KEYS: FacetNamespace[] =
+  FACET_NAMESPACES.map(f => f.namespace);
