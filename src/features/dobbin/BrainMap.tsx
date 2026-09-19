@@ -1136,12 +1136,16 @@ export function BrainMap() {
     };
     const polarC = (x: number, y: number) => ({
       r: Math.hypot(x - CX, y - CY), th: Math.atan2(y - CY, x - CX) });
-    const fitsEll = (e: NonNullable<Band['ell']>, cx: number, cy: number,
+    // NOTE: param named `band`, not `e` — the brain-contract gate reads any
+    // `e.<field>` in this file as an edge-payload read (its alias map), and a
+    // local ellipse named `e` produced 4 ghost fields (edges.cx/cy/rx/ry).
+    const fitsEll = (band: NonNullable<Band['ell']>, cx: number, cy: number,
                      w: number, h: number) => {
       for (const [dx, dy] of [[-w / 2, -h / 2], [w / 2, -h / 2],
                                [-w / 2, h / 2], [w / 2, h / 2]] as
                                [number, number][]) {
-        const nx = (cx + dx - e.cx) / e.rx, ny = (cy + dy - e.cy) / e.ry;
+        const nx = (cx + dx - band.cx) / band.rx,
+              ny = (cy + dy - band.cy) / band.ry;
         if (nx * nx + ny * ny > 1) return false;
       }
       return true;
