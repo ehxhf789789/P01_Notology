@@ -5,6 +5,7 @@ import { useAttachmentStore } from '../attachments/stores/attachmentStore';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense, type CSSProperties } from 'react';
 import { cachedNoteList, getNoteList } from '../../core/noteListCache';
 import { searchCommands, utilCommands } from '../../core/services/tauriCommands';
+import { invoke } from '../../web/core';
 import { FilePlus, Filter, Search as SearchIcon, X as XIcon, ArrowUpDown, WholeWord, Library } from 'lucide-react';
 import { useHoverStore, hoverActions } from '../hover-windows/stores/hoverStore';
 import { useVaultPath } from '../../core/stores/fileTreeStore';
@@ -134,6 +135,21 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
   const searchReady = useSearchReady();
   const searchIndexing = useSearchIndexing();
   const vaultPath = useVaultPath();
+  // W6-H3 (한빈 09-19 «1505는 뭔가») — 배지(하위 총수)와 목록(직속)이 다른
+  // 것을 세는데 화면에 그 뜻이 없었다. 하위 폴더 노트 수를 상태줄에 적는다.
+  const [subTotal, setSubTotal] = useState(0);
+  useEffect(() => {
+    if (!containerPath || !vaultPath) { setSubTotal(0); return; }
+    invoke<Record<string, number>>('note_counts', { root: vaultPath })
+      .then(cs => {
+        const key = containerPath.replace(/^[a-z]+:/, '').replace(/\\/g, '/');
+        let tot = 0;
+        const pfx = key + '/';
+        for (const k in cs) if (k.startsWith(pfx)) tot += cs[k];
+        setSubTotal(tot);
+      })
+      .catch(() => setSubTotal(0));
+  }, [containerPath, vaultPath, refreshTrigger]);
   // PART 6 (HanBin 2026-05-13): attachments tab count flows through the
   // shared `.search-status-bar` like every other tab. AttachmentsTab no
   // longer renders its own footer — that broke layout parity with 노트 /
@@ -1936,6 +1952,9 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
         <span className="search-count">
           {mode === 'frontmatter'
             ? tf('notesCountLabel', language, { count: filteredNotes.length })
+              + (containerPath && subTotal > 0
+                ? tf('notesSubTotalLabel', language, { count: subTotal })
+                : '')
             : mode === 'contents'
               ? tf('resultsCountLabel', language, { count: filteredContentResults.length })
               : tf('attachmentsCountLabel', language, { count: attachmentRefCount })}

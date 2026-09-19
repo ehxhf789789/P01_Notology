@@ -488,7 +488,10 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
           {noteCount > 0 && (
             <span className={`folder-note-count${getDirectCount(node.path) > 80 ? ' folder-note-count--flat' : ''}`}
                   title={getDirectCount(node.path) > 80
-                    ? `직속 ${getDirectCount(node.path)}장 — 평면 포화 (80 초과)` : undefined}>
+                    ? `직속 ${getDirectCount(node.path)}장 — 평면 포화 (80 초과)`
+                    : noteCount !== getDirectCount(node.path)
+                      ? `하위 포함 ${noteCount}장 · 직속 ${getDirectCount(node.path)}장`
+                      : undefined}>
               {noteCount}
             </span>
           )}
@@ -602,7 +605,10 @@ function FolderTree({ containers, rootContainer, onRootContainerChange, onNewSub
                 {noteCount > 0 && (
                   <span className={`folder-note-count${getDirectCount(node.path) > 80 ? ' folder-note-count--flat' : ''}`}
                         title={getDirectCount(node.path) > 80
-                          ? `직속 ${getDirectCount(node.path)}장 — 평면 포화 (80 초과)` : undefined}>
+                          ? `직속 ${getDirectCount(node.path)}장 — 평면 포화 (80 초과)`
+                          : noteCount !== getDirectCount(node.path)
+                            ? `하위 포함 ${noteCount}장 · 직속 ${getDirectCount(node.path)}장`
+                            : undefined}>
                     {noteCount}
                   </span>
                 )}
