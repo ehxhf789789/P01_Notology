@@ -26,6 +26,11 @@ const PRESET_HEX: Record<string, string> = {
   contact: '#22d3ee',
   setup:   '#9ca3af',
   entity:  '#14b8a6',
+  // W6-A3 (2026-09-19) — 서버 note_types 표의 11종을 전부 안다: ADM 602 ·
+  // TASK 210 (서가의 25%)이 «표에 없는 타입»으로 파생색을 받고 있었다.
+  adm:     '#f97316',
+  task:    '#4ade80',
+  folder:  '#64748b',
 };
 
 /**
@@ -105,7 +110,7 @@ export function resolveNoteTypeCssClass(
 ): string {
   if (!noteType) return '';
   const lower = noteType.toLowerCase();
-  const builtIn = new Set(['note', 'mtg', 'ofa', 'sem', 'event', 'lit', 'contact', 'setup', 'data', 'theo', 'paper', 'sketch', 'container', 'entity']);
+  const builtIn = new Set(['note', 'mtg', 'ofa', 'sem', 'event', 'lit', 'contact', 'setup', 'data', 'theo', 'paper', 'sketch', 'container', 'entity', 'adm', 'task', 'folder']);
   if (builtIn.has(lower)) return `${lower}-type`;
   // Custom type — look up matching template
   const template = noteTemplates.find(
