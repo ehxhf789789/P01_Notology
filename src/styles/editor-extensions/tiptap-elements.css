@@ -96,7 +96,11 @@
   margin: 10px 0;
   font-size: 13px;
   border-radius: var(--radius-md);
-  overflow: hidden;
+  /* 폴더노트 «현황» 전치 표 — 칸이 늘면 옆으로만 자라고(2줄 고정)
+     넘치면 가로 스크롤 (HanBin 09-20 «확장성»). */
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
 }
 
 .tiptap-editor th,
