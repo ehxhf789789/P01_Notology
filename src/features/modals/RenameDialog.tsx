@@ -22,13 +22,13 @@ function RenameDialog() {
       // Display underscores as spaces for readability (converted back on save)
       const name = renameDialogState.currentName;
       if (renameDialogState.isFolder) {
-        setNewName(name.replace(/_/g, ' '));
+        setNewName(name);
       } else if (renameDialogState.isAttachment) {
         // Strip extension for display - extension is preserved on rename
-        setNewName(name.replace(/\.[^.]+$/, '').replace(/_/g, ' '));
+        setNewName(name.replace(/\.[^.]+$/, ''));
       } else {
         // Note: strip .md extension for display
-        setNewName(name.replace(/\.md$/, '').replace(/_/g, ' '));
+        setNewName(name.replace(/\.md$/, ''));
       }
       setTimeout(() => inputRef.current?.select(), 50);
     }

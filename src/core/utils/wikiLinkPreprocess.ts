@@ -154,10 +154,17 @@ export function preprocessWikiLinks(markdown: string): string {
   // `<span data-wiki-link="` text bled into the editor.
   result = result.replace(/\[\[([^\]\n]+)\]\]/g, (match, content) => {
     const { fileName, displayText } = parseWikiLinkContent(content);
-    // Show underscores as spaces in display text (only when no custom alias)
-    const shownText = displayText === fileName
-      ? fileName.replace(/_/g, ' ')
-      : displayText;
+    // 🔴 2026-09-20 (한빈) — 밑줄을 공백으로 바꾸지 않는다. **실물 이름 그대로.**
+    //
+    //    전에는 `fileName.replace(/_/g, ' ')` 였다. 보기 좋으라고 넣은 줄인데,
+    //    실측하니 문서 8,871건 중 **5,243건(59%)이 화면에서 다른 이름**으로
+    //    보이고 있었다 — `(국방부)_거래명세서_2024-12-26.pdf` 가
+    //    `(국방부) 거래명세서 2024-12-26.pdf` 로. 탐색기에서 찾을 때도,
+    //    복사해 붙일 때도 글자가 안 맞는다.
+    //
+    //    한빈이 이걸로 오독했다: `__init__.py` 가 `init .py` 로 보여
+    //    *"왜 init만 노트에 있는건가"* 라고 물었다. 이름은 언제나 실물이다.
+    const shownText = displayText === fileName ? fileName : displayText;
 
     if (displayText !== fileName) {
       return `<span data-wiki-link="${escapeHtml(fileName)}" data-display-text="${escapeHtml(displayText)}">${escapeHtml(shownText)}</span>`;

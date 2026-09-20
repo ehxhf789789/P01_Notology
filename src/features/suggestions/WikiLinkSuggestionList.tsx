@@ -269,7 +269,7 @@ export const WikiLinkSuggestionList = forwardRef<
           onMouseEnter={() => setActiveIndex(index)}
           onClick={() => props.command({ fileName: item.fileName })}
         >
-          <div className="wiki-link-suggestion-item-name">{item.fileName.replace(/_/g, ' ')}</div>
+          <div className="wiki-link-suggestion-item-name">{item.fileName}</div>
           <div className="wiki-link-suggestion-item-path">{item.path}</div>
         </button>
       ))}

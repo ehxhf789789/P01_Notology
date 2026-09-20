@@ -22,7 +22,9 @@ import { HoverWindowChrome } from '../components/HoverWindowChrome';
 const HoverPdfViewer = memo(function HoverPdfViewer({ window: win }: HoverEditorWindowProps) {
   const language = useLanguage();
   const fileName = win.filePath.split(/[/\\]/).pop() || '';
-  const displayFileName = fileName.replace(/_/g, ' ');
+  // 🔴 2026-09-20 (한빈) — 창 제목도 **실물 이름 그대로**.
+  //    밑줄을 공백으로 바꾸면 `(13_00 ~ 17_00)` 이 `(13 00 ~ 17 00)` 이 된다.
+  const displayFileName = fileName;
 
   return (
     <HoverWindowChrome

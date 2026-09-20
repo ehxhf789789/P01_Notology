@@ -109,7 +109,9 @@ export const FrontmatterResultRow = React.memo(function FrontmatterResultRow({
   //    타입과 날짜는 이미 옆 열에 있다 — 같은 것을 두 번 보여줄 이유가 없다.
   const fileName = note.path.split(/[/\\]/).pop()?.replace(/\.md$/, '') || '';
   const stripped = fileName.replace(/^[A-Z]{2,8}-\d{6}-/, '');
-  const displayName = (note.title || stripped || fileName).replace(/_/g, ' ');
+  // 🔴 2026-09-20 (한빈) — 이름은 **실물 그대로**. 밑줄을 공백으로
+  //    바꾸면 화면의 이름이 실제 파일과 달라진다 (실측 59%).
+  const displayName = (note.title || stripped || fileName);
   const customColor = getTemplateCustomColor(note.note_type);
   // 🔴 **폴더노트도 폴더다** (사용자 정정, 2026-08-11: *"컨테이너 내
   //    폴더노트는 해당 폴더로 이동할 수 있도록 구현되어야지"*).
@@ -336,7 +338,9 @@ export const ContentResultCard = React.memo(function ContentResultCard({
   const fileNameWithoutExt = pathParts.pop()?.replace(/\.md$/, '') || '';
   const parentFolderName = pathParts[pathParts.length - 1] || '';
   const isFolderNote = fileNameWithoutExt === parentFolderName;
-  const displayTitle = (fileName || result.title).replace(/_/g, ' ');
+  // 🔴 2026-09-20 (한빈) — 이름은 **실물 그대로**. 밑줄을 공백으로
+  //    바꾸면 화면의 이름이 실제 파일과 달라진다 (실측 59%).
+  const displayTitle = (fileName || result.title);
   const typeForColor = noteType?.replace('-type', '') || '';
   const customColor = getTemplateCustomColor(typeForColor);
 

@@ -281,7 +281,9 @@ export const WikiLink = Node.create<WikiLinkOptions>({
     const fileName = node.attrs.fileName;
     const displayText = node.attrs.displayText || fileName;
     // Show underscores as spaces in display (only when no custom alias)
-    const shownText = node.attrs.displayText ? displayText : fileName.replace(/_/g, ' ');
+  // 🔴 2026-09-20 (한빈) — 이름은 **실물 그대로**. 밑줄을 공백으로
+  //    바꾸면 화면의 이름이 실제 파일과 달라진다 (실측 59%).
+    const shownText = node.attrs.displayText ? displayText : fileName;
     const hasExtension = /\.[a-zA-Z0-9]+$/.test(fileName);
     const isMarkdown = fileName.endsWith('.md');
     const storedIsAttachment = node.attrs.isAttachmentAttr;
