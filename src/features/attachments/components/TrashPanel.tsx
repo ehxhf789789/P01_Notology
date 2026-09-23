@@ -1,71 +1,47 @@
 /**
- * Trash panel — browse, restore, and purge soft-deleted notes.
+ * Trash panel — 지운 것을 **보고 되살린다**. 영구 삭제 문은 없다.
  *
- * Items land here when:
- *   - Another device deletes a note from NAS (Track H silent trash)
- *   - Future: user-initiated local deletion (not yet wired)
+ * 🔴 v61 N1 ③ (2026-09-24, web) — 서버의 삭제 심사 뒤로 **모든 지우기는 휴지통
+ * 이동**이고 장부(custody_log)에 까닭과 함께 남는다. 이 창은 그 장부를 그대로
+ * 보여 준다 (`trash_list`) · 한 줄을 되살린다 (`move_from_trash`).
  *
- * Retention is 30 days; the "purge expired" button uses the backend
- * `sync_v2_purge_expired_trash` command to clear anything past the cutoff.
- * Per-entry purge is also available.
- *
- * 5.0.6q (2026-05-17, HanBin) — full rewrite for Settings UX consistency:
- *   • i18n — 25+ Korean-only strings routed through t()/tf() (en added)
- *   • inline-styled buttons → design-system <Button> primitive
- *   • inline-styled rows → .trash-panel-* CSS classes (theme tokens)
- *   • native window.confirm() → modalActions.showConfirmDelete
- *     (matches the template-delete + ConnectedDevices patterns)
- *   • lucide icons consistent with the rest of the chrome
+ *   • 옛 판(데스크톱 5.0.6q)은 `sync_v2_*` 명령을 불렀는데 웹 서버에 그 명령이
+ *     없었다 — 열 단추도 없어 죽은 코드였다.
+ *   • «영구 삭제»·«만료 비우기» 단추를 걷었다. 서버에도 그 문이 없다 —
+ *     되돌릴 수 있어야 지울 권한을 준다 (삭제 심사의 전제).
+ *   • 두 갈래로 나눈다: 내가 지운 것 · dobbin 이 치운 것 (까닭과 함께).
+ *   • 옛 자리에 무엇이 이미 있으면 서버가 **덮지 않고 거절**한다 — 까닭을 그대로 띄운다.
+ *   • 사람이 되살린 자리는 dobbin 의 까닭으로 다시 치우지 않는다 (서버 `delreview`).
  */
 import { useTrashStore, trashActions } from '../stores/trashStore';
 import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Trash2, RotateCcw, XCircle, X } from 'lucide-react';
-import { syncV2Commands } from '../attachmentCommands';
+import { Trash2, RotateCcw, X } from 'lucide-react';
+import { syncV2Commands, type TrashEntryDto } from '../attachmentCommands';
 import { showToast } from '../../shared/Toast';
 import { useLanguage } from '../../../core/stores/settingsStore';
 import { t, tf } from '../../../core/utils/i18n';
-import { modalActions } from '../../modals/stores/modalStore';
 import { Button } from '../../../design-system/components';
 
-interface TrashEntry {
-  note_id: string;
-  original_path: string;
-  deleted_at: string;
-  trash_filename: string;
-}
+type Tab = 'mine' | 'dobbin';
 
-const RETENTION_DAYS = 30;
-
-/** Trash entries can carry Windows backslash paths depending on which
- *  code path saved them. Always render forward slashes so the list looks
- *  consistent. */
+/** 보관함 접두(`library:`)를 떼고 슬래시를 고른다 — 사람이 읽는 자리 */
 function displayPath(p: string): string {
-  return p.replace(/\\/g, '/');
+  return p.replace(/\\/g, '/').replace(/^[a-z]+:/, '');
 }
 
-function daysLeft(deletedAt: string): number {
-  const deleted = new Date(deletedAt).getTime();
-  const cutoff = deleted + RETENTION_DAYS * 24 * 60 * 60 * 1000;
-  return Math.max(0, Math.ceil((cutoff - Date.now()) / (24 * 60 * 60 * 1000)));
-}
-
-/** Is this trash entry a *user-visible* item? Anything under `.notology/`
- *  is vault metadata managed by the engine — hidden by default. */
-function isUserVisible(originalPath: string): boolean {
-  const normalized = originalPath.replace(/\\/g, '/');
-  if (normalized.startsWith('.notology/')) return false;
-  if (normalized.includes('/.notology/')) return false;
-  return true;
+/** 사람의 손이 지운 것 — 앱에서 지움(human) · 말로 확인한 지시(instructed) */
+function byPerson(e: TrashEntryDto): boolean {
+  return e.actor === 'human' || e.actor === 'instructed';
 }
 
 export function TrashPanel() {
   const language = useLanguage();
   const open = useTrashStore(s => s.open);
-  const [entries, setEntries] = useState<TrashEntry[]>([]);
+  const [entries, setEntries] = useState<TrashEntryDto[]>([]);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null); // note_id being acted on
-  const [showSystem, setShowSystem] = useState(false);
+  const [tab, setTab] = useState<Tab | null>(null);
 
   const close = useCallback(() => {
     trashActions.close();
@@ -75,13 +51,14 @@ export function TrashPanel() {
     setLoading(true);
     try {
       const list = await syncV2Commands.listTrash();
-      setEntries(list);
+      setEntries(Array.isArray(list) ? list : []);
     } catch (e) {
       console.warn('[TrashPanel] list failed:', e);
+      showToast({ type: 'error', title: t('trashTitle', language), description: String(e) });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [language]);
 
   useEffect(() => {
     if (open) refresh();
@@ -97,13 +74,14 @@ export function TrashPanel() {
 
   if (!open) return null;
 
-  // Partition: user-visible (notes / attachments) vs system (.notology/*)
-  const userEntries = entries.filter(e => isUserVisible(e.original_path));
-  const systemEntries = entries.filter(e => !isUserVisible(e.original_path));
-  const visibleEntries = showSystem ? entries : userEntries;
+  const mine = entries.filter(byPerson);
+  const theirs = entries.filter(e => !byPerson(e));
+  // 처음 열 때는 사람이 지운 것이 있으면 그쪽, 없으면 dobbin 쪽
+  const active: Tab = tab ?? (mine.length > 0 ? 'mine' : 'dobbin');
+  const visible = active === 'mine' ? mine : theirs;
 
-  const handleRestore = async (entry: TrashEntry) => {
-    if (busy) return;
+  const handleRestore = async (entry: TrashEntryDto) => {
+    if (busy || !entry.present) return;
     setBusy(entry.note_id);
     try {
       await syncV2Commands.restoreFromTrash(entry.note_id);
@@ -114,47 +92,7 @@ export function TrashPanel() {
       });
       await refresh();
     } catch (e: any) {
-      showToast({ type: 'error', title: t('trashRestoreFailed', language), description: String(e) });
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handlePurge = (entry: TrashEntry) => {
-    if (busy) return;
-    const path = displayPath(entry.original_path);
-    modalActions.showConfirmDelete(
-      path,
-      'file',
-      async () => {
-        setBusy(entry.note_id);
-        try {
-          await syncV2Commands.purgeTrashEntry(entry.note_id);
-          showToast({ type: 'success', title: t('trashPurgeDone', language) });
-          await refresh();
-        } catch (e: any) {
-          showToast({ type: 'error', title: t('trashPurgeFailed', language), description: String(e) });
-        } finally {
-          setBusy(null);
-        }
-      },
-      undefined,
-      { warningOverride: tf('trashPurgeConfirm', language, { path }) },
-    );
-  };
-
-  const handlePurgeExpired = async () => {
-    if (busy) return;
-    setBusy('__expired__');
-    try {
-      const n = await syncV2Commands.purgeExpiredTrash();
-      showToast({
-        type: 'success',
-        title: tf('trashPurgeExpiredDone', language, { count: String(n) }),
-      });
-      await refresh();
-    } catch (e: any) {
-      showToast({ type: 'error', title: t('trashPurgeFailed', language), description: String(e) });
+      showToast({ type: 'error', title: t('trashRestoreFailed', language), description: String(e?.message ?? e) });
     } finally {
       setBusy(null);
     }
@@ -171,10 +109,7 @@ export function TrashPanel() {
             <Trash2 size={15} />
             <span>{t('trashTitle', language)}</span>
             <span className="trash-panel-title__meta">
-              {tf('trashItemsRetention', language, {
-                count: String(userEntries.length),
-                days: String(RETENTION_DAYS),
-              })}
+              {tf('trashItemsNoPurge', language, { count: String(entries.length) })}
             </span>
           </div>
           <button
@@ -187,103 +122,74 @@ export function TrashPanel() {
           </button>
         </div>
 
-        <div className="trash-panel-toolbar">
-          {systemEntries.length > 0 && (
-            <label
-              className="trash-panel-system-toggle"
-              title={t('trashShowSystemTooltip', language)}
-            >
-              <input
-                type="checkbox"
-                checked={showSystem}
-                onChange={e => setShowSystem(e.target.checked)}
-              />
-              <span>
-                {tf('trashShowSystem', language, { count: String(systemEntries.length) })}
-              </span>
-            </label>
-          )}
-          <div className="trash-panel-toolbar__spacer" />
+        <div className="trash-panel-toolbar" role="tablist">
           <Button
-            variant="secondary"
+            variant={active === 'mine' ? 'primary' : 'secondary'}
             size="sm"
-            onClick={handlePurgeExpired}
-            disabled={busy !== null}
-            loading={busy === '__expired__'}
-            title={tf('trashPurgeExpiredTooltip', language, { days: String(RETENTION_DAYS) })}
+            role="tab"
+            aria-selected={active === 'mine'}
+            onClick={() => setTab('mine')}
           >
-            {busy === '__expired__'
-              ? t('trashPurgeExpiredWorking', language)
-              : t('trashPurgeExpired', language)}
+            {tf('trashByMe', language, { count: String(mine.length) })}
           </Button>
+          <Button
+            variant={active === 'dobbin' ? 'primary' : 'secondary'}
+            size="sm"
+            role="tab"
+            aria-selected={active === 'dobbin'}
+            onClick={() => setTab('dobbin')}
+          >
+            {tf('trashByDobbin', language, { count: String(theirs.length) })}
+          </Button>
+          <div className="trash-panel-toolbar__spacer" />
         </div>
 
         <div className="trash-panel-list">
           {loading ? (
             <div className="trash-panel-empty">{t('trashLoading', language)}</div>
-          ) : visibleEntries.length === 0 ? (
-            <div className="trash-panel-empty">
-              {entries.length > 0 && !showSystem
-                ? t('trashSystemHiddenHint', language)
-                : t('trashEmpty', language)}
-            </div>
+          ) : visible.length === 0 ? (
+            <div className="trash-panel-empty">{t('trashEmpty', language)}</div>
           ) : (
-            visibleEntries.map(e => {
-              const left = daysLeft(e.deleted_at);
-              const expiring = left <= 7;
-              const isSystem = !isUserVisible(e.original_path);
-              return (
-                <div key={e.note_id} className="trash-panel-entry">
-                  <div className="trash-panel-entry__body">
-                    <div
-                      className="trash-panel-entry__path-row"
-                      title={displayPath(e.original_path)}
-                    >
-                      <span className="trash-panel-entry__path">
-                        {displayPath(e.original_path)}
-                      </span>
-                      {isSystem && (
-                        <span
-                          className="trash-panel-entry__system-badge"
-                          title={t('trashSystemBadgeTooltip', language)}
-                        >
-                          {t('trashSystemBadge', language)}
-                        </span>
-                      )}
-                    </div>
-                    <div className="trash-panel-entry__meta">
-                      <span>
-                        {t('trashDeletedAt', language)}: {new Date(e.deleted_at).toLocaleString()}
-                      </span>
-                      <span className={expiring ? 'trash-panel-entry__meta--expiring' : ''}>
-                        {tf('trashAutoPurgeIn', language, { days: String(left) })}
-                      </span>
-                    </div>
+            visible.map(e => (
+              <div key={e.note_id} className="trash-panel-entry" data-trash-id={e.note_id}>
+                <div className="trash-panel-entry__body">
+                  <div
+                    className="trash-panel-entry__path-row"
+                    title={displayPath(e.original_path)}
+                  >
+                    <span className="trash-panel-entry__path">
+                      {displayPath(e.original_path)}
+                    </span>
                   </div>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<RotateCcw size={12} />}
-                    onClick={() => handleRestore(e)}
-                    disabled={busy !== null}
-                    loading={busy === e.note_id}
-                    title={t('trashRestoreTooltip', language)}
-                  >
-                    {t('trashRestore', language)}
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    leftIcon={<XCircle size={12} />}
-                    onClick={() => handlePurge(e)}
-                    disabled={busy !== null}
-                    title={t('trashPurgeTooltip', language)}
-                  >
-                    {t('trashPurge', language)}
-                  </Button>
+                  <div className="trash-panel-entry__meta">
+                    <span>
+                      {t('trashDeletedAt', language)}: {e.deleted_at ? new Date(e.deleted_at).toLocaleString() : '—'}
+                    </span>
+                    {e.reason_says && (
+                      <span title={e.why ?? undefined}>
+                        {t('trashWhy', language)}: {e.reason_says}
+                      </span>
+                    )}
+                    {!e.present && (
+                      <span className="trash-panel-entry__meta--expiring">
+                        {t('trashGone', language)}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              );
-            })
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  leftIcon={<RotateCcw size={12} />}
+                  onClick={() => handleRestore(e)}
+                  disabled={busy !== null || !e.present}
+                  loading={busy === e.note_id}
+                  title={e.present ? t('trashRestoreTooltip', language) : t('trashGone', language)}
+                >
+                  {t('trashRestore', language)}
+                </Button>
+              </div>
+            ))
           )}
         </div>
       </div>

@@ -41,8 +41,28 @@ export const attachmentCommands = {
   },
 };
 
+/** 휴지통의 한 줄 — 서버 장부(custody_log)의 «지우기» 가 말하는 것 (v61 N1 ③).
+ *  `note_id` 는 장부 줄 번호(글자)다 — TrashPanel 이 열쇠로 쓴다. */
+export interface TrashEntryDto {
+  note_id: string;
+  id: number;
+  original_path: string;
+  deleted_at: string;
+  trash_filename: string;
+  actor: string | null;          // human · instructed · dobbin · probe
+  reason: string | null;         // 삭제 심사의 까닭 (human_request · orphan_link …)
+  reason_says: string | null;    // 그 까닭을 사람 말로
+  why: string | null;
+  run_id: string | null;
+  present: boolean;              // 휴지통에 지금도 있나 (없으면 되살릴 수 없다)
+}
+
 /** 옛 이름으로 부르던 곳을 위해 남긴다 (호출부 20여 곳) */
 export const syncV2Commands = {
+  /** 🔴 v61 N1 ③ — 보고 · 되살리기만. **영구 삭제 문은 없다** (서버에도 없다). */
+  listTrash: () => invoke<TrashEntryDto[]>('trash_list', { limit: 500 }),
+  restoreFromTrash: (id: string) =>
+    invoke<{ ok: boolean; path: string }>('move_from_trash', { id }),
   attachmentListAll: attachmentCommands.listAll,
   /** 노트 id → 보관함 경로. 첨부 탭과 그래프가 노트를 짚는 데 쓴다. */
   noteIdIndex: () => invoke<Record<string, string>>('note_id_index'),

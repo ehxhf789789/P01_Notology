@@ -151,6 +151,12 @@ const ko: Record<string, string> = {
   trashPurgeConfirm: '"{path}" 을(를) 영구 삭제합니다. 되돌릴 수 없습니다.',
   trashPurgeDone: '영구 삭제됨',
   trashPurgeFailed: '삭제 실패',
+  // ── v61 N1 ③ (web) — 보고·되살리기만 · 영구 삭제 없음 ──
+  trashItemsNoPurge: '{count}개 — 지운 것은 휴지통으로만 갑니다 (영구 삭제 없음)',
+  trashByMe: '내가 지운 것 ({count})',
+  trashByDobbin: 'dobbin 이 치운 것 ({count})',
+  trashGone: '휴지통에 없음 — 되살릴 수 없습니다',
+  trashWhy: '까닭',
   // ── 5.0.6r NasDeletionsBanner i18n ──
   nasDelBannerMsg: '다른 기기에서 {count}개 노트가 NAS에서 삭제되었습니다. 이 기기에서도 휴지통으로 이동할까요?',
   nasDelBannerShowList: '목록 보기',
@@ -1794,6 +1800,12 @@ const en: Record<string, string> = {
   trashPurgeConfirm: 'Permanently delete "{path}"? This cannot be undone.',
   trashPurgeDone: 'Permanently deleted',
   trashPurgeFailed: 'Purge failed',
+  // ── v61 N1 ③ (web) — view & restore only · no permanent delete ──
+  trashItemsNoPurge: '{count} — deletions only move to Trash (nothing is purged)',
+  trashByMe: 'Deleted by me ({count})',
+  trashByDobbin: 'Tidied by dobbin ({count})',
+  trashGone: 'No longer in Trash — cannot restore',
+  trashWhy: 'Why',
   // ── 5.0.6r NasDeletionsBanner i18n ──
   nasDelBannerMsg: '{count} notes were deleted from NAS on another device. Move them to Trash here too?',
   nasDelBannerShowList: 'Show list',

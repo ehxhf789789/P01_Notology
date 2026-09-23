@@ -3,7 +3,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { displayName, rootLabel } from '../utils/rootPath';
 import { VaultPicker } from '../../features/vault-config/VaultPicker';
 import { createPortal } from 'react-dom';
-import { Search, Plus, UploadCloud, Settings as SettingsIcon, FolderClosed, ChevronDown, FolderPlus, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { Search, Plus, UploadCloud, Settings as SettingsIcon, FolderClosed, ChevronDown, FolderPlus, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
 import { Slot } from '../infrastructure/slotRegistry';
 import {
   useVaultPath,
@@ -16,6 +16,7 @@ import { PenguinFace } from '../../features/dobbin/PenguinFace';
 import { useDobbinPulse } from '../../features/dobbin/useDobbinPulse';
 import { useContainerConfigs, vaultConfigActions } from '../../features/vault-config/stores/vaultConfigStore';
 import { modalActions } from '../../features/modals/stores/modalStore';
+import { trashActions } from '../../features/attachments/stores/trashStore';
 import { useSettingsStore } from '../stores/settingsStore';
 import { useModalClose } from '../hooks/useModalListeners';
 import { openVault, createFolder, selectContainer } from '../stores/appActions';
@@ -361,6 +362,17 @@ function Sidebar() {
               <Slot name="sidebar-footer-status" />
             </>
           )}
+          {/* 🔴 v61 N1 ③ — 휴지통을 여는 문. 지우기는 전부 휴지통 이동인데 (삭제 심사)
+              그것을 볼 창이 없었다 — `TrashPanel` 은 있었지만 여는 단추가 없었다. */}
+          <button
+            className="sidebar-footer-btn trash-btn"
+            onClick={() => trashActions.open()}
+            title={t('trashTitle', language)}
+            aria-label={t('trashTitle', language)}
+            disabled={!vaultPath}
+          >
+            <Trash2 size={14} strokeWidth={2} />
+          </button>
           <button
             className="sidebar-footer-btn settings-btn"
             onClick={() => setShowSettings(true)}
