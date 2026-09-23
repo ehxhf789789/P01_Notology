@@ -35,6 +35,12 @@ function byPerson(e: TrashEntryDto): boolean {
   return e.actor === 'human' || e.actor === 'instructed';
 }
 
+/** `.notology/` 아래는 보관함의 설정·틀이다 — 기본으로 가리고 단추로 보인다 (옛 판과 같다) */
+function isUserVisible(originalPath: string): boolean {
+  const normalized = displayPath(originalPath);
+  return !(normalized.startsWith('.notology/') || normalized.includes('/.notology/'));
+}
+
 export function TrashPanel() {
   const language = useLanguage();
   const open = useTrashStore(s => s.open);
@@ -42,6 +48,7 @@ export function TrashPanel() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null); // note_id being acted on
   const [tab, setTab] = useState<Tab | null>(null);
+  const [showSystem, setShowSystem] = useState(false);
 
   const close = useCallback(() => {
     trashActions.close();
@@ -74,8 +81,10 @@ export function TrashPanel() {
 
   if (!open) return null;
 
-  const mine = entries.filter(byPerson);
-  const theirs = entries.filter(e => !byPerson(e));
+  const systemEntries = entries.filter(e => !isUserVisible(e.original_path));
+  const shown = showSystem ? entries : entries.filter(e => isUserVisible(e.original_path));
+  const mine = shown.filter(byPerson);
+  const theirs = shown.filter(e => !byPerson(e));
   // 처음 열 때는 사람이 지운 것이 있으면 그쪽, 없으면 dobbin 쪽
   const active: Tab = tab ?? (mine.length > 0 ? 'mine' : 'dobbin');
   const visible = active === 'mine' ? mine : theirs;
@@ -142,6 +151,21 @@ export function TrashPanel() {
             {tf('trashByDobbin', language, { count: String(theirs.length) })}
           </Button>
           <div className="trash-panel-toolbar__spacer" />
+          {systemEntries.length > 0 && (
+            <label
+              className="trash-panel-system-toggle"
+              title={t('trashShowSystemTooltip', language)}
+            >
+              <input
+                type="checkbox"
+                checked={showSystem}
+                onChange={e => setShowSystem(e.target.checked)}
+              />
+              <span>
+                {tf('trashShowSystem', language, { count: String(systemEntries.length) })}
+              </span>
+            </label>
+          )}
         </div>
 
         <div className="trash-panel-list">
@@ -160,6 +184,14 @@ export function TrashPanel() {
                     <span className="trash-panel-entry__path">
                       {displayPath(e.original_path)}
                     </span>
+                    {!isUserVisible(e.original_path) && (
+                      <span
+                        className="trash-panel-entry__system-badge"
+                        title={t('trashSystemBadgeTooltip', language)}
+                      >
+                        {t('trashSystemBadge', language)}
+                      </span>
+                    )}
                   </div>
                   <div className="trash-panel-entry__meta">
                     <span>
