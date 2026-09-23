@@ -392,9 +392,9 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
       // (e.g. "cat" won't match "catalog"). Multi-word phrases stay
       // phrase-quoted too — Tantivy handles that natively.
       const effectiveQuery = contentsWholeWordRef.current ? `"${query}"` : query;
-      // 🔴 **어떻게 찾는가**가 그 사람의 스타일이다. 질의만 보낸다 — 본문은
-      //    이미 서버에 있고, 로그가 자료의 사본이 되면 그 자체가 관리 대상이 된다.
-      observe('search', effectiveQuery);
+      // 🔴 관찰(`observe('search')`)은 여기서 **안 한다** (v61 · 2026-09-24) — 이 자리는
+      //    글쇠마다 100ms 뒤에 돌아 «스»·«스ㅋ» 같은 조합 중 글자를 검색으로 셌다.
+      //    손을 멈춘 뒤(1.2초) 한 번만 적는다 — 아래 «멈춘 뒤 한 번» 두 갈래.
       // 🔴 2단 검색 (2026-08-26 사용자: "왜 이렇게 버벅거리냐"). 글쇠마다
       //    임베딩(모델 호출, GPU 를 딴 모델이 쥐면 수 초)을 태우던 것이
       //    버벅임의 정체다. 타이핑 중에는 어휘만(fast) 받고, 손을 멈추면
@@ -453,16 +453,34 @@ function Search({ containerPath, refreshTrigger, onCreateNote }: SearchProps) {
     const q = contentsQuery.trim();
     if (q.length < 2) return;
     const timer = setTimeout(() => {
-      if (
-        contentResultsRef.current.length > 0 &&
-        q === contentsQueryRef.current.trim()
-      ) {
+      if (q !== contentsQueryRef.current.trim()) return;
+      // 🔴 **어떻게 찾는가**가 그 사람의 스타일이다 (2-14-2-1) — 멈춘 뒤 한 번만 ·
+      //    질의만 보낸다 (본문은 이미 서버에 있다). 맞은 것이 없어도 센다 — 무엇을
+      //    찾으려 했는지가 배울 거리다. 조합 중 글자(끝이 낱자모)는 안 센다.
+      if (!/[ㄱ-ㅎㅏ-ㅣ]$/.test(q)) {
+        observe('search', q, { mode: 'contents', hits: contentResultsRef.current.length });
+      }
+      if (contentResultsRef.current.length > 0) {
         recordRecentSearchRef.current(q);
       }
     }, 1200);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, contentsQuery, contentsWholeWord, searchReady, searchIndexing, refreshTrigger]);
+
+  // 🔴 v61 — **기본 칸(frontmatter)의 검색도 센다.** 관찰이 내용 칸에만 있어서, 앱을
+  //    열면 먼저 뜨는 이 칸에서 찾은 것은 dobbin 이 한 번도 못 봤다 (운영 실측
+  //    09-24: `search` 사건이 08-25 뒤로 0줄 · 기억 ⓑ «검색 스타일» 이 굶었다).
+  //    같은 규율 — 손을 멈춘 뒤(1.2초) 한 번 · 두 글자 이상 · 조합 중 글자는 뺀다.
+  useEffect(() => {
+    if (mode !== 'frontmatter') return;
+    const q = frontmatterQuery.trim();
+    if (q.length < 2 || /[ㄱ-ㅎㅏ-ㅣ]$/.test(q)) return;
+    const timer = setTimeout(() => {
+      observe('search', q, { mode: 'frontmatter', hits: filteredNotesRef.current?.length ?? null });
+    }, 1200);
+    return () => clearTimeout(timer);
+  }, [mode, frontmatterQuery]);
 
   // Attachments tab now reads from the live AttachmentRef store — no
   // per-mode fetch trigger needed. v2 component subscribes to the
