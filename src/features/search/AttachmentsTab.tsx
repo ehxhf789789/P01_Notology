@@ -80,7 +80,7 @@ export type { TierKey, SyncState };
 // first" (attachmentId desc), matching what users see when nothing is
 // clicked. Click on a header rotates: default-direction → reversed → off
 // (back to default). At most one column drives the sort at a time.
-type SortColumn = 'name' | 'linked' | 'sync' | 'size' | 'created';
+type SortColumn = 'name' | 'linked' | 'sync' | 'size' | 'created' | 'modified';
 type SortDir = 'asc' | 'desc';
 interface SortState { col: SortColumn; dir: SortDir; }
 const DEFAULT_SORT: SortState = { col: 'created', dir: 'desc' };
@@ -90,6 +90,7 @@ const DEFAULT_DIR: Record<SortColumn, SortDir> = {
   sync: 'asc',     // problems first (orphan/stuck come before synced)
   size: 'desc',    // biggest first — usually what you want to triage
   created: 'desc', // newest first
+  modified: 'desc',
 };
 
 // Sync-state ordinal for sorting "problems first" when sort dir = asc.
@@ -122,8 +123,19 @@ function formatSize(bytes: number | undefined | null): string {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
-function formatCreated(attachmentId: string): string {
-  const ms = parseAttachmentIdMs(attachmentId);
+/** v61 B4 — 탐색기의 «만든 날» · «수정한 날». 서버가 **보낸 쪽이 알려 준** 시각을
+ *  줄 때만 그리고, 모르면 「—」 (자료 자신의 날짜 `createdAt` 와 섞지 않는다). */
+function fileTimeMs(iso: string | undefined): number | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  return Number.isFinite(t) ? t : null;
+}
+
+function createdMs(ref: AttachmentRefDto): number | null {
+  return fileTimeMs(ref.fileCreatedAt) ?? parseAttachmentIdMs(ref.attachmentId);
+}
+
+function formatDay(ms: number | null): string {
   if (ms === null) return '—';
   const d = new Date(ms);
   const y = d.getFullYear();
@@ -371,11 +383,18 @@ export default function AttachmentsTab({
         case 'size':
           d = a.ref.sizeBytes - b.ref.sizeBytes;
           break;
-        case 'created':
-        default:
-          // attachmentId is timestamp-based so string compare = chronological
-          d = cmpStr(a.ref.attachmentId, b.ref.attachmentId);
+        case 'modified':
+          d = (fileTimeMs(a.ref.fileModifiedAt) ?? -1) - (fileTimeMs(b.ref.fileModifiedAt) ?? -1);
           break;
+        case 'created':
+        default: {
+          // v61 B4 — 원래 만든 시각이 있으면 그것으로 · 없으면 옛 판처럼 attachmentId
+          const ca = createdMs(a.ref), cb = createdMs(b.ref);
+          d = ca !== null || cb !== null
+            ? (ca ?? -1) - (cb ?? -1)
+            : cmpStr(a.ref.attachmentId, b.ref.attachmentId);
+          break;
+        }
       }
       // Stable tiebreaker by attachmentId desc (newest first), so equal-key
       // rows don't jump around between renders.
@@ -693,6 +712,7 @@ export default function AttachmentsTab({
           <col style={{ width: 110 }} />
           <col style={{ width: 80 }} />
           <col style={{ width: 96 }} />
+          <col style={{ width: 96 }} />
         </colgroup>
         <thead>
           <tr>
@@ -703,6 +723,7 @@ export default function AttachmentsTab({
                 원본이라 «동기화 상태» 라는 개념 자체가 없다. */}
             <SortableHeader col="size"    sort={sort} onToggle={toggleSort} label={t('attachmentSize', language)} />
             <SortableHeader col="created" sort={sort} onToggle={toggleSort} label={t('attachmentCreatedShort', language)} />
+            <SortableHeader col="modified" sort={sort} onToggle={toggleSort} label={t('attachmentModifiedShort', language)} />
           </tr>
         </thead>
         <tbody>
@@ -774,7 +795,8 @@ function AttachmentRow({
           : <span>{ref.linkedNotes.length}</span>}
       </td>
       <td className="search-td">{formatSize(ref.sizeBytes)}</td>
-      <td className="search-td">{formatCreated(ref.attachmentId)}</td>
+      <td className="search-td">{formatDay(createdMs(ref))}</td>
+      <td className="search-td">{formatDay(fileTimeMs(ref.fileModifiedAt))}</td>
     </tr>
   );
 }

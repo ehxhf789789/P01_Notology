@@ -23,6 +23,20 @@ export interface AttachmentRefDto {
   mime?: string;
   size?: number;
   local_path?: string;
+  // 🔴 서버(`vault_api.attachment_list`)가 실제로 주는 이름들 — 첨부 탭이 이 이름으로
+  //    읽는데 선언이 없어 타입 오류로만 남아 있었다.
+  attachmentId: string;
+  originalName: string;
+  displayPath: string;
+  linkedNotes: string[];
+  syncEtag?: string;
+  sizeBytes: number;
+  /** 자료 **자신의** 날짜 (doc_date) — 탐색기의 «만든 날» 이 아니다 */
+  createdAt?: string;
+  /** v61 B4 — 보낸 쪽이 알려 준 원래 **만든** 시각 (탐색기처럼 · 모르면 없다) */
+  fileCreatedAt?: string;
+  /** v61 B4 — 보낸 쪽이 알려 준 원래 **수정한** 시각 */
+  fileModifiedAt?: string;
 }
 
 export const attachmentCommands = {
