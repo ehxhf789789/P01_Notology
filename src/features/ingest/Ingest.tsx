@@ -66,9 +66,15 @@ async function flatten(items: DataTransferItemList): Promise<{ rel: string; file
 
 async function send(it: Item): Promise<Item> {
   try {
+    // v61 B4 — 원래 수정 시각을 함께 보낸다 (서버가 투입구에 찍고 취입이 창고로 옮긴다 ·
+    // 탐색기처럼). 브라우저가 모르면 0 이라 그때는 안 싣는다.
+    const headers: Record<string, string> = {
+      'X-Rel-Path': encodeURIComponent(it.rel), 'X-Source': 'web',
+    };
+    if (it.file.lastModified > 0) headers['X-File-Mtime-Ms'] = String(it.file.lastModified);
     const r = await fetch('/api/upload', {
       method: 'POST',
-      headers: { 'X-Rel-Path': encodeURIComponent(it.rel), 'X-Source': 'web' },
+      headers,
       body: it.file,
     });
     const j = await r.json();
