@@ -19,7 +19,7 @@
 
 
 import { useAttachmentStore } from '../attachments/stores/attachmentStore';
-import { syncV2Commands, type AttachmentRefDto } from '../attachments/attachmentCommands';
+import { syncV2Commands, detachShelfAttachments, type AttachmentRefDto } from '../attachments/attachmentCommands';
 import { requestAttachmentDelete } from '../attachments/attachmentDelete';
 import { isWeb } from '../../web/files';
 import { startAttachmentDrag, startMultiAttachmentDrag } from '../attachments/attachmentDragOut';
@@ -194,19 +194,10 @@ export default function AttachmentsTab({
   // the failure surface — not "click here to retry".
   const lastReconcileForVaultRef = useRef<string | null>(null);
   const runReconcileSilent = useCallback(async () => {
+    // 🔴 v61 (09-25) — 웹에서는 **서버가 원본**이라 맞출 것이 없다. 옛 판은 서버에
+    //    없는 `attachment_reconcile` 을 불러 탭을 열 때마다 콘솔 오류만 남겼다.
     if (!vaultPath) return;
-    try {
-      const report = await syncV2Commands.attachmentReconcile();
-      const needsApply =
-        report.missingRefLinks.length > 0 || report.staleRefLinks.length > 0;
-      if (needsApply) {
-        const filtered = { ...report, dummyChips: [] };
-        await syncV2Commands.attachmentReconcileApply(filtered);
-        await refreshStore();
-      }
-    } catch (err) {
-      console.error('[AttachmentsTab] silent reconcile failed:', err);
-    }
+    await refreshStore();
   }, [vaultPath, refreshStore]);
 
   // Mount + vault change → reconcile once.
@@ -472,19 +463,30 @@ export default function AttachmentsTab({
     }
   }, [selectedIds]);
 
-  const handleRetryStuck = useCallback((row: AttachmentRow, e: React.MouseEvent) => {
+  // 🔴 v61 (09-25) — 웹에는 «막힌 올리기» 가 없다 (파일은 이미 서버에 있다 ·
+  //    `computeSyncState` 가 stuck 을 못 낸다). 옛 판은 없는 명령을 불렀다.
+  const handleRetryStuck = useCallback((_row: AttachmentRow, e: React.MouseEvent) => {
     e.stopPropagation();
-    void syncV2Commands.attachmentRetry(row.ref.attachmentId).catch((err) => {
-      console.error('[AttachmentsTab] retry failed:', err);
-    });
   }, []);
+
+  // 🔴 v61 (09-25) — 지우기는 서버의 **실제 문**으로 (`delete_attachments_with_links`).
+  //    옛 판은 서버에 없는 `attachment_delete` 를 불러 눌러도 아무 일이 없었다.
+  const detachRows = useCallback(async (targets: AttachmentRow[]) => {
+    try {
+      const r = await detachShelfAttachments(targets.map((x) => x.ref.displayPath));
+      if (r.skipped > 0) {
+        console.info(`[AttachmentsTab] 서가에 걸린 파일이 없는 자료 ${r.skipped}건은 건너뜀`);
+      }
+      await refreshStore();
+    } catch (err) {
+      console.error('[AttachmentsTab] detach failed:', err);
+    }
+  }, [refreshStore]);
 
   const handleDeleteOrphan = useCallback((row: AttachmentRow, e: React.MouseEvent) => {
     e.stopPropagation();
-    void syncV2Commands.attachmentDelete(row.ref.attachmentId).catch((err) => {
-      console.error('[AttachmentsTab] orphan delete failed:', err);
-    });
-  }, []);
+    void detachRows([row]);
+  }, [detachRows]);
 
   // ── Drag-out (Session 2.5, HanBin 2026-05-13) ─────────────────────────────
   // Same native OS drag-out infrastructure the editor chips use: route
@@ -550,9 +552,7 @@ export default function AttachmentsTab({
       if (row.syncState === 'orphan' || !firstLinkedNote) {
         // Orphan or no linked note: skip Option C modal — there's nothing
         // to unlink; the user clicked Delete on an already-broken entry.
-        void syncV2Commands.attachmentDelete(row.ref.attachmentId).catch((err) => {
-          console.error('[AttachmentsTab] orphan ctx-menu delete failed:', err);
-        });
+        void detachRows([row]);
         return;
       }
       void requestAttachmentDelete({
@@ -573,13 +573,16 @@ export default function AttachmentsTab({
       false, // hideDelete
       true,  // isAttachment
     );
-  }, [selectedIds]);
+  }, [selectedIds, detachRows]);
 
   // 2026-05-20 — orphan files visible under the current filter set.
   // Used by the bulk-delete-orphans action button in selection-mode +
   // the count badge in the filter panel.
+  //  🔴 v61 (09-25) — 웹에서 노트에 안 걸린 자료의 대부분은 **서가 파일이 없는**
+  //     창고 자료(`doc:{id}`)라 뗄 것이 없다 (운영 47 전부). 뗄 수 있는 것만 센다.
   const orphanRowsInView = useMemo(
-    () => rows.filter(r => r.ref.linkedNotes.length === 0),
+    () => rows.filter(r => r.ref.linkedNotes.length === 0
+                           && !(r.ref.displayPath ?? '').startsWith('doc:')),
     [rows],
   );
 
@@ -594,18 +597,13 @@ export default function AttachmentsTab({
       t('selectedAttachments', language),
       'file',
       async () => {
-        for (const id of targets) {
-          try {
-            await syncV2Commands.attachmentDelete(id);
-          } catch (err) {
-            console.error('[AttachmentsTab] bulk delete failed for', id, err);
-          }
-        }
+        // 🔴 v61 (09-25) — 서버의 실제 문으로 한 번에 (옛 판: 없는 명령을 줄마다)
+        await detachRows(rows.filter((r) => targets.includes(r.ref.attachmentId)));
         setSelectedIds(new Set());
       },
       targets.length,
     );
-  }, [selectedIds, language]);
+  }, [selectedIds, language, rows, detachRows]);
 
   // 2026-05-20 — delete every orphan visible under the current filter
   // set. Replaces the legacy "더미 파일 일괄 삭제" path.
@@ -621,41 +619,24 @@ export default function AttachmentsTab({
       t('orphanFile', language),
       'file',
       async () => {
-        // Reconcile first so sketch/canvas node refs populate linked_notes.
-        // Without this, an attachment referenced only by a sketch node is
-        // misclassified as orphan and gets hard-deleted.
+        // 🔴 v61 (09-25) — 웹에서는 서버가 원본이라 맞추기(reconcile)가 없다. 서버의
+        //    지금 목록으로 **여전히 고아인 것만** 뗀다 (스케치 등이 이어 간 것은 산다).
+        let fresh: AttachmentRefDto[] = [];
         try {
-          const report = await syncV2Commands.attachmentReconcile();
-          if (report.missingRefLinks.length > 0 || report.staleRefLinks.length > 0 || report.dummyChips.length > 0) {
-            await syncV2Commands.attachmentReconcileApply(report);
-          }
-        } catch (err) {
-          console.error('[AttachmentsTab] reconcile-before-sweep failed:', err);
-        }
-        // Re-fetch authoritative state and delete only ids that are STILL
-        // orphan after reconcile. Anything picked up as referenced by a
-        // sketch node (or any newly-discovered chip) is now spared.
-        let confirmedOrphans: string[] = [...candidateIds];
-        try {
-          const fresh = await syncV2Commands.attachmentListAll();
-          confirmedOrphans = fresh
-            .filter(r => candidateIds.has(r.attachmentId) && r.linkedNotes.length === 0)
-            .map(r => r.attachmentId);
+          fresh = await syncV2Commands.attachmentListAll();
         } catch (err) {
           console.error('[AttachmentsTab] refresh-before-sweep failed:', err);
+          return;                           // 못 봤으면 안 뗀다
         }
-        for (const id of confirmedOrphans) {
-          try {
-            await syncV2Commands.attachmentDelete(id);
-          } catch (err) {
-            console.error('[AttachmentsTab] bulk orphan delete failed for', id, err);
-          }
-        }
+        const still = new Set(fresh
+          .filter(r => candidateIds.has(r.attachmentId) && r.linkedNotes.length === 0)
+          .map(r => r.attachmentId));
+        await detachRows(orphanRowsInView.filter(r => still.has(r.ref.attachmentId)));
         setSelectedIds(new Set());
       },
       candidateIds.size,
     );
-  }, [orphanRowsInView, language]);
+  }, [orphanRowsInView, language, detachRows]);
 
   return (
     <div

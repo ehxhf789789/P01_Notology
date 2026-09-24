@@ -71,6 +71,22 @@ export interface TrashEntryDto {
   present: boolean;              // 휴지통에 지금도 있나 (없으면 되살릴 수 없다)
 }
 
+/** 서가 첨부를 뗀다 — 서버 `delete_attachments_with_links{paths}` (v61 · 09-25).
+ *  휴지통으로 옮기고(되돌림 한 번) 노트 링크를 함께 떼며 창고(00_pool)는 안 건드린다.
+ *  🔴 `doc:{id}` 는 **서가에 걸린 파일이 없는** 창고 자료라 뗄 것이 없다 — 보내지 않는다.
+ *  돌려주는 것: [뗀 수, 뗀 링크 수, 고친 노트들] · 건너뛴 `doc:` 수. */
+export async function detachShelfAttachments(
+  paths: string[],
+): Promise<{ deleted: number; links: number; notes: string[]; skipped: number }> {
+  const real = paths.filter((p) => p && !p.startsWith('doc:'));
+  const skipped = paths.length - real.length;
+  if (real.length === 0) return { deleted: 0, links: 0, notes: [], skipped };
+  const [deleted, links, notes] = await invoke<[number, number, string[]]>(
+    'delete_attachments_with_links', { paths: real });
+  EventBus.emit('attachment:deleted', { path: real[0] });
+  return { deleted, links, notes: notes ?? [], skipped };
+}
+
 /** 옛 이름으로 부르던 곳을 위해 남긴다 (호출부 20여 곳) */
 export const syncV2Commands = {
   /** 🔴 v61 N1 ③ — 보고 · 되살리기만. **영구 삭제 문은 없다** (서버에도 없다). */
