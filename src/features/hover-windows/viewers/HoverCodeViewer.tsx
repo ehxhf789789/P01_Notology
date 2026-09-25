@@ -15,7 +15,8 @@ import 'highlight.js/styles/vs2015.css';
  * fully owned by `<HoverWindowChrome>`. Pre-migration: ~360 lines.
  */
 
-function getLanguageFromPath(filePath: string): string {
+/** 확장자 → highlight.js 언어. «개인 GitHub» 창(features/code)도 **이 한 표**를 쓴다 (두 벌 금지). */
+export function getLanguageFromPath(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
   const map: Record<string, string> = {
     json: 'json', py: 'python', js: 'javascript', ts: 'typescript',
@@ -26,6 +27,7 @@ function getLanguageFromPath(filePath: string): string {
     sh: 'bash', bash: 'bash', zsh: 'bash', sql: 'sql', lua: 'lua',
     r: 'r', swift: 'swift', kt: 'kotlin', scala: 'scala',
     vue: 'xml', svelte: 'xml', ini: 'ini', conf: 'ini', cfg: 'ini',
+    md: 'markdown', markdown: 'markdown', diff: 'diff', patch: 'diff', ipynb: 'json', dockerfile: 'dockerfile',
   };
   return map[ext] || 'plaintext';
 }

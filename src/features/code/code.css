@@ -1,0 +1,133 @@
+/* «개인 GitHub» 창 (v61 B5 K3) — 검색·dobbin 홈과 **같은 층의 중앙 뷰**라 같은 머리 규격을 쓴다.
+   새 디자인 언어를 만들지 않는다 — 테마 토큰만 쓴다 (themes.css). */
+.ghub { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--bg-base); color: var(--tx-1); }
+.ghub__hero { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; border-bottom: 0.5px solid var(--sep-l); flex-shrink: 0; }
+.ghub__text { flex: 1 1 auto; min-width: 0; }
+.ghub__title { font-size: 15px; font-weight: 600; }
+.ghub__sub { font-size: 12px; color: var(--tx-3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghub__body { flex: 1 1 auto; overflow: auto; padding: 12px 16px 24px; }
+.ghub__pad { padding: 0 16px; }
+.ghub__muted { color: var(--tx-3); font-size: 12px; }
+.ghub__err { color: var(--tx-danger, #d33); font-size: 12.5px; }
+.ghub__ok { color: var(--c-success, #2a8); font-size: 12.5px; }
+.ghub__h4 { font-size: 13px; font-weight: 600; margin: 16px 0 6px; }
+.ghub__btn { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; padding: 4px 10px; border-radius: 6px;
+  border: 0.5px solid var(--sep-l); background: var(--bg-elev-1, var(--bg-base)); color: var(--tx-1); cursor: pointer; text-decoration: none; }
+.ghub__btn:hover:not(:disabled) { background: var(--bg-hover, rgba(127,127,127,.12)); }
+.ghub__btn:disabled { opacity: .5; cursor: default; }
+.ghub__btn--ghost { border-color: transparent; background: transparent; }
+.ghub__btn--primary { background: var(--c-accent, #3b82f6); color: var(--tx-on-accent, #fff); border-color: transparent; }
+.ghub__select, .ghub__input, .ghub__textarea { font-size: 12.5px; padding: 4px 6px; border-radius: 6px; border: 0.5px solid var(--sep-l);
+  background: var(--bg-base); color: var(--tx-1); }
+.ghub__textarea { width: 100%; font-family: var(--font-mono, ui-monospace, monospace); }
+.ghub-chip { display: inline-block; font-size: 11px; padding: 1px 6px; margin-left: 6px; border-radius: 10px;
+  background: var(--bg-hover, rgba(127,127,127,.14)); color: var(--tx-2); white-space: nowrap; }
+.ghub-chip--pc { margin-left: 0; margin-right: 6px; }
+.ghub-chip--proj { background: color-mix(in srgb, var(--c-accent, #3b82f6) 18%, transparent); color: var(--tx-1); }
+.ghub-chip--warn { background: color-mix(in srgb, var(--c-warning, #e8a33d) 22%, transparent); }
+.ghub-chip--bad { background: color-mix(in srgb, var(--c-red, #e5484d) 22%, transparent); color: var(--tx-1); }
+
+/* 살펴볼 것 */
+.ghub-look { border: 0.5px solid var(--sep-l); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+.ghub-look__h { font-size: 12px; color: var(--tx-3); margin: 0 0 6px; font-weight: 600; }
+.ghub-look ul { list-style: none; margin: 0; padding: 0; }
+.ghub-look__it { display: block; width: 100%; text-align: left; font-size: 13px; padding: 4px 0; background: none; border: 0; color: var(--tx-1); }
+button.ghub-look__it { cursor: pointer; }
+.ghub-look__it--bad { color: var(--tx-danger, #d33); }
+
+/* 저장소 × PC 격자 */
+.ghub-grid { margin-bottom: 18px; }
+.ghub-grid__h { font-size: 12px; color: var(--tx-3); margin: 0 0 6px; font-weight: 600; }
+.ghub-grid__t { width: 100%; border-collapse: collapse; font-size: 13px; }
+.ghub-grid__t th { text-align: left; font-weight: 500; font-size: 11.5px; color: var(--tx-3); padding: 4px 8px; border-bottom: 0.5px solid var(--sep-l); }
+.ghub-grid__t td { padding: 6px 8px; border-bottom: 0.5px solid var(--sep-l); vertical-align: top; }
+.ghub-grid__row { cursor: pointer; }
+.ghub-grid__row:hover { background: var(--bg-hover, rgba(127,127,127,.08)); }
+.ghub-grid__desc { max-width: 520px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghub-grid__last { white-space: nowrap; }
+.ghub-cell { font-size: 12px; white-space: nowrap; }
+.ghub-cell--ok { color: var(--c-success, #2a8); }
+.ghub-cell--busy { color: var(--c-warning, #c80); }
+.ghub-cell--paused, .ghub-cell--none { color: var(--tx-3); }
+
+/* 저장소 */
+.ghub-repo { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.ghub-repo__head { display: flex; align-items: flex-start; gap: 8px; padding: 12px 16px 6px; }
+.ghub-repo__title { flex: 1 1 auto; min-width: 0; }
+.ghub-repo__title h2 { font-size: 16px; margin: 0 0 2px; }
+.ghub-repo__chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.ghub-repo__body { flex: 1 1 auto; overflow: auto; padding: 10px 16px 24px; }
+.ghub-tabs { display: flex; gap: 2px; padding: 0 12px; border-bottom: 0.5px solid var(--sep-l); }
+.ghub-tabs__t { font-size: 13px; padding: 7px 10px; background: none; border: 0; border-bottom: 2px solid transparent; color: var(--tx-2); cursor: pointer; }
+.ghub-tabs__t.is-on { color: var(--tx-1); border-bottom-color: var(--c-accent, #3b82f6); }
+
+/* 코드 탭 */
+.ghub-codetab__bar { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+.ghub-crumbs { display: flex; align-items: center; flex-wrap: wrap; font-size: 13px; }
+.ghub-crumbs__c { background: none; border: 0; color: var(--tx-link, var(--c-accent)); cursor: pointer; padding: 0 2px; font-size: 13px; }
+.ghub-tree { width: 100%; border-collapse: collapse; font-size: 13px; border: 0.5px solid var(--sep-l); border-radius: 6px; }
+.ghub-tree__row { cursor: pointer; }
+.ghub-tree__row:hover { background: var(--bg-hover, rgba(127,127,127,.08)); }
+.ghub-tree__row td { padding: 5px 8px; border-bottom: 0.5px solid var(--sep-l); }
+.ghub-tree__name { display: flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ghub-tree__msg { color: var(--tx-3); max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ghub-tree__at { color: var(--tx-3); white-space: nowrap; text-align: right; }
+.ghub-readme-card { margin-top: 14px; border: 0.5px solid var(--sep-l); border-radius: 6px; }
+.ghub-readme-card__h { font-size: 12px; margin: 0; padding: 6px 10px; border-bottom: 0.5px solid var(--sep-l); color: var(--tx-3); }
+.ghub-readme { padding: 4px 14px; }
+.ghub-file__bar { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+.ghub-file__path { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px; }
+.ghub-file__img { max-width: 100%; border: 0.5px solid var(--sep-l); border-radius: 6px; }
+.ghub-code { display: flex; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12.5px; line-height: 1.5;
+  border: 0.5px solid var(--sep-l); border-radius: 6px; overflow: auto; background: var(--code-bg, #1e1e1e); color: var(--code-text, #d4d4d4); }
+.ghub-code__gutter { padding: 8px 8px; text-align: right; color: #858585; user-select: none; flex: none; }
+.ghub-code__pre { margin: 0; padding: 8px 10px; flex: 1 1 auto; }
+.ghub-code__pre code { background: none; padding: 0; white-space: pre; }
+
+/* 차이 */
+.cdiff { border: 0.5px solid var(--sep-l); border-radius: 6px; margin-bottom: 10px; overflow: hidden; }
+.cdiff__head { display: flex; justify-content: space-between; width: 100%; padding: 6px 10px; font-size: 12.5px;
+  background: var(--bg-elev-1, rgba(127,127,127,.06)); border: 0; color: var(--tx-1); cursor: pointer; }
+.cdiff__path { font-family: var(--font-mono, ui-monospace, monospace); }
+.cdiff__plus { color: var(--c-success, #2a8); }
+.cdiff__minus { color: var(--c-red, #e5484d); }
+.cdiff__body { font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; line-height: 1.45; overflow-x: auto; }
+.cdiff__row { display: grid; grid-template-columns: 44px 44px 16px 1fr; }
+.cdiff__ln { color: var(--tx-3); text-align: right; padding-right: 6px; user-select: none; }
+.cdiff__sign { user-select: none; }
+.cdiff__text { white-space: pre; background: none; padding: 0; }
+.cdiff__row--add { background: color-mix(in srgb, var(--c-success, #2a8) 14%, transparent); }
+.cdiff__row--del { background: color-mix(in srgb, var(--c-red, #e5484d) 14%, transparent); }
+.cdiff__row--hunk { color: var(--tx-3); background: var(--bg-elev-1, rgba(127,127,127,.06)); }
+.cdiff__row--meta { color: var(--tx-3); }
+
+/* 일지 · 커밋 */
+.ghub-journal__day { margin-bottom: 12px; }
+.ghub-journal__date { font-size: 12px; color: var(--tx-3); margin: 0 0 4px; }
+.ghub-journal__list { list-style: none; margin: 0; padding: 0; }
+.ghub-journal__it { display: flex; gap: 8px; align-items: baseline; font-size: 13px; padding: 3px 0; }
+.ghub-journal__time { color: var(--tx-3); font-variant-numeric: tabular-nums; }
+.ghub-journal__it--divergence .ghub-journal__txt { color: var(--c-warning, #c80); }
+.ghub-commits__list { list-style: none; margin: 0 0 10px; padding: 0; }
+.ghub-commits__row { display: flex; flex-direction: column; width: 100%; text-align: left; gap: 2px; padding: 7px 4px;
+  background: none; border: 0; border-bottom: 0.5px solid var(--sep-l); color: var(--tx-1); cursor: pointer; }
+.ghub-commits__row:hover { background: var(--bg-hover, rgba(127,127,127,.08)); }
+.ghub-commits__subj { font-size: 13px; }
+.ghub-commits__meta { font-size: 11.5px; color: var(--tx-3); }
+.ghub-commit__subj { font-size: 15px; margin: 8px 0 4px; }
+.ghub-commit__body { white-space: pre-wrap; font-size: 12.5px; color: var(--tx-2); }
+.ghub-commit__files { list-style: none; padding: 0; font-family: var(--font-mono, ui-monospace, monospace); font-size: 12px; }
+
+/* 배포 · 정보 */
+.ghub-form { display: flex; flex-direction: column; gap: 8px; margin: 10px 0; }
+.ghub-form__row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 13px; }
+.ghub-form__col { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.ghub-form__btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.ghub-preview { border: 0.5px solid var(--sep-l); border-radius: 6px; padding: 8px 12px; font-size: 13px; }
+.ghub-list { list-style: none; padding: 0; margin: 0; font-size: 13px; }
+.ghub-list li { padding: 3px 0; }
+.ghub-clones { width: 100%; border-collapse: collapse; font-size: 12.5px; margin-bottom: 8px; }
+.ghub-clones th, .ghub-clones td { text-align: left; padding: 4px 6px; border-bottom: 0.5px solid var(--sep-l); }
+.ghub-info__sec { margin-bottom: 14px; }
+.ghub-resolve { border: 0.5px solid var(--c-red, #e5484d); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
+.ghub-resolve__t td { padding: 3px 8px 3px 0; }

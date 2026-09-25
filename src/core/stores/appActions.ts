@@ -263,6 +263,7 @@ export function selectContainer(path: string | null) {
   //    컨테이너보다 앞이기 때문이다 (UIUX_PLAN P0). 검색이 이미 같은 이유로
   //    여기서 닫히고 있었다. **한 자리에서 함께 닫는다.**
   uiActions.setShowDobbinHome(false);
+  uiActions.setShowCode(false);            // v61 B5 K3 — «개인 GitHub» 창도 같은 자리에서 닫는다
 }
 
 // 🔴 폴더노트는 hover 창으로 열지 않는다 (사용자 지시, 2026-08-25:

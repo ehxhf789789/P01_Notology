@@ -3,14 +3,14 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { displayName, rootLabel } from '../utils/rootPath';
 import { VaultPicker } from '../../features/vault-config/VaultPicker';
 import { createPortal } from 'react-dom';
-import { Search, Plus, UploadCloud, Settings as SettingsIcon, FolderClosed, ChevronDown, FolderPlus, PanelLeftClose, PanelLeftOpen, Trash2 } from 'lucide-react';
+import { Search, Plus, UploadCloud, Settings as SettingsIcon, FolderClosed, ChevronDown, FolderPlus, PanelLeftClose, PanelLeftOpen, Trash2, GitBranch } from 'lucide-react';
 import { Slot } from '../infrastructure/slotRegistry';
 import {
   useVaultPath,
   useFileTree,
   useSelectedContainer,
 } from '../stores/zustand';
-import { useShowSearch, useShowDobbinHome, useSidebarCollapsed, useUIStore, uiActions } from '../stores/uiStore';
+import { useShowSearch, useShowDobbinHome, useShowCode, useSidebarCollapsed, useUIStore, uiActions } from '../stores/uiStore';
 import { IconButton, Tooltip } from '../../design-system/components';
 import { PenguinFace } from '../../features/dobbin/PenguinFace';
 import { useDobbinPulse } from '../../features/dobbin/useDobbinPulse';
@@ -35,6 +35,7 @@ function Sidebar() {
   // ========== ZUSTAND UI STATE ==========
   const showSearch = useShowSearch();
   const showDobbinHome = useShowDobbinHome();
+  const showCode = useShowCode();
   const pulse = useDobbinPulse();
   const sidebarCollapsed = useSidebarCollapsed();
   const containerConfigs = useContainerConfigs();
@@ -271,6 +272,16 @@ function Sidebar() {
                         aria-label={`${pulse.unseen}건 알림`}>{pulse.unseen}</span>
                 )}
               </button>
+              {/* v61 B5 K3 — «개인 GitHub» 창 (한빈 09-25: «dobbin 창 처럼 별도의 창») */}
+              <button
+                className={`sidebar-action-btn sidebar-action-btn--code ${showCode ? 'active' : ''}`}
+                onClick={() => uiActions.setShowCode(!showCode)}
+                title="개인 GitHub — 개발 폴더 (Ctrl+Shift+G)"
+                aria-label="개인 GitHub"
+                disabled={!vaultPath}
+              >
+                <GitBranch size={18} strokeWidth={2} />
+              </button>
 
             </div>
           )}
@@ -312,6 +323,17 @@ function Sidebar() {
                 pressed={showDobbinHome}
                 disabled={!vaultPath}
                 onClick={() => uiActions.setShowDobbinHome(!showDobbinHome)}
+              />
+            </Tooltip>
+            <Tooltip content="개인 GitHub — 개발 폴더" placement="right">
+              <IconButton
+                icon={<GitBranch size={16} strokeWidth={2} />}
+                aria-label="개인 GitHub"
+                variant="ghost"
+                size="md"
+                pressed={showCode}
+                disabled={!vaultPath}
+                onClick={() => uiActions.setShowCode(!showCode)}
               />
             </Tooltip>
           </nav>

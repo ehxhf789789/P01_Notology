@@ -30,6 +30,7 @@ import {
   useLanguage,
   useShowSearch,
   useShowDobbinHome,
+  useShowCode,
   useShowHoverPanel,
   useHoverPanelAnimState,
   useSidebarWidth,
@@ -44,6 +45,7 @@ import { startLiveBridge } from '../../app/live';
 import Sidebar from '../layout/Sidebar';
 import ContainerView from '../../features/note-editor/ContainerView';
 import { DobbinHome } from '../../features/dobbin/DobbinHome';
+import { CodeHome } from '../../features/code/CodeHome';
 import Search from '../../features/search/Search';
 import HoverEditorLayer from '../../features/hover-windows/HoverEditorLayer';
 import MinimizedDock from '../../features/hover-windows/MinimizedDock';
@@ -120,6 +122,7 @@ function AppLayout() {
   // UI state (individual Zustand subscriptions - only re-renders when specific value changes)
   const showSearch = useShowSearch();
   const showDobbinHome = useShowDobbinHome();
+  const showCode = useShowCode();
   // P1 — 우측 패널 폭 (드래그 + 기억)
   const [rightWidth, setRightWidth] = useState<number>(() => {
     const v = parseInt(localStorage.getItem('dobbin.rightWidth') || '', 10);
@@ -144,6 +147,9 @@ function AppLayout() {
   // 한 번이라도 연 뒤에는 계속 마운트해 둔다 (상태 보존)
   const [homeEverOpened, setHomeEverOpened] = useState(false);
   useEffect(() => { if (showDobbinHome) setHomeEverOpened(true); }, [showDobbinHome]);
+  // «개인 GitHub» 창도 같은 규율 — 한 번 뜬 뒤엔 숨기기만 (보던 저장소·파일·스크롤이 그대로)
+  const [codeEverOpened, setCodeEverOpened] = useState(false);
+  useEffect(() => { if (showCode) setCodeEverOpened(true); }, [showCode]);
   const showHoverPanel = useShowHoverPanel();
   const rightTab = useRightTab();
   const dobbinBusy = useDobbinStore((s) => s.busy);
@@ -613,7 +619,12 @@ function AppLayout() {
               <DobbinHome />
             </div>
           )}
-          {showDobbinHome ? null : showSearch ? (
+          {codeEverOpened && (
+            <div style={{ display: showCode ? 'contents' : 'none' }}>
+              <ErrorBoundary name="CodeHome"><CodeHome /></ErrorBoundary>
+            </div>
+          )}
+          {showDobbinHome || showCode ? null : showSearch ? (
             <ErrorBoundary name="Search"><Search refreshTrigger={searchRefreshTrigger} /></ErrorBoundary>
           ) : selectedContainer ? (
             <ContainerView />
@@ -716,6 +727,11 @@ function App() {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
         uiActions.setShowDobbinHome(!useUIStore.getState().showDobbinHome);
+      }
+      // Ctrl+Shift+G → «개인 GitHub» 창 (v61 B5 K3)
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
+        e.preventDefault();
+        uiActions.setShowCode(!useUIStore.getState().showCode);
       }
     };
     window.addEventListener('keydown', h);

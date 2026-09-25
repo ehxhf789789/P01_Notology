@@ -44,6 +44,8 @@ interface UIState {
   showSearch: boolean;
   /** dobbin 홈이 중앙에 서 있나 (UIUX_PLAN P0) */
   showDobbinHome: boolean;
+  /** «개인 GitHub» 창이 중앙에 서 있나 (v61 B5 K3 — dobbin 홈과 같은 층) */
+  showCode: boolean;
   showCalendar: boolean;
   showHoverPanel: boolean;
   showSidebar: boolean;
@@ -56,6 +58,7 @@ interface UIState {
   // Actions
   setShowSearch: (show: boolean) => void;
   setShowDobbinHome: (show: boolean) => void;
+  setShowCode: (show: boolean) => void;
   setShowCalendar: (show: boolean) => void;
   setShowSidebar: (show: boolean) => void;
   setShowHoverPanel: (show: boolean) => void;
@@ -76,6 +79,7 @@ export const useUIStore = create<UIState>()(
     // Initial state
     showSearch: false,
     showDobbinHome: false,
+    showCode: false,
     showCalendar: false,
     showHoverPanel: false,
     showSidebar: true,
@@ -96,8 +100,20 @@ export const useUIStore = create<UIState>()(
       if (show) {
         // 관찰 ①-g: dobbin 을 찾는 순간 — 언제 사서를 부르는가
         import('../../features/dobbin/observe').then(m => m.observe('open_home')).catch(() => {});
-        set({ showSearch: false, showCalendar: false });
+        set({ showSearch: false, showCalendar: false, showCode: false });
         // 🔴 dobbin 은 패널에 없다 (2026-08-27) — 겹칠 것이 없다
+        import('./fileTreeStore').then(({ fileTreeActions }) => {
+          fileTreeActions.setSelectedContainer(null);
+        }).catch(() => { /* defensive */ });
+      }
+    },
+
+    // 🔴 «개인 GitHub» 창 (v61 B5 K3 · 한빈 09-25: «dobbin 창 처럼 별도의 창») — 검색·홈과 같은 층.
+    //    서재에 개발 폴더 노트를 만들지 않고 여기서 본다.
+    setShowCode: (show: boolean) => {
+      set({ showCode: show });
+      if (show) {
+        set({ showSearch: false, showCalendar: false, showDobbinHome: false });
         import('./fileTreeStore').then(({ fileTreeActions }) => {
           fileTreeActions.setSelectedContainer(null);
         }).catch(() => { /* defensive */ });
@@ -107,7 +123,7 @@ export const useUIStore = create<UIState>()(
     setShowSearch: (show: boolean) => {
       set({ showSearch: show });
       if (show) {
-        set({ showCalendar: false, showDobbinHome: false });
+        set({ showCalendar: false, showDobbinHome: false, showCode: false });
         // Lazy import to avoid circular dep — fileTreeActions lives in
         // fileTreeStore which imports settings.
         import('./fileTreeStore').then(({ fileTreeActions }) => {
@@ -199,6 +215,7 @@ export const useUIStore = create<UIState>()(
 // Selector hooks
 export const useShowSearch = () => useUIStore((s) => s.showSearch);
 export const useShowDobbinHome = () => useUIStore((s) => s.showDobbinHome);
+export const useShowCode = () => useUIStore((s) => s.showCode);
 export const useShowCalendar = () => useUIStore((s) => s.showCalendar);
 export const useShowHoverPanel = () => useUIStore((s) => s.showHoverPanel);
 export const useShowSidebar = () => useUIStore((s) => s.showSidebar);
@@ -214,6 +231,7 @@ export const uiActions = {
   //    안 넣어 펭귄 탭 클릭이 undefined 호출로 죽었다. 이 저장소가 여러 번
   //    겪은 «손으로 적은 표» 병의 재발).
   setShowDobbinHome: (show: boolean) => useUIStore.getState().setShowDobbinHome(show),
+  setShowCode: (show: boolean) => useUIStore.getState().setShowCode(show),
   setShowCalendar: (show: boolean) => useUIStore.getState().setShowCalendar(show),
   setShowSidebar: (show: boolean) => useUIStore.getState().setShowSidebar(show),
   setShowHoverPanel: (show: boolean) => useUIStore.getState().setShowHoverPanel(show),
