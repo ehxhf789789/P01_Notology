@@ -70,6 +70,15 @@ export interface Candidate {
   slug: string | null; why: string | null;
 }
 export interface Project { id: number; label: string; tag: string; kind: string }
+/** «개발 폴더 가져오기» (v61 R2) — PC 마다 찾은 git 개발 폴더와 지금 어디까지 왔나 */
+export interface PcFolder {
+  name: string; path: string; state: '기다림' | '가져오는 중' | '가져옴' | '뺌' | '물음';
+  role: string; role_say: string; why: string;
+}
+export interface PcCard {
+  host: string; repos_on: boolean; last_seen: string | null; folders: PcFolder[];
+  other: { external: number; etc: number }; say: string;
+}
 export interface PublishResult {
   ok: boolean; state: string; why: string | null; hub: string | null; published: string | null;
   github_before: string | null; included: string[]; excluded: { path: string; why: string }[];
@@ -104,6 +113,10 @@ export const code = {
     call<{ publish_rules: PublishRules }>('code_publish_rules', { slug, ...rules }),
   publishPreview: (slug: string) => call<PublishResult>('code_publish_preview', { slug }),
   publishNow: (slug: string) => call<PublishResult>('code_publish', { slug }),
+  pcFolders: () => call<PcCard[]>('code_pc_folders'),
+  pcAdopt: (host: string, adopt: string[], skip: string[], revive: string[]) =>
+    call<{ ok: boolean; say: string; adopted: number; skipped: number; revived: number }>(
+      'code_pc_adopt', { host, adopt, skip, revive }),
   resolve: (divergence: number, choices: Record<string, 'hub' | 'park' | 'both'>) =>
     call<{ state: string; sha: string }>('code_resolve', { divergence, choices }),
 };

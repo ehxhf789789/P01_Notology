@@ -12,6 +12,7 @@ import { GitBranch, RefreshCw } from 'lucide-react';
 import { onLive } from '../../web/liveSync';
 import { code, ago, errText, type RepoSummary, type Candidate, type CloneState } from './codeClient';
 import { RepoView } from './RepoView';
+import { PcAdopt } from './PcAdopt';
 import './code.css';
 
 function cell(c: CloneState | undefined) {
@@ -97,15 +98,17 @@ export function CodeHome() {
                 ))}
                 {waiting.length > 0 && (
                   <li className="ghub-look__it">
-                    📦 받아들일 수 있는 개발 폴더 {waiting.length} ({[...new Set(waiting.map(c => c.host))].join(' · ')}) —
-                    dobbin 에게 «{waiting[0].host} 저장소 켜줘» 라고 하시면 받아들입니다</li>
+                    📦 가져올 수 있는 개발 폴더 {waiting.length} ({[...new Set(waiting.map(c => c.host))].join(' · ')}) —
+                    아래 «개발 폴더 가져오기» 에서 고르십시오</li>
                 )}
               </ul>
             </section>
           )}
+          <PcAdopt onChanged={() => void load()} />
           {repos && !repos.length && (
             <p className="ghub__muted ghub__pad">
-              아직 잇힌 저장소가 없습니다. PC 의 «저장소» 를 켜면 그 PC 의 개발 폴더를 받아들여 여기 보입니다.
+              아직 가져온 저장소가 없습니다. 위 «개발 폴더 가져오기» 에서 PC 의 개발 폴더를 고르면, 그 PC 가 다음에 켜질 때
+              사본이 여기 섭니다 (PC 의 파일·이력은 그대로).
             </p>
           )}
           {groups.map(([g, rs]) => (

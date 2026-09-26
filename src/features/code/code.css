@@ -131,3 +131,21 @@ button.ghub-look__it { cursor: pointer; }
 .ghub-info__sec { margin-bottom: 14px; }
 .ghub-resolve { border: 0.5px solid var(--c-red, #e5484d); border-radius: 6px; padding: 8px 12px; margin-bottom: 10px; font-size: 13px; }
 .ghub-resolve__t td { padding: 3px 8px 3px 0; }
+
+/* v61 R2 — 개발 폴더 가져오기 */
+.ghub-pcs { border: 0.5px solid var(--sep-l); border-radius: 8px; padding: 8px 12px; margin-bottom: 14px; }
+.ghub-pc { border-top: 0.5px solid var(--sep-l); padding: 6px 0; }
+.ghub-pc:first-of-type { border-top: 0; }
+.ghub-pc__head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; width: 100%; background: none; border: 0;
+  padding: 4px 0; color: var(--tx-1); text-align: left; cursor: pointer; font-size: 13px; }
+.ghub-pc__say { margin: 4px 0 8px; font-size: 12.5px; }
+.ghub-pc__list { list-style: none; margin: 0; padding: 0; }
+.ghub-pc__row { display: flex; gap: 8px; align-items: flex-start; padding: 5px 0; font-size: 13px; }
+.ghub-pc__row input { margin-top: 3px; }
+.ghub-pc__nobox { display: inline-block; width: 13px; flex: none; }
+.ghub-pc__what { flex: 1; min-width: 0; }
+.ghub-pc__path code { font-size: 11.5px; word-break: break-all; }
+.ghub-pc__act { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.ghub-pc__msg { font-size: 12.5px; margin: 8px 0 0; }
+.ghub-cell--wait { color: var(--tx-2); }
+.ghub-cell--ask { color: var(--tx-warn, #b7791f); }
