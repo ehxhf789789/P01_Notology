@@ -21,7 +21,7 @@ function Card({ pc, onChanged }: { pc: PcCard; onChanged: () => void }) {
     setBusy(true); setMsg(null);
     try {
       const r = await code.pcAdopt(pc.host, adopt, skip, revive);
-      setMsg(r.say);
+      setMsg(r.say || (r.ok ? '적었습니다' : `🔴 ${(r as { why?: string }).why || '못 했습니다'}`));
       onChanged();
     } catch (e) { setMsg(`🔴 ${errText(e)}`); } finally { setBusy(false); }
   };
