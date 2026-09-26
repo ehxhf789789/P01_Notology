@@ -76,16 +76,19 @@ export function IntakePanel({ variant = 'panel' }: { variant?: 'panel' | 'home' 
   const [pick, setPick] = useState('');
   const [said, setSaid] = useState<string>('');
 
-  const load = useCallback(async (scan = false) => {
+  // 🔴 v61 (09-26) — `auto` = 화면이 스스로 부른 것 (SSE 반응·60초 심박). 서버 governor 가 이것을 사람 손짓으로
+  //    세면 열어 둔 탭이 dobbin 의 소화 알림(inbox-changed 분당 ~10)에 반응해 밤새 «앞자리가 쓰는 중» 을 켠다 —
+  //    받아쓰기가 그 때문에 창을 못 열었다 (일과 «소리» 알리바이: 마지막 손짓 /api/intake:action:scan).
+  const load = useCallback(async (scan = false, auto = false) => {
     setBusy(true);
+    const hdr: Record<string, string> = { 'Content-Type': 'application/json',
+      ...(auto ? { 'X-Dobbin-Auto': '1' } : {}) };
     try {
       if (scan) {
-        await fetch('/api/intake', { method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        await fetch('/api/intake', { method: 'POST', headers: hdr,
           body: JSON.stringify({ action: 'scan' }) });
       }
-      const r = await fetch('/api/intake', { method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const r = await fetch('/api/intake', { method: 'POST', headers: hdr,
         body: JSON.stringify({ action: 'questions' }) });
       const j = await r.json();
       setQs(j?.questions ?? []);
@@ -94,8 +97,7 @@ export function IntakePanel({ variant = 'panel' }: { variant?: 'panel' | 'home' 
       setCounts(j?.counts ?? {});
       // 🔴 걸음은 투입구가 안다 (`/api/inbox` · intake.progress)
       try {
-        const ir = await fetch('/api/inbox', { method: 'POST',
-          headers: { 'Content-Type': 'application/json' }, body: '{}' });
+        const ir = await fetch('/api/inbox', { method: 'POST', headers: hdr, body: '{}' });
         setProg(((await ir.json())?.progress ?? {}) as Record<string, Step>);
       } catch { /* 조용히 */ }
     } catch { /* 조용히 */ }
@@ -133,14 +135,14 @@ export function IntakePanel({ variant = 'panel' }: { variant?: 'panel' | 'home' 
         const now = Date.now();
         if (now - (loadApertureRef.current || 0) > 30000) {
           loadApertureRef.current = now;
-          load(true);
+          load(true, true);          // 🔴 화면이 스스로 — 사람 손짓이 아니다
         }
       }
     };
     window.addEventListener('dobbin:live', h);
     // 🔴 SSE 가 죽으면 이 판은 F5 전까지 영구 정지였다 (2026-09-11 신호 경로
     //    전수 — 폴백 0). 60초 느린 심박 — 신호가 사는 동안은 사실상 안 쓰인다.
-    const beat = window.setInterval(() => { void load(); }, 60000);
+    const beat = window.setInterval(() => { void load(false, true); }, 60000);
     return () => {
       // v32 — 🔴 전 판은 clearInterval 이 return **뒤**라 도달불능:
       //   리마운트마다 60초 폴러가 하나씩 늘어 영구 증식했다 (전수 감사).
