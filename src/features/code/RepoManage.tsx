@@ -175,17 +175,18 @@ export function InfoTab({ repo, onChanged }: { repo: RepoDetail; onChanged: () =
       <section className="ghub-info__sec">
         <h4 className="ghub__h4">PC 별 clone</h4>
         <table className="ghub-clones">
-          <thead><tr><th>PC</th><th>경로</th><th>가지</th><th>상태</th><th>보고</th></tr></thead>
+          <thead><tr><th>PC</th><th>경로</th><th>가지</th><th>상태</th><th>보고</th><th>들어온 문</th></tr></thead>
           <tbody>
             {repo.clones.map(c => (
               <tr key={`${c.host}-${c.path}`}>
-                <td>{c.host}</td><td><code>{c.path}</code></td><td>{c.branch || '—'}</td>
+                <td>{c.host}</td><td>{c.via === 'manual' ? <span className="ghub__muted">(경로 모름)</span> : <code>{c.path}</code>}</td><td>{c.branch || '—'}</td>
                 <td>{[c.ahead ? `↑${c.ahead}` : '', c.behind ? `↓${c.behind}` : '', c.dirty ? `미커밋 ${c.dirty}` : '',
                       c.paused ? '멈춤' : ''].filter(Boolean).join(' · ') || '맞음'}</td>
                 <td>{ago(c.report_at)}</td>
+                <td>{c.via === 'manual' ? '손 clone' : '에이전트'}</td>
               </tr>
             ))}
-            {!repo.clones.length && <tr><td colSpan={5} className="ghub__muted">아직 어느 PC 에도 없습니다</td></tr>}
+            {!repo.clones.length && <tr><td colSpan={6} className="ghub__muted">아직 어느 PC 에도 없습니다</td></tr>}
           </tbody>
         </table>
         <div className="ghub-form__row">

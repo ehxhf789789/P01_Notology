@@ -14,6 +14,8 @@ export interface CloneState {
   host: string; path: string; branch: string | null; head: string | null;
   dirty: number | null; ahead: number | null; behind: number | null;
   paused: boolean; report_at: string | null;
+  /** 어떻게 받았나 — 에이전트가 등록 · 사람이 손으로 (허브가 첫 받기에서 적음 · 경로 모름) */
+  via?: 'agent' | 'manual';
 }
 export interface ProjectLink { id: number; label: string; role: string; decided_by?: string | null }
 export interface RepoSummary {
@@ -22,6 +24,8 @@ export interface RepoSummary {
   last: { host: string; at: string; kind: string } | null;
   clones: CloneState[]; projects: ProjectLink[]; conflicts: number;
   branch: string; sha: string; description: string;
+  /** 받기 주소 — Tailscale 에 한빈 계정으로 로그인한 PC 는 이 주소로 바로 clone (기기 승인 불요 · 서버가 준다) */
+  clone_url?: string;
 }
 export interface RefRow { ref: string; sha: string; at: number; subject: string; name?: string; host?: string; branch?: string }
 export interface Divergence {
@@ -40,6 +44,7 @@ export interface RepoDetail {
   readme: { name: string; text: string } | null;
   branches: RefRow[]; tags: RefRow[]; parks: RefRow[]; wips: RefRow[];
   clones: CloneState[]; divergences: Divergence[]; publishes: PublishRow[]; projects: ProjectLink[];
+  clone_url?: string;
 }
 export interface TreeEntry {
   name: string; type: 'blob' | 'tree' | 'commit'; mode: string; sha: string; size: number | null;

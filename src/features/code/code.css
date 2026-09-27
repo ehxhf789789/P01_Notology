@@ -149,3 +149,9 @@ button.ghub-look__it { cursor: pointer; }
 .ghub-pc__msg { font-size: 12.5px; margin: 8px 0 0; }
 .ghub-cell--wait { color: var(--tx-2); }
 .ghub-cell--ask { color: var(--tx-warn, #b7791f); }
+
+/* v61 W4 — 받기 주소 (저장소 머리) */
+.ghub-clonebox { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ghub-clonebox__url { font-size: 12px; padding: 3px 6px; border-radius: 4px; background: var(--ghub-code-bg, rgba(127,127,127,.12));
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 360px; }
+@media (max-width: 640px) { .ghub-clonebox__url { max-width: 160px; } }

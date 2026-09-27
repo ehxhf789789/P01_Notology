@@ -32,6 +32,7 @@ export function RepoView({ slug, onBack, onChanged }: { slug: string; onBack: ()
           <h2>{repo?.name || slug}</h2>
           <p className="ghub__muted">{repo?.description}</p>
         </div>
+        {repo?.clone_url && <CloneBox url={repo.clone_url} />}
         <div className="ghub-repo__chips">
           {repo?.projects.map(p => <span key={p.id} className="ghub-chip ghub-chip--proj">{p.label}</span>)}
           {repo && !repo.projects.length && <span className="ghub-chip ghub-chip--warn">과제 없음</span>}
@@ -62,6 +63,23 @@ export function RepoView({ slug, onBack, onChanged }: { slug: string; onBack: ()
           {tab === 'info' && <InfoTab repo={repo} onChanged={changed} />}
         </div>
       )}
+    </div>
+  );
+}
+
+
+/** 받기 주소 — 🔴 v61 W4 (한빈 09-27 «게임 ID/PW 처럼»): Tailscale 에 한빈 계정으로 로그인한 PC 는 기기 승인·에이전트 없이
+ *  이 주소로 바로 clone·push 한다. 받은 clone 은 허브가 첫 받기 때 «손 clone» 으로 적는다. */
+function CloneBox({ url }: { url: string }) {
+  const [done, setDone] = useState(false);
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(`git clone ${url}`); setDone(true); setTimeout(() => setDone(false), 1500); }
+    catch { setDone(false); }
+  };
+  return (
+    <div className="ghub-clonebox" title="Tailscale 에 한빈 계정으로 로그인한 컴퓨터에서 — 기기 승인 없이 받고 올립니다">
+      <code className="ghub-clonebox__url">{url}</code>
+      <button type="button" className="ghub__btn" onClick={() => void copy()}>{done ? '복사함' : 'clone 복사'}</button>
     </div>
   );
 }
