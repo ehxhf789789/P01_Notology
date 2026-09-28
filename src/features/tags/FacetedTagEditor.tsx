@@ -14,6 +14,9 @@ const FACET_ICONS: Record<FacetIconName, React.ComponentType<{ size?: number; cl
   BookOpen, Users, Building2, Activity, Hash, Briefcase, GraduationCap,
 };
 
+//: 축 없는 낱말 칸 — 서버 `vault_api.BARE_FACET` 과 한 쌍 (저장 때 낱말 그대로 되쓴다)
+const BARE_FACET = '_';
+
 interface FacetedTagEditorProps {
   tags: FacetedTags;
   onChange: (tags: FacetedTags) => void;
@@ -226,6 +229,35 @@ function FacetedTagEditor({ tags, onChange, vaultPath }: FacetedTagEditorProps) 
           </div>
         );
       })}
+
+      {/* 🔴 2026-09-28 (O1b-② ⑬) — 축 없이 적은 사람의 표지(«중요»·«누락»·«작성중» — 서재 108 노트)는 09-19 에 «domain» 칸이
+          걷힌 뒤 창에서 **안 보였다.** 서버가 이제 제 칸(`_`)에 담아 주고 저장 때 낱말 그대로 되쓴다 — 보이고 뗄 수 있게. */}
+      {(tags[BARE_FACET] || []).length > 0 && (
+        <div className="facet-group">
+          <div className="facet-header">
+            <div>
+              <span className="facet-label">{t('facetBare', language)}</span>
+              <span className="facet-description">{t('facetBareDesc', language)}</span>
+            </div>
+          </div>
+          <div className="facet-tags-wrapper">
+            <div className="facet-tags">
+              {(tags[BARE_FACET] || []).map((word) => (
+                <div key={word} className="tag-chip tag-bare">
+                  <span className="tag-label">{word}</span>
+                  <button
+                    className="tag-remove-btn"
+                    onClick={() => onChange({ ...tags, [BARE_FACET]: (tags[BARE_FACET] || []).filter(w => w !== word) })}
+                    title={t('removeBtn', language)}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

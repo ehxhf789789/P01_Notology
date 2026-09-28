@@ -1300,6 +1300,8 @@ const ko: Record<string, string> = {
   facetProjDesc: '자문회의·발표자료 제작 같은 활동',
   facetAcad: '학술 단계',
   facetAcadDesc: '초록 → 컨퍼런스 → 논문집',
+  facetBare: '상태 표지',
+  facetBareDesc: '축 없이 적은 표지 (중요·누락·작성중)',
   facetCtxDesc: '어느 과제·학기의 것인가',
 
   // ── Tag color labels ──
@@ -2942,6 +2944,8 @@ const en: Record<string, string> = {
   facetProjDesc: 'Activity kind',
   facetAcad: 'Stage',
   facetAcadDesc: 'Abstract → conference → journal',
+  facetBare: 'Status marks',
+  facetBareDesc: 'Marks written without an axis (e.g. important, missing)',
   facetCtxDesc: 'Progress status, priority',
 
   // ── Tag color labels ──
