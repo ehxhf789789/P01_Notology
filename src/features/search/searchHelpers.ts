@@ -1,24 +1,8 @@
 import React from 'react';
+import { getNoteTypeFromFileName } from '../content-cache/noteTypeHelpers';
 
-// Note types with display names. Call sites that render the "all types"
-// option (value === '') always override the label with t('allTypes',
-// language) — the literal here is just a fallback for completeness.
-export const NOTE_TYPES: { value: string; label: string }[] = [
-  { value: '', label: 'All' },
-  { value: 'NOTE', label: 'Note' },
-  { value: 'SKETCH', label: 'Sketch' },
-  { value: 'MTG', label: 'Meeting' },
-  { value: 'SEM', label: 'Seminar' },
-  { value: 'EVENT', label: 'Event' },
-  { value: 'OFA', label: 'Official Affairs' },
-  { value: 'PAPER', label: 'Paper' },
-  { value: 'LIT', label: 'Literature' },
-  { value: 'DATA', label: 'Data' },
-  { value: 'THEO', label: 'Theory' },
-  { value: 'CONTACT', label: 'Contact' },
-  { value: 'SETUP', label: 'Settings' },
-  { value: 'CONTAINER', label: 'Container' },
-];
+// 🔴 2026-09-28 (O1b-② ⑨) — 옛 `NOTE_TYPES` 표를 걷었다: 부르는 자가 0 이었고(검색의 종류 거르개는
+//    템플릿에서 온다) 표는 ADM·TASK·FOLDER 가 빠진 채 낡아 있었다.
 
 // Helper function to convert note_type abbreviation to full template name
 export function noteTypeToFullName(noteType: string): string {
@@ -36,6 +20,9 @@ export function noteTypeToFullName(noteType: string): string {
     'CONTACT': 'Contact',
     'SETUP': 'Settings',
     'CONTAINER': 'Container',
+    'ADM': 'Administration',
+    'TASK': 'Task',
+    'FOLDER': 'Folder',
   };
   return typeMap[noteType.toUpperCase()] || noteType;
 }
@@ -134,13 +121,9 @@ export function noteTypeToCssClass(noteType: string): string {
 
 // Helper function to infer note type from filename (for content search results)
 export function inferNoteType(fileName: string): string {
-  const prefixes = ['NOTE', 'MTG', 'OFA', 'SEM', 'EVENT', 'LIT', 'CONTACT', 'SETUP', 'DATA', 'THEO', 'PAPER', 'SKETCH'];
-  for (const prefix of prefixes) {
-    if (fileName.toUpperCase().startsWith(prefix + '-') || fileName.toUpperCase() === prefix) {
-      return prefix.toLowerCase() + '-type';
-    }
-  }
-  return '';
+  // 접두어 목록은 `noteTypeHelpers` 한 자리 (위 머리말) — 여기 사본은 ADM·TASK 가 없었다
+  const t = getNoteTypeFromFileName(fileName);
+  return t ? t + '-type' : '';
 }
 
 // Format date string for display

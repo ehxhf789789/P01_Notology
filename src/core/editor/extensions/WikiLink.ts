@@ -10,6 +10,7 @@ import { preloadHoverContent } from '../../../features/hover-windows/stores/hove
 import { useSettingsStore } from '../../stores/settingsStore';
 import { t } from '../../utils/i18n';
 import { getAttachmentCategory } from '../../../features/suggestions/attachmentCategory';
+import { getNoteTypeFromFileName } from '../../../features/content-cache/noteTypeHelpers';
 import { startAttachmentDrag, startMultiAttachmentDrag } from '../../../features/attachments/attachmentDragOut';
 import { isWeb } from '../../../web/files';
 import { useFileTreeStore } from '../../stores/fileTreeStore';
@@ -201,16 +202,10 @@ function parseWikiLinkContent(content: string): { fileName: string; displayText:
 }
 
 // Helper function to infer note type from filename
+// 🔴 2026-09-28 (O1b-② ⑨) — 접두어 목록은 `noteTypeHelpers` **한 자리**다. 여기·검색 결과가
+//    제 목록을 따로 들고 있어 서로 달랐다 (검색은 ADM·TASK 가 없어 행정·업무 노트가 색을 못 받았다).
 function inferNoteType(fileName: string): string {
-  const prefixes = ['NOTE', 'MTG', 'ADM', 'SEM', 'TASK', 'CONTACT', 'SETUP', 'DATA', 'THEO', 'PAPER', 'SKETCH'];
-  const fileNameUpper = fileName.toUpperCase();
-
-  for (const prefix of prefixes) {
-    if (fileNameUpper.startsWith(prefix + '-') || fileNameUpper === prefix) {
-      return prefix.toLowerCase();
-    }
-  }
-  return '';
+  return getNoteTypeFromFileName(fileName) ?? '';
 }
 
 export const WikiLink = Node.create<WikiLinkOptions>({

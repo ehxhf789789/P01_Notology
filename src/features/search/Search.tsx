@@ -22,7 +22,6 @@ import type { NoteFilter, NoteMetadata, SearchResult, SearchMode } from '../../c
 import { t, tf, type LanguageSetting } from '../../core/utils/i18n';
 import { getTemplateCustomColor as getTemplateColor } from '../content-cache/noteTypeHelpers';
 import { FilterAddButton, FilterChipList, AnchoredPopover, type FilterField } from './FilterChipBar';
-import { NOTE_TYPES } from './searchHelpers';
 import { observe } from '../dobbin/observe';
 import { FrontmatterResultRow, ContentResultCard } from './SearchResultItem';
 import AttachmentsTab, { TIER_KEYS, SYNC_KEYS, type TierKey, type SyncState } from './AttachmentsTab';
