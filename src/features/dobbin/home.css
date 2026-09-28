@@ -241,6 +241,23 @@
 .dhome__board .dhome__ask { margin: 0; padding: 0 2px; border: none; }
 .dhome__board .dhome__badges { margin: 0; }
 
+/* 오늘 한 일 — 받아들임 ② (A54 9회차). 계기판 서랍을 안 열어도 보이는 한 줄.
+   🔴 배지와 같은 알약 꼴을 쓰되 **왼쪽에 선다** (배지는 margin-left:auto 로
+   오른쪽에 붙는다) — 사람의 일과 dobbin 의 일이 한 줄에 섞이지 않게. */
+.dhome__did {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 2px;
+}
+.dhome__did-k {
+  font-size: 11px; color: var(--text-secondary, #9aa0ab); letter-spacing: .01em;
+}
+.dhome__did-v {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px;
+  color: var(--text-secondary, #9aa0ab);
+  background: var(--bg-tertiary, #24262d);
+  border: 1px solid var(--border-color, #2b2f36);
+}
+.dhome__did-v b { font-weight: 700; color: var(--text-primary, #d6d9de); }
+
 /* 뇌 지도 머리가 세로로 꺾이던 것 — 제목은 안 줄인다 */
 .brainmap h3 { flex-wrap: wrap; }
 .brainmap h3 > :first-child,

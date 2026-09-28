@@ -176,6 +176,16 @@ export function DobbinHome() {
     { k: '오늘·내일', n: brief?.today ?? 0, tone: 'info' },
     { k: '투입구', n: brief?.inbox ?? 0, tone: 'info' },
   ].filter(b => b.n > 0);
+  // 🔴 **「dobbin 이 무엇을 했나」가 접힌 서랍 안에만 있었다** (A54 P1 받아들임
+  //    ② · 실측 2026-09-29 `_a54_r9_scout.py`). 유일한 자리가 아래 계기판
+  //    `<details className="dhome__gauge">` 속 `오늘 일과` 칸이었고, 진짜
+  //    크로미움으로 재니 그 줄을 인 원소는 **보이는 것 0개**였다 — 사람은
+  //    서랍을 열기 전엔 dobbin 이 오늘 무엇을 했는지 모른다. 서버는 낼 것을
+  //    이미 갖고 있다 (`/api/brain` `tend.today` 오늘 12건).
+  // 🔴 **계기판 서랍은 그대로 둔다** — 첫 화면 정보 덩어리를 줄이자는
+  //    2026-09-11 재설계를 되돌리지 않는다. 상황판에 **한 줄**만 올린다.
+  //    자리는 맨 아래 (2026-09-17: 위쪽은 «사람의 일»·«누르면 끝나는 것» 몫).
+  const did = (brain?.tend?.today ?? []).filter(t => t && t.label).slice(0, 4);
 
   return (
     <div ref={ref} className={`dhome${narrow ? ' is-narrow' : ''}`}>
@@ -211,7 +221,7 @@ export function DobbinHome() {
           브리핑 띠 + 질문칸 + 배지 3덩이 → 한 카드. 할 말도 배지도 질문도
           없으면 카드 자체가 없다 (2-10-1: 빈 인사는 하지 않는다). */}
       {(say || badges.length > 0 || !!brief?.choices?.length
-        || actionable.length > 0) && (
+        || actionable.length > 0 || did.length > 0) && (
       <section className="dhome__board">
         {badges.length > 0 && (
           <div className="dhome__badges">
@@ -250,6 +260,19 @@ export function DobbinHome() {
         {reviewOpen && (
           <div className="dhome__review">
             <ClusterReview />
+          </div>
+        )}
+        {/* 🔴 받아들임 ② — dobbin 이 **오늘 한 일**. 접이가 아니라 한 줄이다:
+            서랍에 넣는 순간 다시 «열어야 보이는 것»이 된다. 아래 계기판은
+            같은 값을 **자세히** 보여 주는 자리로 그대로 둔다. */}
+        {did.length > 0 && (
+          <div className="dhome__did">
+            <span className="dhome__did-k">
+              오늘 한 일{brain?.tend?.last ? ` · ${brain.tend.last}` : ''}
+            </span>
+            {did.map((t, i) => (
+              <span key={i} className="dhome__did-v">{t.label} <b>{t.n}</b></span>
+            ))}
           </div>
         )}
         {chores.length > 0 && (
