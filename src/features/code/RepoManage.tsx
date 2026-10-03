@@ -26,7 +26,7 @@ export function PublishTab({ repo, onChanged }: { repo: RepoDetail; onChanged: (
     <div className="ghub-publish">
       <p className="ghub-publish__to">과녁: <code>{repo.github_url}</code> · 역할 {repo.github_role}</p>
       <p className="ghub__muted">
-        개인 GitHub 에는 모든 것이 남고, github.com 에는 배포 제외 규칙과 비밀 검사를 거친 <b>정리본</b>만 매주 한 커밋으로 갑니다.
+        Codology 에는 모든 것이 남고, github.com 에는 배포 제외 규칙과 비밀 검사를 거친 <b>정리본</b>만 매주 한 커밋으로 갑니다.
         🔴 처음 켤 때는 먼저 미리보기를 보십시오 — 이미 github.com 에 있던 파일이라도 제외 규칙에 걸리면 배포 커밋에서 빠집니다.
       </p>
       <div className="ghub-form">

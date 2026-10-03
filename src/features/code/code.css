@@ -1,4 +1,4 @@
-/* «개인 GitHub» 창 (v61 B5 K3) — 검색·dobbin 홈과 **같은 층의 중앙 뷰**라 같은 머리 규격을 쓴다.
+/* «Codology» 창 (v61 B5 K3) — 검색·dobbin 홈과 **같은 층의 중앙 뷰**라 같은 머리 규격을 쓴다.
    새 디자인 언어를 만들지 않는다 — 테마 토큰만 쓴다 (themes.css). */
 .ghub { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--bg-base); color: var(--tx-1); }
 .ghub__hero { display: flex; align-items: center; gap: 12px; padding: 14px 16px 12px; border-bottom: 0.5px solid var(--sep-l); flex-shrink: 0; }

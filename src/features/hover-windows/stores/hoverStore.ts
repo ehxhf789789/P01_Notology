@@ -50,7 +50,7 @@ const CACHE_MAX_COUNT = 10; // Maximum number of cached windows to keep
 
 /** Detect file type for hover windows */
 function detectFileType(path: string): HoverWindow['type'] {
-  // 🔴 v61 B5 K3 — «개인 GitHub» 의 파일 (`code:<slug>@<sha>/<경로>`) 은 **이력**이다: 노트 편집기로
+  // 🔴 v61 B5 K3 — «Codology» 의 파일 (`code:<slug>@<sha>/<경로>`) 은 **이력**이다: 노트 편집기로
   //    열면 자동 저장이 write_file 을 부른다 (서버가 거절하지만 화면이 헷갈린다). 그림·PDF 만 제 보기로,
   //    나머지는 읽기 전용 코드 보기로.
   if (path.startsWith('code:')) {

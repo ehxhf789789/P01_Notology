@@ -1,5 +1,5 @@
 /**
- * «개인 GitHub» 창의 서버 손 (v61 B5 K3 · 2026-09-25)
+ * «Codology» 창의 서버 손 (v61 B5 K3 · 2026-09-25)
  *
  * 한빈 09-25: *"Github 웹의 기능을 참조하여, 개인 Github 를 notology 에 하위 기능으로"*.
  * 모든 부름은 `/api/invoke` 의 code_* 명령 — 서버는 git 을 직접 부르지 않고 허브(dobbin-codehub)의
@@ -92,7 +92,7 @@ export interface PublishResult {
 
 async function call<T>(cmd: string, args?: Record<string, unknown>): Promise<T> {
   const r = await invoke<T>(cmd, args);
-  if (r == null) throw new Error('이 서버는 아직 «개인 GitHub» 를 모릅니다');
+  if (r == null) throw new Error('이 서버는 아직 «Codology» 를 모릅니다');
   return r;
 }
 

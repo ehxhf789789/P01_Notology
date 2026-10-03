@@ -272,12 +272,12 @@ function Sidebar() {
                         aria-label={`${pulse.unseen}건 알림`}>{pulse.unseen}</span>
                 )}
               </button>
-              {/* v61 B5 K3 — «개인 GitHub» 창 (한빈 09-25: «dobbin 창 처럼 별도의 창») */}
+              {/* v61 B5 K3 — «Codology» 창 (한빈 09-25: «dobbin 창 처럼 별도의 창») */}
               <button
                 className={`sidebar-action-btn sidebar-action-btn--code ${showCode ? 'active' : ''}`}
                 onClick={() => uiActions.setShowCode(!showCode)}
-                title="개인 GitHub — 개발 폴더 (Ctrl+Shift+G)"
-                aria-label="개인 GitHub"
+                title="Codology — 개발 폴더 (Ctrl+Shift+G)"
+                aria-label="Codology"
                 disabled={!vaultPath}
               >
                 <GitBranch size={18} strokeWidth={2} />
@@ -325,10 +325,10 @@ function Sidebar() {
                 onClick={() => uiActions.setShowDobbinHome(!showDobbinHome)}
               />
             </Tooltip>
-            <Tooltip content="개인 GitHub — 개발 폴더" placement="right">
+            <Tooltip content="Codology — 개발 폴더" placement="right">
               <IconButton
                 icon={<GitBranch size={16} strokeWidth={2} />}
-                aria-label="개인 GitHub"
+                aria-label="Codology"
                 variant="ghost"
                 size="md"
                 pressed={showCode}

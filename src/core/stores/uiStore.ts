@@ -44,7 +44,7 @@ interface UIState {
   showSearch: boolean;
   /** dobbin 홈이 중앙에 서 있나 (UIUX_PLAN P0) */
   showDobbinHome: boolean;
-  /** «개인 GitHub» 창이 중앙에 서 있나 (v61 B5 K3 — dobbin 홈과 같은 층) */
+  /** «Codology» 창이 중앙에 서 있나 (v61 B5 K3 — dobbin 홈과 같은 층) */
   showCode: boolean;
   showCalendar: boolean;
   showHoverPanel: boolean;
@@ -108,7 +108,7 @@ export const useUIStore = create<UIState>()(
       }
     },
 
-    // 🔴 «개인 GitHub» 창 (v61 B5 K3 · 한빈 09-25: «dobbin 창 처럼 별도의 창») — 검색·홈과 같은 층.
+    // 🔴 «Codology» 창 (v61 B5 K3 · 한빈 09-25: «dobbin 창 처럼 별도의 창») — 검색·홈과 같은 층.
     //    서재에 개발 폴더 노트를 만들지 않고 여기서 본다.
     setShowCode: (show: boolean) => {
       set({ showCode: show });

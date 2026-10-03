@@ -15,7 +15,7 @@ import 'highlight.js/styles/vs2015.css';
  * fully owned by `<HoverWindowChrome>`. Pre-migration: ~360 lines.
  */
 
-/** 확장자 → highlight.js 언어. «개인 GitHub» 창(features/code)도 **이 한 표**를 쓴다 (두 벌 금지). */
+/** 확장자 → highlight.js 언어. «Codology» 창(features/code)도 **이 한 표**를 쓴다 (두 벌 금지). */
 export function getLanguageFromPath(filePath: string): string {
   const ext = filePath.split('.').pop()?.toLowerCase() || '';
   const map: Record<string, string> = {

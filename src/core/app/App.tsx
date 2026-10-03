@@ -147,7 +147,7 @@ function AppLayout() {
   // 한 번이라도 연 뒤에는 계속 마운트해 둔다 (상태 보존)
   const [homeEverOpened, setHomeEverOpened] = useState(false);
   useEffect(() => { if (showDobbinHome) setHomeEverOpened(true); }, [showDobbinHome]);
-  // «개인 GitHub» 창도 같은 규율 — 한 번 뜬 뒤엔 숨기기만 (보던 저장소·파일·스크롤이 그대로)
+  // «Codology» 창도 같은 규율 — 한 번 뜬 뒤엔 숨기기만 (보던 저장소·파일·스크롤이 그대로)
   const [codeEverOpened, setCodeEverOpened] = useState(false);
   useEffect(() => { if (showCode) setCodeEverOpened(true); }, [showCode]);
   const showHoverPanel = useShowHoverPanel();
@@ -728,7 +728,7 @@ function App() {
         e.preventDefault();
         uiActions.setShowDobbinHome(!useUIStore.getState().showDobbinHome);
       }
-      // Ctrl+Shift+G → «개인 GitHub» 창 (v61 B5 K3)
+      // Ctrl+Shift+G → «Codology» 창 (v61 B5 K3)
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'g') {
         e.preventDefault();
         uiActions.setShowCode(!useUIStore.getState().showCode);

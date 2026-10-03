@@ -1,5 +1,5 @@
 /**
- * «개인 GitHub» 창 (v61 B5 K3 · 2026-09-25) — dobbin 창처럼 따로 여는 중앙 뷰.
+ * «Codology» 창 (v61 B5 K3 · 2026-09-25) — dobbin 창처럼 따로 여는 중앙 뷰.
  *
  * 한빈 09-25: *"dobbin 창 처럼 별도의 창을 만들어서 개발 폴더를 따로 보관하는 개인 Github 탭"* ·
  * *"개발 폴더를 노트로 보여주는것은 결국 사람 기준 불편하며 어색한 방식"* → 🔴 서재에 노트를 만들지 않는다.
@@ -72,7 +72,7 @@ export function CodeHome() {
       <header className="ghub__hero">
         <GitBranch size={20} />
         <div className="ghub__text">
-          <div className="ghub__title">개인 GitHub</div>
+          <div className="ghub__title">Codology</div>
           <div className="ghub__sub">
             {repos ? `저장소 ${repos.length} · PC ${hosts.length}` : '불러오는 중…'} — 개발은 PC 에서, 주고받기·합치기는 여기서
           </div>
